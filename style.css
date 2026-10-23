@@ -1,0 +1,341 @@
+/* ============ 基础 ============ */
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; }
+body{
+  font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",system-ui,sans-serif;
+  color:#222; background:#0d1117; overflow:hidden;
+}
+.hidden{ display:none !important; }
+.dim{ color:#888; font-size:12.5px; }
+.center{ text-align:center; }
+.mt{ margin-top:24px; }
+code{ background:#f0f0f0; padding:1px 5px; border-radius:3px; font-size:12px; }
+.visually-hidden{ position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; }
+
+button{ font:inherit; cursor:pointer; }
+input,select,textarea{ font:inherit; }
+
+.btn{
+  display:inline-flex; align-items:center; gap:6px; justify-content:center;
+  padding:7px 16px; border:1px solid #c9ced6; border-radius:6px;
+  background:#fff; color:#222; text-decoration:none; user-select:none;
+}
+.btn:hover{ background:#f2f4f8; }
+.btn-primary{ background:#2f6fed; border-color:#2f6fed; color:#fff; }
+.btn-primary:hover{ background:#255bd0; }
+.btn-warn{ background:#fff7ed; border-color:#f5a623; color:#9a5b00; }
+.btn-warn:hover{ background:#ffefd6; }
+.btn-danger{ background:#fff1f0; border-color:#e05252; color:#c22f2f; }
+.btn-danger:hover{ background:#ffe3e1; }
+.btn-sm{ padding:4px 10px; font-size:12.5px; }
+.btn-lg{ padding:11px 20px; font-size:15px; }
+
+/* ============ 模态框 / 提示 ============ */
+.modal-wrap{
+  position:fixed; inset:0; z-index:9000; background:rgba(0,0,0,.45);
+  display:flex; align-items:center; justify-content:center;
+}
+.modal-box{
+  background:#fff; border-radius:10px; width:min(640px,92vw);
+  max-height:86vh; display:flex; flex-direction:column; overflow:hidden;
+  box-shadow:0 18px 50px rgba(0,0,0,.35);
+}
+.modal-wide{ width:min(920px,94vw); }
+.modal-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 18px; border-bottom:1px solid #e5e8ee; font-weight:600;
+}
+.modal-x{ border:0; background:none; font-size:15px; color:#888; }
+.modal-x:hover{ color:#222; }
+.modal-body{ padding:16px 18px; overflow:auto; }
+.toast{
+  position:fixed; left:50%; bottom:40px; transform:translateX(-50%) translateY(10px);
+  background:#333; color:#fff; padding:9px 18px; border-radius:8px; font-size:13px;
+  opacity:0; transition:.25s; z-index:9500; pointer-events:none;
+}
+.toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+.toast-ok{ background:#1f7a3d; }
+.toast-err{ background:#c0392b; }
+
+/* ============ 开始界面 ============ */
+.screen{ position:absolute; inset:0; }
+#startScreen{
+  background:radial-gradient(1200px 700px at 50% -10%, #1c2a45 0%, #0d1117 60%);
+  display:flex; align-items:center; justify-content:center; overflow:auto;
+}
+.boot-card{
+  text-align:center; color:#e8edf5; padding:44px 52px; border-radius:16px;
+  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.09);
+  backdrop-filter:blur(6px); width:min(560px,94vw);
+}
+.boot-logo{
+  font-family:Consolas,monospace; font-size:15px; letter-spacing:4px; color:#7ec7ff;
+  border:1px solid #2c4a73; border-radius:6px; display:inline-block; padding:5px 14px; margin-bottom:14px;
+}
+.boot-card h1{ margin:0 0 6px; font-size:26px; letter-spacing:1px; }
+.boot-sub{ color:#8fa3c0; margin:0 0 30px; font-size:13px; }
+.boot-choices{ display:flex; flex-direction:column; gap:14px; }
+.boot-btn{
+  display:flex; align-items:center; gap:16px; text-align:left;
+  background:rgba(255,255,255,.06); color:#e8edf5; border:1px solid rgba(255,255,255,.14);
+  border-radius:10px; padding:16px 22px; transition:.15s;
+}
+.boot-btn:hover{ background:rgba(255,255,255,.12); border-color:#4d80c9; transform:translateY(-1px); }
+.boot-ico{ font-size:28px; }
+.boot-txt b{ display:block; font-size:16px; }
+.boot-txt i{ font-style:normal; font-size:12px; color:#8fa3c0; }
+.boot-foot{ margin:26px 0 0; font-size:11.5px; color:#5d7089; }
+
+/* ============ 管理员端 ============ */
+#adminApp{ display:flex; background:#f4f6fa; }
+.adm-side{
+  width:230px; flex:0 0 auto; background:#182233; color:#cfd9ea;
+  display:flex; flex-direction:column; padding:18px 14px;
+}
+.adm-brand{ font-weight:700; font-size:16px; margin-bottom:22px; }
+.adm-brand span{ font-size:11.5px; color:#7d90ad; font-weight:400; }
+.adm-nav{ display:flex; flex-direction:column; gap:4px; flex:1; }
+.adm-navbtn{
+  text-align:left; background:none; border:0; color:#aebad0; padding:9px 12px;
+  border-radius:7px; font-size:13.5px;
+}
+.adm-navbtn:hover{ background:rgba(255,255,255,.08); color:#fff; }
+.adm-navbtn.active{ background:#2f6fed; color:#fff; }
+.adm-folder{
+  border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:10px 12px; margin-bottom:12px;
+  font-size:12px;
+}
+.adm-folder-title{ font-weight:600; margin-bottom:4px; color:#e6ecf6; }
+.adm-folder-status{ color:#8fd694; margin-bottom:8px; word-break:break-all; }
+.adm-folder-status.off{ color:#f0a05a; }
+.adm-folder-hint{ color:#6d7f9b; font-size:11px; margin-top:6px; }
+.adm-exit{
+  background:none; border:0; color:#7d90ad; text-align:left; padding:6px 2px; font-size:12.5px;
+}
+.adm-exit:hover{ color:#fff; }
+.adm-main{ flex:1; overflow:auto; padding:28px 36px 60px; }
+.adm-view h2{ margin:0 0 20px; font-size:20px; }
+.adm-view h3{ font-size:15px; margin:18px 0 10px; }
+
+.form-grid{ display:grid; grid-template-columns:repeat(2,minmax(240px,420px)); gap:14px 28px; }
+.form-grid label, .lbl-block{ display:flex; flex-direction:column; gap:5px; font-size:13px; color:#444; font-weight:600; }
+.form-grid input, .form-grid select, .lbl-block textarea{
+  padding:8px 10px; border:1px solid #c9ced6; border-radius:6px; font-weight:400; background:#fff;
+}
+.form-grid input:focus, .form-grid select:focus, .lbl-block textarea:focus{ outline:2px solid #b9cffa; border-color:#2f6fed; }
+.form-grid label.chk{ flex-direction:row; align-items:center; font-weight:400; gap:8px; }
+.form-grid label.chk input{ width:16px; height:16px; }
+.lbl-block{ margin-top:16px; max-width:640px; }
+.lbl-block textarea{ resize:vertical; }
+.save-indicator{ margin-top:18px; color:#1f7a3d; font-size:12.5px; }
+
+.sets-row{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+.sets-row .btn.active{ background:#2f6fed; border-color:#2f6fed; color:#fff; }
+.prob-toolbar{ display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+.prob-list{ display:flex; flex-direction:column; gap:10px; max-width:860px; }
+.prob-row{
+  display:flex; align-items:center; gap:12px; background:#fff; border:1px solid #e1e5ec;
+  border-radius:9px; padding:11px 16px;
+}
+.prob-row.off{ opacity:.5; }
+.prob-row .prob-name{ font-family:Consolas,monospace; font-weight:700; min-width:90px; }
+.prob-row .prob-title{ flex:1; }
+.prob-row .badge{
+  font-size:11px; padding:2px 8px; border-radius:10px; background:#eef2fb; color:#3b5f9e;
+}
+.prob-row .badge.builtin{ background:#e8f7ee; color:#1f7a3d; }
+.prob-row input[type=number]{ width:76px; padding:3px 6px; border:1px solid #c9ced6; border-radius:5px; }
+.prob-row .link{ background:none; border:0; color:#2f6fed; padding:3px 6px; font-size:12.5px; }
+.prob-row .link:hover{ text-decoration:underline; }
+.prob-row .link.del{ color:#c0392b; }
+
+.ctrl-card{
+  background:#fff; border:1px solid #e1e5ec; border-radius:10px; padding:18px 22px;
+  max-width:640px; font-size:14px;
+}
+.ctrl-status{ font-size:17px; font-weight:700; margin-bottom:8px; }
+.st-notstarted{ color:#8a6d1a; } .st-running{ color:#1f7a3d; } .st-ended{ color:#c0392b; }
+.ctrl-actions{ display:flex; gap:12px; margin:20px 0 8px; flex-wrap:wrap; }
+.summary{ background:#fff; border:1px solid #e1e5ec; border-radius:10px; padding:14px 20px; max-width:640px; font-size:13px; }
+.summary b{ display:inline-block; min-width:110px; color:#666; font-weight:400; }
+
+.sub-table{ width:100%; max-width:1000px; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; }
+.sub-table th,.sub-table td{ text-align:left; padding:9px 14px; border-bottom:1px solid #eef1f5; font-size:13px; }
+.sub-table th{ background:#f7f9fc; font-weight:600; color:#555; }
+.sub-table code{ white-space:pre-wrap; word-break:break-all; }
+
+/* ============ 学生登录 ============ */
+#studentLogin{
+  background:radial-gradient(900px 600px at 50% 0%, #20293c 0%, #0d1117 65%);
+  display:flex; align-items:center; justify-content:center; overflow:auto;
+}
+.login-card{
+  width:min(430px,94vw); background:#fff; border-radius:14px; padding:30px 34px 26px;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+}
+.login-head{ text-align:center; margin-bottom:22px; }
+.login-title{ font-size:20px; font-weight:700; }
+.login-sub{ color:#1f7a3d; font-size:12.5px; margin-top:4px; }
+#loginForm label{ display:flex; flex-direction:column; gap:5px; font-size:13px; color:#444; font-weight:600; margin-bottom:14px; }
+#loginForm input{ padding:9px 12px; border:1px solid #c9ced6; border-radius:6px; font-weight:400; font-size:14px; }
+#loginForm input:focus{ outline:2px solid #b9cffa; border-color:#2f6fed; }
+#loginForm .btn-lg{ width:100%; margin-top:6px; }
+.login-btns{ display:flex; gap:10px; margin:12px 0; flex-wrap:wrap; }
+
+/* ============ 学生考试桌面 ============ */
+#studentApp{ background:#25537d; }
+.s-desktop{
+  position:absolute; inset:0 0 44px 0; padding:18px;
+  background:linear-gradient(160deg,#2c5f8f 0%, #1d3f63 100%);
+  display:flex; flex-direction:column; align-content:flex-start; flex-wrap:wrap;
+  gap:6px; align-items:flex-start; overflow:auto;
+}
+.s-icon{
+  width:92px; padding:8px 4px; display:flex; flex-direction:column; align-items:center; gap:6px;
+  color:#fff; cursor:default; border:1px solid transparent; border-radius:6px; user-select:none;
+  text-align:center; flex:0 0 auto;
+}
+.s-icon:hover{ background:rgba(255,255,255,.12); }
+.s-icon.selected{ background:rgba(90,150,220,.35); border-color:rgba(160,200,255,.6); }
+.s-icon .ico{ font-size:38px; line-height:1; filter:drop-shadow(0 2px 3px rgba(0,0,0,.4)); }
+.s-icon .ico-zip{ position:relative; }
+.s-icon .lbl{
+  font-size:12px; line-height:1.35; text-shadow:0 1px 2px rgba(0,0,0,.6); word-break:break-all;
+  max-height:3.6em; overflow:hidden;
+}
+.s-watermark{
+  position:absolute; inset:0 0 44px 0; z-index:5; pointer-events:none; overflow:hidden;
+  opacity:.055; font-size:26px; color:#fff; font-weight:700; line-height:2.2; letter-spacing:3px;
+  transform:rotate(-24deg) scale(1.4); white-space:pre-wrap;
+}
+
+.s-taskbar{
+  position:absolute; left:0; right:0; bottom:0; height:44px; z-index:6000;
+  background:rgba(12,22,36,.92); color:#dfe8f2; display:flex; align-items:center; gap:10px; padding:0 10px;
+}
+.s-task-title{ font-size:12.5px; color:#8fb2d8; padding:0 8px; border-right:1px solid rgba(255,255,255,.15); white-space:nowrap; }
+.s-task-wins{ flex:1; display:flex; gap:6px; overflow:hidden; }
+.s-taskbtn{
+  max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  background:rgba(255,255,255,.08); border:1px solid transparent; color:#cfe0f2;
+  font-size:12px; padding:4px 12px; border-radius:5px;
+}
+.s-taskbtn:hover{ background:rgba(255,255,255,.16); }
+.s-taskbtn.active{ background:rgba(90,150,220,.35); border-color:rgba(160,200,255,.5); }
+.s-task-clock{ display:flex; align-items:center; gap:12px; font-family:Consolas,monospace; }
+.s-remain{ font-size:15px; font-weight:700; color:#7fe08a; }
+.s-remain.warn{ color:#f5c033; } .s-remain.crit{ color:#ff6b5e; animation:blink 1s step-start infinite; }
+@keyframes blink{ 50%{ opacity:.35; } }
+.s-clock{ font-size:12.5px; color:#9db4cd; }
+
+/* ---- 窗口 ---- */
+.s-win{
+  position:absolute; min-width:340px; min-height:200px; z-index:100;
+  background:#f2f4f7; border-radius:8px; box-shadow:0 14px 44px rgba(0,0,0,.5);
+  display:flex; flex-direction:column; overflow:hidden; border:1px solid rgba(0,0,0,.25);
+}
+.s-win.focused{ z-index:500; }
+.s-win-head{
+  height:34px; flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:0 10px;
+  background:linear-gradient(#e8edf3,#d7dee7); border-bottom:1px solid #b8c2cf;
+  cursor:move; user-select:none; font-size:13px; color:#243040;
+}
+.s-win-head .win-ico{ font-size:15px; }
+.s-win-head .win-title{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+.win-btn{
+  width:24px; height:22px; border:1px solid #9aa7b5; border-radius:4px; background:#f5f7fa;
+  font-size:12px; line-height:1; color:#333; display:flex; align-items:center; justify-content:center;
+}
+.win-btn:hover{ background:#dfe6ee; }
+.win-btn.close:hover{ background:#e05252; color:#fff; border-color:#c43c3c; }
+.s-win-body{ flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; position:relative; }
+
+/* ---- 题面文档 ---- */
+.pdf-bar{
+  flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:5px 12px;
+  background:#cfd6df; border-bottom:1px solid #aab4c0; font-size:12px; color:#333;
+}
+.pdf-bar .pdf-name{ font-family:Consolas,monospace; font-weight:700; }
+.pdf-body{ flex:1; overflow:auto; background:#fff; }
+.prob-doc{ padding:34px 44px 60px; max-width:860px; margin:0 auto; font-size:14px; line-height:1.8; }
+.prob-doc h2{ font-size:20px; margin:0 0 18px; padding-bottom:10px; border-bottom:2px solid #333; }
+.prob-doc h3{ font-size:15.5px; margin:22px 0 8px; }
+.prob-doc h4{ margin:0 0 6px; font-size:12.5px; color:#666; }
+.prob-doc pre{
+  background:#f6f7f9; border:1px solid #e2e5ea; border-radius:5px; padding:10px 12px;
+  font:12.5px/1.55 Consolas,monospace; white-space:pre-wrap; word-break:break-all; margin:4px 0;
+}
+.prob-doc .sample-io{ display:flex; gap:14px; }
+.prob-doc .sample-io > div{ flex:1; min-width:0; }
+.prob-doc p{ margin:6px 0; }
+.prob-doc iframe{ width:100%; height:100%; border:0; display:block; }
+
+/* ---- 压缩包查看器 ---- */
+.zip-list{ flex:1; overflow:auto; background:#fff; padding:12px; }
+.zip-row{
+  display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:6px; cursor:default; font-size:13px;
+}
+.zip-row:hover{ background:#eef3fa; }
+.zip-row .zi{ font-size:20px; }
+.zip-row .zname{ font-family:Consolas,monospace; }
+.zip-row .zmeta{ margin-left:auto; color:#999; font-size:11.5px; }
+.zip-row .zdir{ font-weight:700; }
+
+/* ---- IDE 窗口 ---- */
+.ide-bar{
+  flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:5px 12px;
+  background:#dde3ea; border-bottom:1px solid #b8c2cf; font-size:12.5px;
+}
+.ide-bar select{ padding:3px 8px; border:1px solid #b3bdc9; border-radius:5px; background:#fff; }
+.ide-bar .save-dot{ font-size:11.5px; color:#666; }
+.ide-frame{ flex:1; border:0; width:100%; background:#fff; }
+
+/* ---- 终端 ---- */
+.term{
+  flex:1; background:#101418; color:#c9e8b8; font:13px/1.55 Consolas,"Courier New",monospace;
+  padding:10px 12px; overflow:auto; white-space:pre-wrap; word-break:break-all;
+}
+.term .t-in{ color:#eaf5e2; }
+.term-input-row{ display:flex; flex:0 0 auto; background:#101418; border-top:1px solid #222; padding:6px 12px; gap:8px; }
+.term-input-row .prompt{ color:#7fd08a; font:13px Consolas,monospace; }
+.term-input-row input{
+  flex:1; background:transparent; border:0; outline:0; color:#eaf5e2;
+  font:13px Consolas,monospace;
+}
+
+/* ---- 文本查看窗口 ---- */
+.txt-view{
+  flex:1; background:#fff; padding:16px 20px; overflow:auto;
+  font:13px/1.7 Consolas,monospace; white-space:pre-wrap; word-break:break-all;
+}
+
+/* ---- 交卷窗口 ---- */
+.submit-pane{ flex:1; overflow:auto; padding:18px 22px; background:#fff; }
+.submit-pane h4{ margin:0 0 10px; font-size:14px; }
+.submit-table{ width:100%; border-collapse:collapse; margin-bottom:18px; }
+.submit-table th,.submit-table td{ text-align:left; padding:8px 10px; border-bottom:1px solid #eef1f5; font-size:13px; }
+.submit-table th{ background:#f7f9fc; }
+.tag-ok{ color:#1f7a3d; } .tag-no{ color:#c0392b; }
+.submit-warn{ background:#fff8e6; border:1px solid #f0d98c; border-radius:7px; padding:10px 14px; font-size:12.5px; color:#6b5416; margin-bottom:14px; }
+
+/* ---- 覆盖层 ---- */
+.s-overlay{
+  position:absolute; inset:0; z-index:8000; background:rgba(8,14,24,.9);
+  display:flex; align-items:center; justify-content:center;
+}
+.s-overlay-card{
+  text-align:center; color:#e8edf5; width:min(460px,92vw);
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12);
+  border-radius:14px; padding:36px 40px;
+}
+.s-overlay-card h2{ margin:0 0 10px; font-size:22px; }
+.wait-count{ font:26px Consolas,monospace; color:#7ec7ff; margin-top:14px; min-height:34px; }
+.end-receipt{
+  text-align:left; background:rgba(255,255,255,.06); border-radius:8px; padding:14px 18px;
+  margin:14px 0; font-size:13px; max-height:220px; overflow:auto;
+}
+
+@media (max-width:860px){
+  .form-grid{ grid-template-columns:1fr; }
+  .adm-main{ padding:18px; }
+}
