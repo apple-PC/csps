@@ -213,7 +213,8 @@
     var node = sec.nodes.find(function (n){ return n.id === current; });
     if (!node){ c.innerHTML = ''; return; }
     var h = '';
-    if (sec.intro) h += '<div class="rev-intro">' + esc(sec.intro) + '</div>';
+    // 板块导语只在第一章节显示，避免每章重复
+    if (sec.intro && sec.nodes[0] && sec.nodes[0].id === current) h += '<div class="rev-intro">' + esc(sec.intro) + '</div>';
     h += '<h1 class="rev-h1">' + esc(node.title) + '</h1>';
     if (node.meta) h += '<div class="rev-tags"><span class="rev-tag">' + esc(node.meta) + '</span></div>';
     node.blocks.forEach(function (b){
