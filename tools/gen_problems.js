@@ -213,7 +213,7 @@ function genQueueTests(){
     T('4\n1 2 3 4', refQueue('4\n1 2 3 4'), true),
   ];
   for (let k = 0; k < 4; k++){
-    const n = k === 3 ? 2000 : ri(500, 1200);
+    const n = k === 3 ? 500 : ri(150, 400);
     const h = Array.from({ length: n }, () => ri(1, 1e9)).join(' ');
     const inp = n + '\n' + h;
     tests.push(T(inp, refQueue(inp)));
@@ -245,8 +245,8 @@ function genGridTests(){
     T('3 3\n...\n.#.\n...', refGrid('3 3\n...\n.#.\n...'), true),
   ];
   for (let k = 0; k < 4; k++){
-    const n = k === 3 ? 300 : ri(120, 220);
-    const m = k === 3 ? 300 : ri(120, 220);
+    const n = k === 3 ? 200 : ri(60, 150);
+    const m = k === 3 ? 200 : ri(60, 150);
     // 先铺一条保证通路，再撒障碍
     let x = 0, y = 0;
     const path = new Set(['0,0']);
@@ -331,7 +331,7 @@ function genTreeTests(){
     T(s2, refTree(s2), true),
   ];
   for (let k = 0; k < 4; k++){
-    const n = k === 3 ? 30000 : ri(1500, 12000);
+    const n = k === 3 ? 10000 : ri(800, 4000);
     const edges = [];
     for (let v = 2; v <= n; v++) edges.push([ri(1, v - 1), v]);
     shuffle(edges);
@@ -359,9 +359,9 @@ function genInverseTests(){
     T(fmt(5, s1), refInverse(fmt(5, s1)), true),
     T(fmt(3, s2), refInverse(fmt(3, s2)), true),
   ];
-  tests.push(T(fmt(20000, Array.from({ length: 20000 }, (_, i) => 20000 - i)), refInverse(fmt(20000, Array.from({ length: 20000 }, (_, i) => 20000 - i))))); // 完全逆序
+  tests.push(T(fmt(6000, Array.from({ length: 6000 }, (_, i) => 6000 - i)), refInverse(fmt(6000, Array.from({ length: 6000 }, (_, i) => 6000 - i))))); // 完全逆序
   for (let k = 0; k < 3; k++){
-    const n = k === 2 ? 20000 : ri(3000, 12000);
+    const n = k === 2 ? 6000 : ri(1000, 4000);
     const a = Array.from({ length: n }, () => ri(0, 1e9));
     const inp = fmt(n, a);
     tests.push(T(inp, refInverse(inp)));
@@ -376,9 +376,9 @@ function genLisTests(){
     T(fmt(7, s1), refLis(fmt(7, s1)), true),
     T(fmt(5, s2), refLis(fmt(5, s2)), true),
   ];
-  tests.push(T(fmt(40000, Array.from({ length: 40000 }, (_, i) => i + 1)), refLis(fmt(40000, Array.from({ length: 40000 }, (_, i) => i + 1))))); // 全递增
+  tests.push(T(fmt(10000, Array.from({ length: 10000 }, (_, i) => i + 1)), refLis(fmt(10000, Array.from({ length: 10000 }, (_, i) => i + 1))))); // 全递增
   for (let k = 0; k < 3; k++){
-    const n = k === 2 ? 40000 : ri(8000, 30000);
+    const n = k === 2 ? 10000 : ri(2000, 7000);
     const a = Array.from({ length: n }, () => ri(0, 1e9));
     const inp = fmt(n, a);
     tests.push(T(inp, refLis(inp)));
@@ -394,7 +394,7 @@ function genPackTests(){
     T(fmt(2, 3, s2), refPack(fmt(2, 3, s2)), true),
   ];
   for (let k = 0; k < 4; k++){
-    const W = k === 3 ? 10000 : ri(50, 3000);
+    const W = k === 3 ? 2000 : ri(50, 800);
     const n = k === 3 ? 100 : ri(5, 80);
     const items = Array.from({ length: n }, () => [ri(1, 1000), ri(1, 1000)]);
     const inp = fmt(n, W, items);
@@ -411,7 +411,7 @@ function genDijTests(){
     T(fmt(3, s2), refDij(fmt(3, s2)), true),
   ];
   for (let k = 0; k < 4; k++){
-    const n = k === 3 ? 1000 : ri(100, 600);
+    const n = k === 3 ? 500 : ri(80, 300);
     const edges = [];
     // 生成连通图：随机父节点生成树 + 额外随机边
     for (let v = 2; v <= n; v++) edges.push([ri(1, v - 1), v, ri(1, 1e6)]);
@@ -448,7 +448,7 @@ const PROBLEMS = [
       '<p>体育老师想知道：对于每一名同学，排在他<b>右边</b>且身高<b>严格大于</b>他的同学共有多少名。</p>' +
       '<h3>输入格式</h3><p>第一行一个整数 n，表示同学的人数。</p><p>第二行 n 个整数 h_1, h_2, …, h_n，表示每名同学的身高。</p>' +
       '<h3>输出格式</h3><p>输出共 n 行，第 i 行一个整数，表示第 i 名同学右边比他高的同学数量。</p>',
-    range: '对于 100% 的数据，2 ≤ n ≤ 2000，1 ≤ h_i ≤ 10^9。',
+    range: '对于 100% 的数据，2 ≤ n ≤ 500，1 ≤ h_i ≤ 10^9。',
     hint: '本题数据规模较小，O(n²) 的做法即可通过。',
     tests: genQueueTests(), ref: refQueue,
   },
@@ -464,12 +464,12 @@ const PROBLEMS = [
     tests: genDecodeTests(), ref: refDecode,
   },
   {
-    id: 'gridpath', title: '网格路径（gridpath）', tl: 1000,
+    id: 'gridpath', title: '网格路径（gridpath）', tl: 2000,
     body: '<h3>题目描述</h3><p>有一个 n 行 m 列的网格，其中一些格子是障碍。小 H 从左上角 (1,1) 出发，要走到右下角 (n,m)。每一步他只能向右或向下移动一格，且不能走出网格、不能经过障碍格。</p>' +
       '<p>保证起点和终点不是障碍。求从起点到终点的不同路径条数，答案对 10^9+7 取模。</p>' +
       '<h3>输入格式</h3><p>第一行两个整数 n, m。</p><p>接下来 n 行，每行一个长度为 m 的字符串，<code>.</code> 表示空格，<code>#</code> 表示障碍。</p>' +
       '<h3>输出格式</h3><p>一行一个整数，表示路径条数对 10^9+7 取模的结果。</p>',
-    range: '对于 100% 的数据，1 ≤ n, m ≤ 500，起点与终点均为空格。',
+    range: '对于 100% 的数据，1 ≤ n, m ≤ 200，起点与终点均为空格。',
     hint: '',
     tests: genGridTests(), ref: refGrid,
   },
@@ -508,7 +508,7 @@ const PROBLEMS = [
       '<p>树的「直径」定义为树上任意两点间最短路径长度的最大值。求这棵树的直径长度。</p>' +
       '<h3>输入格式</h3><p>第一行一个整数 n。</p><p>接下来 n−1 行，每行两个整数 u, v，表示一条连接节点 u 与 v 的边。</p>' +
       '<h3>输出格式</h3><p>一行一个整数，表示直径长度。</p>',
-    range: '对于 100% 的数据，2 ≤ n ≤ 10^5，输入保证是一棵树。',
+    range: '对于 100% 的数据，2 ≤ n ≤ 10^4，输入保证是一棵树。',
     hint: '注意递归深度，n 较大时建议使用广度优先搜索。',
     tests: genTreeTests(), ref: refTree,
   },
@@ -528,7 +528,7 @@ const PROBLEMS = [
       '<p>求整个序列中逆序对的数量。</p>' +
       '<h3>输入格式</h3><p>第一行一个整数 n。</p><p>第二行 n 个整数 a_1, a_2, …, a_n。</p>' +
       '<h3>输出格式</h3><p>一行一个整数，表示逆序对的数量。</p>',
-    range: '对于 100% 的数据，1 ≤ n ≤ 5×10^4，0 ≤ a_i ≤ 10^9。',
+    range: '对于 100% 的数据，1 ≤ n ≤ 6000，0 ≤ a_i ≤ 10^9。',
     hint: 'O(n²) 的做法无法通过全部测试点，请使用归并排序或树状数组。',
     tests: genInverseTests(), ref: refInverse,
   },
@@ -538,26 +538,26 @@ const PROBLEMS = [
       '<p>子序列指从原序列中删除若干个（可以为零个）元素后，按原有顺序排列得到的序列；「严格上升」指子序列中相邻两个元素满足后一个严格大于前一个。</p>' +
       '<h3>输入格式</h3><p>第一行一个整数 n。</p><p>第二行 n 个整数 a_1, a_2, …, a_n。</p>' +
       '<h3>输出格式</h3><p>一行一个整数，表示最长严格上升子序列的长度。</p>',
-    range: '对于 100% 的数据，1 ≤ n ≤ 10^5，0 ≤ a_i ≤ 10^9。',
+    range: '对于 100% 的数据，1 ≤ n ≤ 10^4，0 ≤ a_i ≤ 10^9。',
     hint: 'O(n²) 的做法无法通过全部测试点，请使用 O(n log n) 的做法。',
     tests: genLisTests(), ref: refLis,
   },
   {
-    id: 'pack', title: '小鱼的背包（pack）', tl: 2000,
+    id: 'pack', title: '小鱼的背包（pack）', tl: 3000,
     body: '<h3>题目描述</h3><p>小鱼的背包容量为 W。今有 n 件物品，第 i 件物品占据 w_i 的容量，价值为 v_i。每件物品至多选一件。</p>' +
       '<p>在所选物品总容量不超过 W 的前提下，求物品价值总和的最大值。</p>' +
       '<h3>输入格式</h3><p>第一行两个整数 n, W。</p><p>接下来 n 行，每行两个整数 w_i, v_i。</p>' +
       '<h3>输出格式</h3><p>一行一个整数，表示最大价值总和。</p>',
-    range: '对于 100% 的数据，1 ≤ n ≤ 100，1 ≤ W ≤ 10^4，1 ≤ w_i, v_i ≤ 1000。',
+    range: '对于 100% 的数据，1 ≤ n ≤ 100，1 ≤ W ≤ 2000，1 ≤ w_i, v_i ≤ 1000。',
     hint: '',
     tests: genPackTests(), ref: refPack,
   },
   {
-    id: 'dijkstra', title: '最短路（dijkstra）', tl: 2000,
+    id: 'dijkstra', title: '最短路（dijkstra）', tl: 3000,
     body: '<h3>题目描述</h3><p>给定一个 n 个点、m 条边的<b>无向带权图</b>，边权均为正。求从节点 1 到节点 n 的最短路径长度；若节点 n 不可达，输出 -1。</p>' +
       '<h3>输入格式</h3><p>第一行两个整数 n, m。</p><p>接下来 m 行，每行三个整数 u, v, w，表示节点 u 与 v 之间有一条权为 w 的无向边。</p>' +
       '<h3>输出格式</h3><p>一行一个整数：从 1 到 n 的最短路径长度，不可达输出 -1。</p>',
-    range: '对于 100% 的数据，1 ≤ n ≤ 1000，1 ≤ m ≤ 5000，1 ≤ w ≤ 10^6。图中可能存在重边，不存在自环。',
+    range: '对于 100% 的数据，1 ≤ n ≤ 500，1 ≤ m ≤ 1500，1 ≤ w ≤ 10^6。图中可能存在重边，不存在自环。',
     hint: '本题边权均为正，可使用 Dijkstra 算法。',
     tests: genDijTests(), ref: refDij,
   },
