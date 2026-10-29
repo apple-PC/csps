@@ -348,6 +348,11 @@ input,select,textarea{ font:inherit; }
 .g-spin{ width:48px; height:48px; border:4px solid rgba(255,255,255,.18); border-top-color:#5b9bff; border-radius:50%; animation:gspin .9s linear infinite; }
 @keyframes gspin{ to{ transform:rotate(360deg); } }
 .g-loading-text{ color:#e8edf5; font-size:14.5px; letter-spacing:.5px; background:rgba(255,255,255,.07); padding:9px 20px; border-radius:22px; border:1px solid rgba(255,255,255,.1); }
+.g-loading-file{ color:#9fb4d6; font-size:13px; font-family:ui-monospace,Menlo,Consolas,monospace; opacity:.9; }
+.g-bar{ width:240px; max-width:60vw; height:6px; border-radius:6px; background:rgba(255,255,255,.12); overflow:hidden; }
+.g-bar-fill{ height:100%; width:0; background:linear-gradient(90deg,#5b9bff,#7ed0ff); border-radius:6px; transition:width .25s ease; }
+.g-bar.g-bar-indet .g-bar-fill{ width:40%; animation:gindet 1.1s ease-in-out infinite; }
+@keyframes gindet{ 0%{ margin-left:-40%; } 100%{ margin-left:100%; } }
 .rev-top{
   display:flex; align-items:center; gap:16px; padding:10px 20px;
   background:#fff; border-bottom:1px solid #e3e8f0; box-shadow:0 1px 4px rgba(20,40,80,.05);
@@ -413,3 +418,29 @@ input,select,textarea{ font:inherit; }
 .publish-card input[type=password]{ width:100%; padding:8px 10px; border:1px solid #cdd9ea; border-radius:8px; margin-top:4px; font-family:ui-monospace,Menlo,Consolas,monospace; }
 .publish-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:4px; }
 .publish-card .small{ font-size:12px; margin-top:8px; }
+
+/* ═══════════════ 复习端 · 板块标签与通用板块 ═══════════════ */
+.rev-tabs{
+  display:flex; gap:6px; padding:10px 20px 0; background:#fff;
+  border-bottom:1px solid #e3e8f0; flex-wrap:wrap;
+}
+.rev-tab{
+  border:1px solid #d8e1ee; background:#f7f9fc; color:#41597a;
+  padding:8px 16px; border-radius:10px 10px 0 0; cursor:pointer; font-size:14px;
+  transition:.15s; margin-bottom:-1px;
+}
+.rev-tab:hover{ background:#eef3fb; }
+.rev-tab.active{ background:#1f6feb; border-color:#1f6feb; color:#fff; box-shadow:0 -2px 6px rgba(31,111,235,.15); }
+.rev-tools{ margin-left:auto; display:flex; gap:8px; align-items:center; }
+.rev-intro{
+  background:linear-gradient(180deg,#eef4ff,#f7faff); border:1px solid #dbe6f7; border-radius:12px;
+  padding:14px 18px; margin-bottom:18px; color:#3c557d; line-height:1.8; font-size:14px;
+}
+.rev-prac{ border:1px solid #e7edf4; border-radius:10px; padding:12px 14px; margin-bottom:12px; background:#fbfdff; }
+.rev-prac-q{ color:#233a57; font-weight:600; margin-bottom:8px; line-height:1.7; }
+.rev-prac-btn{
+  border:1px solid #1f6feb; background:#fff; color:#1f6feb; padding:4px 12px;
+  border-radius:8px; cursor:pointer; font-size:13px;
+}
+.rev-prac-btn:hover{ background:#1f6feb; color:#fff; }
+.rev-prac-hint{ margin-top:8px; color:#7a5a1f; background:#fff8ea; border:1px solid #f0e0bf; border-radius:8px; padding:8px 12px; font-size:13px; line-height:1.7; }
