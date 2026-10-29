@@ -30,6 +30,9 @@ const { document } = window;
   catch(e){ errors.push('脚本执行失败: ' + e.message + '\n' + (e.stack || '').split('\n').slice(0, 4).join('\n')); }
 }
 window.confirm = () => true;
+// 预载隐藏测试点：jsdom outside-only 不会执行动态插入的 <script>，
+// 提前 eval 让 loadHiddenTests() 走“已存在”分支，避免 enterDesktop 的 await 挂起
+try { window.eval(fs.readFileSync(path.join(ROOT, 'problem-tests.js'), 'utf8')); } catch (e) {}
 
 const $ = s => document.querySelector(s);
 const click = elx => elx.dispatchEvent(new window.Event('click', { bubbles: true }));
@@ -172,6 +175,18 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   click(document.querySelector('.rev-filter[data-f="all"]'));
   click($('#btnReviewExit'));
   check('复习端返回开始界面', visible('startScreen'));
+
+  console.log('— 题库拆分验证 —');
+  const pjsSize = fs.statSync(path.join(ROOT, 'problems.js')).size;
+  check('problems.js 首屏轻量 (<100KB)', pjsSize < 100 * 1024);
+  const hiddenReady = !!window.BUILTIN_HIDDEN_TESTS &&
+    window.BUILTIN_PROBLEMS.every(p => (window.BUILTIN_HIDDEN_TESTS[p.id] || []).length === 4);
+  check('隐藏测试点 48 个齐全（4/题）', hiddenReady);
+  // 拆分正确：样例留在 meta（每题 2），隐藏点留在 tests 文件（每题 4），二者可拼成 6
+  const mergeOK = window.BUILTIN_PROBLEMS.every(p =>
+    p.tests.filter(t => t.sample).length === 2 &&
+    (window.BUILTIN_HIDDEN_TESTS[p.id] || []).length === 4);
+  check('样例2+隐藏4 可拼成每题 6 测试点', mergeOK);
 
   console.log('\n结果：', pass, '通过 /', fail, '失败');
   if (errors.length){
