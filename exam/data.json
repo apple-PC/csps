@@ -1,0 +1,111 @@
+{
+  "settings": {
+    "examName": "CSP-S 复赛模拟考试",
+    "durationMin": 230,
+    "startMode": "auto",
+    "scheduledAt": "",
+    "allowJudge": true,
+    "allowCopy": true,
+    "watermark": true,
+    "notice": "1. 考试期间请独立完成作答。\n2. 每题源程序请保存在 IDE 中，交卷前确认已保存。\n3. 时间结束后系统将自动交卷。"
+  },
+  "problems": [
+    {
+      "id": "queue",
+      "title": "排队（queue）",
+      "source": "builtin",
+      "tl": 2000,
+      "enabled": true,
+      "builtin": true
+    },
+    {
+      "id": "decode",
+      "title": "解码（decode）",
+      "source": "builtin",
+      "tl": 1000,
+      "enabled": true,
+      "builtin": true
+    },
+    {
+      "id": "gridpath",
+      "title": "网格路径（gridpath）",
+      "source": "builtin",
+      "tl": 1000,
+      "enabled": true,
+      "builtin": true
+    },
+    {
+      "id": "cover",
+      "title": "区间覆盖（cover）",
+      "source": "builtin",
+      "tl": 2000,
+      "enabled": true,
+      "builtin": true
+    },
+    {
+      "id": "brackets",
+      "title": "括号序列（brackets）",
+      "source": "builtin",
+      "tl": 1000,
+      "enabled": true,
+      "builtin": true
+    },
+    {
+      "id": "maxsub",
+      "title": "最大子段和（maxsub）",
+      "source": "builtin",
+      "tl": 1000,
+      "enabled": true,
+      "builtin": true
+    },
+    {
+      "id": "tree",
+      "title": "树的直径（tree）",
+      "source": "builtin",
+      "tl": 2000,
+      "enabled": true,
+      "builtin": true
+    },
+    {
+      "id": "digit",
+      "title": "数位统计（digit）",
+      "source": "builtin",
+      "tl": 1000,
+      "enabled": true,
+      "builtin": true
+    },
+    {
+      "id": "inverse",
+      "title": "逆序对（inverse）",
+      "source": "builtin",
+      "tl": 3000,
+      "enabled": true,
+      "builtin": true
+    },
+    {
+      "id": "lis",
+      "title": "最长上升子序列（lis）",
+      "source": "builtin",
+      "tl": 2000,
+      "enabled": true,
+      "builtin": true
+    },
+    {
+      "id": "pack",
+      "title": "小鱼的背包（pack）",
+      "source": "builtin",
+      "tl": 2000,
+      "enabled": true,
+      "builtin": true
+    },
+    {
+      "id": "dijkstra",
+      "title": "最短路（dijkstra）",
+      "source": "builtin",
+      "tl": 2000,
+      "enabled": true,
+      "builtin": true
+    }
+  ],
+  "publishedAt": "2026-10-29T12:16:02.270Z"
+}
