@@ -24,7 +24,7 @@ const { document } = window;
 // 手动按 index.html 的顺序执行脚本
 // 注意：浏览器中多个 <script> 共享全局词法作用域，这里拼接为一次 eval 等价模拟
 {
-  const code = ['util.js', 'store.js', 'problems.js', 'admin.js', 'student.js']
+  const code = ['util.js', 'store.js', 'problems.js', 'reviews.js', 'admin.js', 'student.js', 'review.js']
     .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n;\n');
   try{ window.eval(code); }
   catch(e){ errors.push('脚本执行失败: ' + e.message + '\n' + (e.stack || '').split('\n').slice(0, 4).join('\n')); }
@@ -149,6 +149,29 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   $('#loginForm').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
   await sleep(1500); // 等 tick 触发
   check('超时后自动交卷锁定', visible('sEndOverlay'));
+
+  console.log('— 复习端 —');
+  check('入口按钮存在', !!$('#btnEnterReview'));
+  check('精讲数据 12 题齐全', window.REVIEWS && Object.keys(window.REVIEWS).length === 12);
+  click($('#btnEnterReview'));
+  check('复习端打开', visible('reviewApp'));
+  check('左侧列出 12 题', document.querySelectorAll('#revList .rev-item').length === 12);
+  // 点第一题看精讲
+  document.querySelector('#revList .rev-item').dispatchEvent(new window.Event('click', { bubbles: true }));
+  await sleep(20);
+  check('精讲面板含思路', !!document.querySelector('.rev-content .rev-block') && document.querySelector('.rev-content').textContent.includes('思路精讲'));
+  check('精讲面板含参考代码', !!document.getElementById('revRun'));
+  check('精讲面板含题面', document.querySelector('.rev-content').textContent.includes('题目描述') || document.querySelectorAll('.rev-content .rev-block').length >= 3);
+  // 勾选加入清单
+  const cb = document.querySelector('#revList .rev-item input');
+  cb.checked = true; cb.dispatchEvent(new window.Event('change', { bubbles: true }));
+  check('勾选加入复习清单', JSON.parse(window.localStorage.getItem('csp_sim:reviewlist')).length === 1);
+  // 切到“清单”筛选
+  click(document.querySelector('.rev-filter[data-f="list"]'));
+  check('清单筛选只剩 1 题', document.querySelectorAll('#revList .rev-item').length === 1);
+  click(document.querySelector('.rev-filter[data-f="all"]'));
+  click($('#btnReviewExit'));
+  check('复习端返回开始界面', visible('startScreen'));
 
   console.log('\n结果：', pass, '通过 /', fail, '失败');
   if (errors.length){
