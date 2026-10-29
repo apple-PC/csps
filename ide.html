@@ -1061,7 +1061,7 @@ function typeOf(typeStr){
 const BUILTIN_FUNCS = new Set([
   'sqrt','abs','fabs','pow','floor','ceil','round','sin','cos','tan','log','log2','log10','exp',
   'max','min','swap','sort','reverse','to_string','stoi','stod','stol','stof',
-  'rand','srand','printf','puts','putchar','getchar','strlen','toupper','tolower',
+  'rand','srand','printf','puts','putchar','getchar','strlen','strcmp','strcpy','strcat','toupper','tolower',
   'distance','count','find','fill','accumulate','gcd','lcm','scanf','sscanf'
 ]);
 
@@ -1507,8 +1507,11 @@ class Interpreter {
       if (cur && cur.kind === 'ident') rootName = cur.name;
     }
     if (!rootName) return false;
-    const t = env.getType(rootName);
-    return t === 'char' || t === 'unsigned char' || t === 'signed char';
+    const t = String(env.getType(rootName) || '');
+    if (t === 'char' || t === 'unsigned char' || t === 'signed char') return true;
+    // char 数组（类型可能记为 char* / char[] / char[N]）：当作 C 字符串处理
+    if (/char/.test(t) && Array.isArray(env.get(rootName))) return true;
+    return false;
   }
 
   readInto(node, env){
@@ -2072,7 +2075,34 @@ class Interpreter {
       stod: x => parseFloat(x) || 0,
       stol: x => parseInt(x, 10) || 0,
       stof: x => parseFloat(x) || 0,
-      strlen: x => String(x).length,
+      strlen: x => {
+        if (Array.isArray(x)){ let i = 0; while (i < x.length && toInt(x[i]) !== 0) i++; return i; }
+        return String(x == null ? '' : x).length;
+      },
+      strcmp: (a, b) => {
+        const sa = Array.isArray(a) ? charArrayToString(a) : String(a == null ? '' : a);
+        const sb = Array.isArray(b) ? charArrayToString(b) : String(b == null ? '' : b);
+        let i = 0;
+        while (i < sa.length && i < sb.length && sa[i] === sb[i]) i++;
+        const ca = i < sa.length ? sa.charCodeAt(i) : 0;
+        const cb = i < sb.length ? sb.charCodeAt(i) : 0;
+        return ca - cb;
+      },
+      strcpy: (dst, src) => {
+        const s = Array.isArray(src) ? charArrayToString(src) : String(src == null ? '' : src);
+        if (Array.isArray(dst)){ for (let i = 0; i < dst.length; i++) dst[i] = i < s.length ? s.charCodeAt(i) : 0; }
+        return dst;
+      },
+      strcat: (dst, src) => {
+        const s = Array.isArray(src) ? charArrayToString(src) : String(src == null ? '' : src);
+        if (Array.isArray(dst)){
+          let len = 0;
+          while (len < dst.length && toInt(dst[len]) !== 0) len++;
+          for (let i = 0; i < s.length && len < dst.length; i++) dst[len++] = s.charCodeAt(i);
+          if (len < dst.length) dst[len] = 0;
+        }
+        return dst;
+      },
       toupper: x => String(x).toUpperCase(),
       tolower: x => String(x).toLowerCase(),
       puts: x => { this.out += formatValue(x) + '\n'; return 0; },
@@ -3706,6 +3736,11 @@ class VMCodeGen {
           const info = this.curVarInfo.get(t.name);
           if (info && info.kind === 'char'){
             this.emit('READCH', [this.addrOf(v)], `读入字符 ${t.name}`);
+          } else if (info && info.kind === 'array' && info.elem === 'char' && info.dims && info.dims.length === 1){
+            // 一维 char 数组按 C 字符串整串读入（写满后补 '\0'）
+            this.emit('READSTR', [this.addrOf(v), String(info.size)], `读入字符串 ${t.name}`);
+          } else if (info && info.kind === 'array' && info.elem === 'char'){
+            throw new Error('VM 暂不支持整串读入多维字符数组：' + t.name);
           } else if (info && vmIs64(info.kind)){
             this.emit('LLREAD', [this.addrOf(v)], `读入 ${t.name}`);
           } else {
@@ -4259,6 +4294,19 @@ class VM {
         const ch = this.readChar();
         this.mem[idx] = ch === null ? 0 : ch;
         this.setR('r0', ch === null ? 0 : 1);
+        this.pc++;
+        return;
+      }
+
+      case 'READSTR': {
+        // 整串读入一维 char 数组：逐字符写入，末尾补 '\0'（a[1] 是数组长度）
+        const baseWord = this.addrWord(a[0]);
+        const cap = parseInt(a[1], 10) || 0;
+        const tok = this.readToken();
+        const n = Math.min(tok.length, Math.max(0, cap - 1));
+        for (let i = 0; i < n; i++) this.mem[baseWord + i] = tok.charCodeAt(i);
+        if (cap > 0) this.mem[baseWord + n] = 0;
+        this.setR('r0', tok === '' ? 0 : 1);
         this.pc++;
         return;
       }
