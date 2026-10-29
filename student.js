@@ -121,7 +121,7 @@ const Student = (() => {
   });
 
   /* ================= 进入桌面 ================= */
-  function enterDesktop(){
+  async function enterDesktop(){
     const st = Store.getState();
     const s = Store.getSettings();
     if (st.status === 'ended'){ showEnded('考试已结束', '本场考试已结束。'); return; }
@@ -141,7 +141,34 @@ const Student = (() => {
         return;
       }
     }
+    // 进桌面前先加载隐藏测试点（仅首次进入才下载 problem-tests.js）
+    showLoading('正在加载评测数据，请稍候…');
+    try { await loadHiddenTests(); } catch (e) {}
+    hideLoading();
     bootDesktop();
+  }
+
+  let _testsMerged = false;
+  function loadHiddenTests(){
+    return new Promise(resolve => {
+      if (_testsMerged || window.BUILTIN_HIDDEN_TESTS){ mergeHidden(); return resolve(); }
+      const sc = document.createElement('script');
+      sc.src = 'problem-tests.js';
+      sc.onload = () => { mergeHidden(); resolve(); };
+      sc.onerror = () => resolve();   // 即使失败也能继续（仅样例可用）
+      document.head.appendChild(sc);
+    });
+  }
+  function mergeHidden(){
+    if (!window.BUILTIN_HIDDEN_TESTS || _testsMerged) return;
+    for (const p of window.BUILTIN_PROBLEMS){
+      const hid = window.BUILTIN_HIDDEN_TESTS[p.id];
+      if (hid && hid.length){
+        const sampleN = p.tests.filter(t => t.sample).length;
+        if (p.tests.length === sampleN) p.tests = p.tests.concat(hid); // 追加隐藏点
+      }
+    }
+    _testsMerged = true;
   }
   function showWaiting(startTs){
     app.classList.remove('hidden');
