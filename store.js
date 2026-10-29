@@ -20,6 +20,7 @@ const Store = (() => {
     codes: 'csp_sim:codes',        // { [problemId]: code }
     submissions: 'csp_sim:submissions',
     studentState: 'csp_sim:studentState',
+    ghToken: 'csp_sim:ghtoken',       // 管理员粘贴的 GitHub token，仅存本机，绝不进代码
   };
 
   function lsGet(key, fallback){
@@ -160,7 +161,35 @@ const Store = (() => {
 
   return {
     K, fs,
+    /* ---------- 仓库数据源（Pages 部署下：考试数据存进仓库） ----------
+     * 读：站点启动时从仓库 exam/data.json 拉取，学生端无需再连接本地文件夹。
+     * 写：管理员在「发布到仓库」处粘贴自己的 token（仅存本机），PUT 进仓库。
+     * 注意：token 绝不写入代码；仓库公开，数据本就公开，只有写入需要 token。 */
+    REMOTE: { enabled: true, url: 'exam/data.json', repo: 'apple-PC/csps-simulator', branch: 'main', path: 'exam/data.json' },
+    async fetchRemote(){
+      if (!this.REMOTE.enabled) return null;
+      try {
+        const r = await fetch(this.REMOTE.url, { cache: 'no-store' });
+        if (!r.ok) return null;
+        return await r.json();
+      } catch (e) { return null; }
+    },
+    async applyRemoteIfEmpty(data){
+      if (!data || !data.settings) return false;
+      const hasLocal = !!lsGet(K.settings) && !!lsGet(K.problems);
+      if (hasLocal) return false;          // 本机已有数据则不被远程覆盖
+      lsSet(K.settings, data.settings);
+      if (data.problems) lsSet(K.problems, data.problems);
+      this.fs.mirrorDebounced();
+      return true;
+    },
+    async initRemote(){
+      const data = await this.fetchRemote();
+      if (data) return await this.applyRemoteIfEmpty(data);
+      return false;
+    },
     getSettings(){ return Object.assign({}, DEFAULT_SETTINGS, lsGet(K.settings, {})); },
+    getGhToken(){ return lsGet(K.ghToken, ''); },
     saveSettings(s){ lsSet(K.settings, s); fs.mirrorDebounced(); },
     getProblems(){ return lsGet(K.problems, null); },
     /* 保存题库：内置题只存元信息（避免大测试点数据撑爆 localStorage 配额），
