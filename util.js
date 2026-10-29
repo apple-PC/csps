@@ -69,11 +69,37 @@ function toast(msg, kind){
   setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2400);
 }
 
-/* 全局加载动画：showLoading('正在…') 显示遮罩与状态文字，hideLoading() 隐藏 */
-function showLoading(text){
+/* 全局加载动画
+ * showLoading(text, opts) 显示遮罩与状态文字
+ *   opts.file    : 当前正在加载的文件名（如 'problem-tests.js'）
+ *   opts.current : 已完成步骤数
+ *   opts.total   : 总步骤数
+ *   opts.indeterminate : true 时显示无限进度（不知道总量）
+ * hideLoading() 隐藏
+ */
+function showLoading(text, opts){
+  opts = opts || {};
   const box = document.getElementById('globalLoading');
   const txt = document.getElementById('globalLoadingText');
+  const fileEl = document.getElementById('globalLoadingFile');
+  const bar = document.getElementById('globalLoadingBar');
   if (txt) txt.textContent = text || '加载中…';
+  if (fileEl){
+    if (opts.file) fileEl.textContent = '正在加载：' + opts.file;
+    else if (opts.label) fileEl.textContent = opts.label;
+    else fileEl.textContent = '';
+  }
+  if (bar){
+    const wrap = bar.parentElement;
+    if (opts.indeterminate || !opts.total){
+      wrap.classList.add('g-bar-indet');
+      bar.style.width = '40%';
+    } else {
+      wrap.classList.remove('g-bar-indet');
+      const pct = Math.max(0, Math.min(100, Math.round((opts.current || 0) / opts.total * 100)));
+      bar.style.width = pct + '%';
+    }
+  }
   if (box) box.classList.remove('hidden');
 }
 function hideLoading(){
