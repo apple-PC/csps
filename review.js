@@ -9,6 +9,7 @@
   var curSection = 'jiang';
   var filter = 'all';
   var current = null;
+  var query = {};
 
   var SECTIONS = [
     { id: 'jiang',    label: '精讲与练习',     icon: '📖' },
@@ -40,7 +41,15 @@
           b.onclick = function (){ filter = b.dataset.f; render(); };
         });
       } else {
-        tools.innerHTML = '';
+        var sec = (window.REVIEW_SECTIONS || {})[curSection] || { nodes: [] };
+        if (sec.nodes && sec.nodes.length > 10){
+          tools.innerHTML = '<input class="rev-search" id="revSearch" type="text" placeholder="搜索章节 / 关键词（共 ' + sec.nodes.length + ' 章）" value="' +
+            esc(query[curSection] || '').replace(/"/g, '&quot;') + '">';
+          var inp = document.getElementById('revSearch');
+          if (inp) inp.oninput = function (){ query[curSection] = inp.value; renderSectionList(curSection); };
+        } else {
+          tools.innerHTML = '';
+        }
       }
     }
     if (curSection === 'jiang') renderProblems();
@@ -166,11 +175,26 @@
 
   /* ---------- 通用板块（方法与技巧 / 算法教学 / 考前 / IDE） ---------- */
   function renderSections(id){
+    renderSectionList(id);
+    renderSectionContent(id);
+  }
+  function renderSectionList(id){
     var sec = (window.REVIEW_SECTIONS || {})[id] || { nodes: [] };
     var box = document.getElementById('revList');
     box.innerHTML = '';
     if (!current && sec.nodes.length) current = sec.nodes[0].id;
+    var kw = (query[id] || '').trim().toLowerCase();
+    var lastGroup = null, shown = 0;
     sec.nodes.forEach(function (nd){
+      if (kw){
+        var hay = (nd.title + ' ' + (nd.meta || '') + ' ' + (nd.group || '')).toLowerCase();
+        if (hay.indexOf(kw) < 0) return;
+      }
+      shown++;
+      if (nd.group && nd.group !== lastGroup){
+        box.appendChild(el('div', 'rev-group', esc(nd.group)));
+        lastGroup = nd.group;
+      }
       var item = el('div', 'rev-item' + (current === nd.id ? ' active' : ''));
       item.dataset.id = nd.id;
       var main = el('div', 'rev-item-main');
@@ -180,7 +204,10 @@
       item.onclick = function (){ current = nd.id; renderSections(id); };
       box.appendChild(item);
     });
-
+    if (!shown) box.appendChild(el('div', 'rev-empty', '没有匹配的章节，换个关键词试试。'));
+  }
+  function renderSectionContent(id){
+    var sec = (window.REVIEW_SECTIONS || {})[id] || { nodes: [] };
     var c = document.getElementById('revContent');
     if (!current){ c.innerHTML = '<div class="rev-empty">从左侧选择一个主题。</div>'; return; }
     var node = sec.nodes.find(function (n){ return n.id === current; });
@@ -188,6 +215,7 @@
     var h = '';
     if (sec.intro) h += '<div class="rev-intro">' + esc(sec.intro) + '</div>';
     h += '<h1 class="rev-h1">' + esc(node.title) + '</h1>';
+    if (node.meta) h += '<div class="rev-tags"><span class="rev-tag">' + esc(node.meta) + '</span></div>';
     node.blocks.forEach(function (b){
       h += '<section class="rev-block"><h2 class="rev-h2">' + esc(b.h) + '</h2>';
       if (b.html) h += (b.html.indexOf('<') === 0 ? b.html : '<p class="rev-p">' + b.html + '</p>');
@@ -218,11 +246,39 @@
     }, 200);
   }
 
+  /* 复习资料（约 170KB）按需加载：不拖慢首屏，进入复习端时再取 */
+  function loadScriptOnce(src){
+    return new Promise(function (resolve, reject){
+      var sc = document.createElement('script');
+      sc.src = src;
+      sc.onload = function (){ resolve(); };
+      sc.onerror = function (){ reject(new Error('加载失败：' + src)); };
+      document.head.appendChild(sc);
+    });
+  }
+  function ensureData(){
+    if (window.REVIEW_SECTIONS) return Promise.resolve();
+    showLoading('正在加载复习资料…', { percent: 8, detail: 'review-data.js · 方法与技巧 / 考前 / IDE' });
+    return loadScriptOnce('review-data.js').then(function (){
+      showLoading('正在加载算法章节…', { percent: 55, detail: 'review-algo.js · CSP-J/S 全考纲算法' });
+      return loadScriptOnce('review-algo.js');
+    }).then(function (){
+      showLoading('复习资料就绪', { percent: 100, detail: '共 5 个板块' });
+      hideLoading();
+    }).catch(function (e){
+      hideLoading();
+      toast('复习资料加载失败，请刷新重试', 'err');
+      throw e;
+    });
+  }
+
   function show(){
-    var start = document.getElementById('startScreen');
-    if (start) start.classList.add('hidden');
-    document.getElementById('reviewApp').classList.remove('hidden');
-    render();
+    ensureData().then(function (){
+      var start = document.getElementById('startScreen');
+      if (start) start.classList.add('hidden');
+      document.getElementById('reviewApp').classList.remove('hidden');
+      render();
+    }).catch(function (){});
   }
 
   function init(){

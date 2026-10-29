@@ -71,9 +71,10 @@ function toast(msg, kind){
 
 /* 全局加载动画
  * showLoading(text, opts) 显示遮罩与状态文字
+ *   opts.detail  : 副标题原文（优先于 file），如 '正在下载：problem-tests.js · 320 / 856 KB'
  *   opts.file    : 当前正在加载的文件名（如 'problem-tests.js'）
- *   opts.current : 已完成步骤数
- *   opts.total   : 总步骤数
+ *   opts.percent : 直接给 0~100 的百分比（有真实进度时用这个）
+ *   opts.current / opts.total : 按步骤数换算百分比
  *   opts.indeterminate : true 时显示无限进度（不知道总量）
  * hideLoading() 隐藏
  */
@@ -83,21 +84,28 @@ function showLoading(text, opts){
   const txt = document.getElementById('globalLoadingText');
   const fileEl = document.getElementById('globalLoadingFile');
   const bar = document.getElementById('globalLoadingBar');
+  const pctEl = document.getElementById('globalLoadingPct');
   if (txt) txt.textContent = text || '加载中…';
   if (fileEl){
-    if (opts.file) fileEl.textContent = '正在加载：' + opts.file;
+    if (opts.detail) fileEl.textContent = opts.detail;
+    else if (opts.file) fileEl.textContent = '正在加载：' + opts.file;
     else if (opts.label) fileEl.textContent = opts.label;
     else fileEl.textContent = '';
   }
+  let pct = null;
+  if (typeof opts.percent === 'number') pct = opts.percent;
+  else if (opts.total) pct = (opts.current || 0) / opts.total * 100;
   if (bar){
     const wrap = bar.parentElement;
-    if (opts.indeterminate || !opts.total){
+    if (opts.indeterminate || pct == null){
       wrap.classList.add('g-bar-indet');
       bar.style.width = '40%';
+      if (pctEl) pctEl.textContent = '';
     } else {
       wrap.classList.remove('g-bar-indet');
-      const pct = Math.max(0, Math.min(100, Math.round((opts.current || 0) / opts.total * 100)));
-      bar.style.width = pct + '%';
+      const p2 = Math.max(0, Math.min(100, Math.round(pct)));
+      bar.style.width = p2 + '%';
+      if (pctEl) pctEl.textContent = p2 + '%';
     }
   }
   if (box) box.classList.remove('hidden');
@@ -105,4 +113,8 @@ function showLoading(text, opts){
 function hideLoading(){
   const box = document.getElementById('globalLoading');
   if (box) box.classList.add('hidden');
+}
+/* 让浏览器有机会重绘一帧（长同步任务前调用，避免动画卡住） */
+function nextFrame(){
+  return new Promise(r => requestAnimationFrame(() => setTimeout(r, 16)));
 }

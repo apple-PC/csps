@@ -141,25 +141,102 @@ const Student = (() => {
         return;
       }
     }
-    // 进桌面前先加载隐藏测试点（仅首次进入才下载 problem-tests.js）
-    showLoading('正在进入考试，准备评测数据…', { total: 3, current: 1, file: 'problem-tests.js' });
+    // 进桌面前先加载隐藏测试点（仅首次进入才下载 problem-tests.js，带真实下载进度）
     try { await loadHiddenTests(); } catch (e) {}
-    showLoading('正在初始化考试桌面…', { total: 3, current: 3, file: 'desktop' });
+    showLoading('正在初始化考试桌面…', { percent: 100, detail: '启动桌面环境 · 挂载题目压缩包' });
+    await nextFrame();
     hideLoading();
     bootDesktop();
   }
 
+  const TESTS_FILE = 'problem-tests.js';
+  const TESTS_SIZE_HINT = 860 * 1024;   // 无 Content-Length 时的估算总量
   let _testsMerged = false;
-  function loadHiddenTests(){
+
+  function fmtKB(n){ return Math.round(n / 1024); }
+
+  /* 带字节级进度的下载：返回脚本源码文本 */
+  function fetchWithProgress(url, onProgress){
+    return fetch(url, { cache: 'default' }).then(res => {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      // Content-Length 在 gzip 传输时是压缩后的长度，和「已接收字节」不同量纲，
+      // 所以取「头部长度」与「文件大小估值」的较大者，保证进度不虚高也不停滞。
+      const total = Math.max(Number(res.headers.get('content-length') || 0) || 0, TESTS_SIZE_HINT);
+      if (!res.body || typeof res.body.getReader !== 'function') return res.text();
+      const reader = res.body.getReader();
+      const chunks = [];
+      let got = 0;
+      onProgress(got, total);
+      return (function pump(){
+        return reader.read().then(r => {
+          if (r.done){
+            onProgress(got, total);
+            const buf = new Uint8Array(got);
+            let off = 0;
+            for (let i = 0; i < chunks.length; i++){ buf.set(chunks[i], off); off += chunks[i].length; }
+            return new TextDecoder('utf-8').decode(buf);
+          }
+          chunks.push(r.value);
+          got += r.value.length;
+          onProgress(got, total);
+          return pump();
+        });
+      })();
+    });
+  }
+
+  /* 把源码作为内联脚本执行（与 <script src> 等效，且在 window 作用域） */
+  function execScript(code){
+    const sc = document.createElement('script');
+    sc.textContent = code;
+    document.head.appendChild(sc);
+  }
+
+  /* file:// 或流式读取不可用时的兜底：<script src> 直接加载 */
+  function loadByScriptTag(){
     return new Promise(resolve => {
-      if (_testsMerged || window.BUILTIN_HIDDEN_TESTS){ mergeHidden(); return resolve(); }
-      showLoading('正在下载评测数据…', { total: 3, current: 1, file: 'problem-tests.js' });
+      showLoading('正在加载评测数据…', { indeterminate: true, detail: '正在加载：' + TESTS_FILE + '（浏览器未提供进度）' });
       const sc = document.createElement('script');
-      sc.src = 'problem-tests.js';
-      sc.onload = () => { mergeHidden(); resolve(); };
-      sc.onerror = () => resolve();   // 即使失败也能继续（仅样例可用）
+      sc.src = TESTS_FILE;
+      sc.onload = () => resolve();
+      sc.onerror = () => resolve();
       document.head.appendChild(sc);
     });
+  }
+
+  async function loadHiddenTests(){
+    if (_testsMerged || window.BUILTIN_HIDDEN_TESTS){ mergeHidden(); return; }
+    showLoading('正在连接评测数据…', { percent: 2, detail: '准备下载：' + TESTS_FILE });
+    await nextFrame();
+    let code = null;
+    try{
+      code = await fetchWithProgress(TESTS_FILE, (got, total) => {
+        const pct = Math.min(79, 4 + Math.floor(got / total * 76));   // 4% ~ 79%
+        showLoading('正在下载评测数据…', {
+          percent: pct,
+          detail: '正在下载：' + TESTS_FILE + ' · 已接收 ' + fmtKB(got) + ' KB'
+        });
+      });
+    }catch(e){
+      await loadByScriptTag();
+      mergeHidden();
+      return;
+    }
+    showLoading('正在解析测试点…', { percent: 86, detail: '解析：' + TESTS_FILE + ' · ' + fmtKB(code.length) + ' KB 源码' });
+    await nextFrame();
+    try { execScript(code); }
+    catch (e) { await loadByScriptTag(); }
+    showLoading('正在合并到题库…', { percent: 96, detail: '合并测试点数据 → 内置题库' });
+    await nextFrame();
+    mergeHidden();
+    showLoading('评测数据就绪', { percent: 99, detail: '共 ' + countHidden() + ' 个隐藏测试点' });
+    await nextFrame();
+  }
+  function countHidden(){
+    const H = window.BUILTIN_HIDDEN_TESTS || {};
+    let n = 0;
+    for (const k in H) n += H[k].length;
+    return n;
   }
   function mergeHidden(){
     if (!window.BUILTIN_HIDDEN_TESTS || _testsMerged) return;

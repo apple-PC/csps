@@ -24,7 +24,7 @@ const { document } = window;
 // 手动按 index.html 的顺序执行脚本
 // 注意：浏览器中多个 <script> 共享全局词法作用域，这里拼接为一次 eval 等价模拟
 {
-  const code = ['util.js', 'store.js', 'problems.js', 'reviews.js', 'review-data.js', 'admin.js', 'student.js', 'review.js']
+  const code = ['util.js', 'store.js', 'problems.js', 'reviews.js', 'review-data.js', 'review-algo.js', 'admin.js', 'student.js', 'review.js']
     .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n;\n') +
     '\n;window.showLoading = showLoading; window.hideLoading = hideLoading;';
   try{ window.eval(code); }
@@ -159,6 +159,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check('精讲数据 12 题齐全', window.REVIEWS && Object.keys(window.REVIEWS).length === 12);
   check('通用板块数据 4 个', window.REVIEW_SECTIONS && Object.keys(window.REVIEW_SECTIONS).length === 4);
   click($('#btnEnterReview'));
+  await sleep(60);
   check('复习端打开', visible('reviewApp'));
   check('左侧列出 12 题', document.querySelectorAll('#revList .rev-item').length === 12);
   // 顶部 5 个板块标签
@@ -198,10 +199,25 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const algoTab = tabs.find(t => t.textContent.includes('算法教学'));
   algoTab.dispatchEvent(new window.Event('click', { bubbles: true }));
   await sleep(10);
-  check('算法教学含 11 章', document.querySelectorAll('#revList .rev-item').length === 11);
+  check('算法教学含 51 章（语法 11 + 算法 40）', document.querySelectorAll('#revList .rev-item').length === 51);
+  check('算法教学有分组标题', document.querySelectorAll('#revList .rev-group').length >= 8);
+  check('算法教学有搜索框', !!$('#revSearch'));
+  const searchBox = $('#revSearch');
+  searchBox.value = '最短路';
+  searchBox.dispatchEvent(new window.Event('input', { bubbles: true }));
+  await sleep(10);
+  const filtered = document.querySelectorAll('#revList .rev-item').length;
+  check('搜索可过滤章节', filtered > 0 && filtered < 10);
+  searchBox.value = '';
+  searchBox.dispatchEvent(new window.Event('input', { bubbles: true }));
+  await sleep(10);
   document.querySelector('#revList .rev-item').dispatchEvent(new window.Event('click', { bubbles: true }));
   await sleep(10);
   check('算法章节渲染多个子块', document.querySelectorAll('#revContent .rev-block').length >= 3);
+  // 抽查一张算法章节的模板代码是否原样保留（模板字符串未被吞掉换行/符号）
+  const algoNode = (window.REVIEW_SECTIONS.algo.nodes || []).find(n => n.id === 'a19');
+  check('最短路模板代码完整', /if \(d > dist\[u\]\) continue;/.test(algoNode.blocks[1].code) &&
+    algoNode.blocks[1].code.split('\n').length > 10);
 
   click($('#btnReviewExit'));
   check('复习端返回开始界面', visible('startScreen'));
@@ -216,6 +232,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check('进度条有宽度', /\d/.test($('#globalLoadingBar').style.width) && parseFloat($('#globalLoadingBar').style.width) > 0);
   showLoading('下载中', { indeterminate: true });
   check('无限进度模式生效', $('#globalLoadingBar').parentElement.classList.contains('g-bar-indet'));
+  showLoading('正在下载评测数据…', { percent: 42, detail: '正在下载：problem-tests.js · 已接收 320 KB' });
+  check('百分比模式进度条正确', parseFloat($('#globalLoadingBar').style.width) === 42);
+  check('百分比数字显示', $('#globalLoadingPct').textContent.trim() === '42%');
+  check('副标题（下载文件+字节）显示', $('#globalLoadingFile').textContent.includes('已接收 320 KB'));
   hideLoading();
   check('加载遮罩可隐藏', $('#globalLoading').classList.contains('hidden'));
 
