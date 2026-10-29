@@ -396,3 +396,14 @@ input,select,textarea{ font:inherit; }
   overflow-x:auto; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:13px; line-height:1.6;
 }
 .rev-pre code{ color:inherit; background:none; padding:0; font-family:inherit; }
+
+/* ═══════════════ 发布到仓库 ═══════════════ */
+.publish-card{
+  margin-top:18px; background:#fbfdff; border:1px solid #d8e6f7; border-radius:12px;
+  padding:16px 18px;
+}
+.publish-h{ font-size:16px; color:#1f3a5f; margin:0 0 6px; }
+.publish-card .lbl-block{ display:block; font-size:13px; color:#41597a; margin:10px 0; }
+.publish-card input[type=password]{ width:100%; padding:8px 10px; border:1px solid #cdd9ea; border-radius:8px; margin-top:4px; font-family:ui-monospace,Menlo,Consolas,monospace; }
+.publish-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:4px; }
+.publish-card .small{ font-size:12px; margin-top:8px; }
