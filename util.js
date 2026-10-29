@@ -68,3 +68,15 @@ function toast(msg, kind){
   setTimeout(() => t.classList.add('show'), 10);
   setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2400);
 }
+
+/* 全局加载动画：showLoading('正在…') 显示遮罩与状态文字，hideLoading() 隐藏 */
+function showLoading(text){
+  const box = document.getElementById('globalLoading');
+  const txt = document.getElementById('globalLoadingText');
+  if (txt) txt.textContent = text || '加载中…';
+  if (box) box.classList.remove('hidden');
+}
+function hideLoading(){
+  const box = document.getElementById('globalLoading');
+  if (box) box.classList.add('hidden');
+}
