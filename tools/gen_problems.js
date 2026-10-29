@@ -245,8 +245,8 @@ function genGridTests(){
     T('3 3\n...\n.#.\n...', refGrid('3 3\n...\n.#.\n...'), true),
   ];
   for (let k = 0; k < 4; k++){
-    const n = k === 3 ? 500 : ri(150, 300);
-    const m = k === 3 ? 500 : ri(150, 300);
+    const n = k === 3 ? 300 : ri(120, 220);
+    const m = k === 3 ? 300 : ri(120, 220);
     // 先铺一条保证通路，再撒障碍
     let x = 0, y = 0;
     const path = new Set(['0,0']);
@@ -302,7 +302,7 @@ function genBracketTests(){
     T('(()', refBrackets('(()'), true),
   ];
   for (let k = 0; k < 4; k++){
-    const len = k === 3 ? 100000 : ri(1000, 20000);
+    const len = k === 3 ? 50000 : ri(1000, 15000);
     let s = '';
     for (let i = 0; i < len; i++) s += rnd() < 0.5 ? '(' : ')';
     tests.push(T(s, refBrackets(s)));
@@ -331,7 +331,7 @@ function genTreeTests(){
     T(s2, refTree(s2), true),
   ];
   for (let k = 0; k < 4; k++){
-    const n = k === 3 ? 100000 : ri(2000, 30000);
+    const n = k === 3 ? 30000 : ri(1500, 12000);
     const edges = [];
     for (let v = 2; v <= n; v++) edges.push([ri(1, v - 1), v]);
     shuffle(edges);
@@ -359,9 +359,9 @@ function genInverseTests(){
     T(fmt(5, s1), refInverse(fmt(5, s1)), true),
     T(fmt(3, s2), refInverse(fmt(3, s2)), true),
   ];
-  tests.push(T(fmt(50000, Array.from({ length: 50000 }, (_, i) => 50000 - i)), refInverse(fmt(50000, Array.from({ length: 50000 }, (_, i) => 50000 - i))))); // 完全逆序
+  tests.push(T(fmt(20000, Array.from({ length: 20000 }, (_, i) => 20000 - i)), refInverse(fmt(20000, Array.from({ length: 20000 }, (_, i) => 20000 - i))))); // 完全逆序
   for (let k = 0; k < 3; k++){
-    const n = k === 2 ? 50000 : ri(5000, 30000);
+    const n = k === 2 ? 20000 : ri(3000, 12000);
     const a = Array.from({ length: n }, () => ri(0, 1e9));
     const inp = fmt(n, a);
     tests.push(T(inp, refInverse(inp)));
@@ -376,9 +376,9 @@ function genLisTests(){
     T(fmt(7, s1), refLis(fmt(7, s1)), true),
     T(fmt(5, s2), refLis(fmt(5, s2)), true),
   ];
-  tests.push(T(fmt(100000, Array.from({ length: 100000 }, (_, i) => i + 1)), refLis(fmt(100000, Array.from({ length: 100000 }, (_, i) => i + 1))))); // 全递增
+  tests.push(T(fmt(40000, Array.from({ length: 40000 }, (_, i) => i + 1)), refLis(fmt(40000, Array.from({ length: 40000 }, (_, i) => i + 1))))); // 全递增
   for (let k = 0; k < 3; k++){
-    const n = k === 2 ? 100000 : ri(10000, 60000);
+    const n = k === 2 ? 40000 : ri(8000, 30000);
     const a = Array.from({ length: n }, () => ri(0, 1e9));
     const inp = fmt(n, a);
     tests.push(T(inp, refLis(inp)));
@@ -563,10 +563,14 @@ const PROBLEMS = [
   },
 ];
 
-/* ---------- 生成题面并输出 ---------- */
+/* ---------- 生成题面 / 拆分流（题面进 problems.js，隐藏点进 problem-tests.js） ---------- */
+const HIDDEN = {};
 for (const p of PROBLEMS){
   p.statement = doc(p);
   delete p.ref;
+  // 剥离隐藏测试点：problems.js 只保留样例（首屏秒开），隐藏点单独文件按需加载
+  HIDDEN[p.id] = p.tests.filter(t => !t.sample);
+  p.tests = p.tests.filter(t => t.sample);
 }
 const SETS = [
   { name: '模拟卷一（基础）', ids: ['queue', 'decode', 'maxsub', 'digit'] },
@@ -576,15 +580,21 @@ const SETS = [
 ];
 
 const banner = '/* 本文件由 tools/gen_problems.js 生成，请勿手改（改完题目请重新运行生成器） */\n';
-const out = banner + 'window.BUILTIN_PROBLEMS = ' + JSON.stringify(PROBLEMS, null, 1) + ';\n' +
+const meta = banner + 'window.BUILTIN_PROBLEMS = ' + JSON.stringify(PROBLEMS, null, 1) + ';\n' +
   'window.BUILTIN_SETS = ' + JSON.stringify(SETS, null, 1) + ';\n';
 const dest = path.join(__dirname, '..', 'problems.js');
-fs.writeFileSync(dest, out, 'utf8');
+fs.writeFileSync(dest, meta, 'utf8');
 
-let sampleCnt = 0, total = 0;
+// 隐藏测试点：学生端进入桌面时动态加载，不阻塞首屏
+const testsPath = path.join(__dirname, '..', 'problem-tests.js');
+const testsOut = banner + 'window.BUILTIN_HIDDEN_TESTS = ' + JSON.stringify(HIDDEN, null, 1) + ';\n';
+fs.writeFileSync(testsPath, testsOut, 'utf8');
+
+let sampleCnt = 0, total = 0, hiddenTotal = 0;
 for (const p of PROBLEMS){
   total += p.tests.length;
+  hiddenTotal += (HIDDEN[p.id] || []).length;
   sampleCnt += p.tests.filter(t => t.sample).length;
-  console.log(p.id.padEnd(10), '测试点', p.tests.length, '| 样例答案:', p.tests.slice(0, 2).map(t => t.expected.trim()).join(' / '));
+  console.log(p.id.padEnd(10), '样例', p.tests.length, '| 隐藏', (HIDDEN[p.id] || []).length, '| 样例答案:', p.tests.slice(0, 2).map(t => t.expected.trim()).join(' / '));
 }
-console.log('--- 共', PROBLEMS.length, '题', total, '个测试点（含', sampleCnt, '样例）→', dest);
+console.log('--- 共', PROBLEMS.length, '题：problems.js 仅含样例（秒开），problem-tests.js 含隐藏点', hiddenTotal, '个 →', dest, '及', testsPath);
