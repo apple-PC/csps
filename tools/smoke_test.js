@@ -24,8 +24,9 @@ const { document } = window;
 // 手动按 index.html 的顺序执行脚本
 // 注意：浏览器中多个 <script> 共享全局词法作用域，这里拼接为一次 eval 等价模拟
 {
-  const code = ['util.js', 'store.js', 'problems.js', 'reviews.js', 'admin.js', 'student.js', 'review.js']
-    .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n;\n');
+  const code = ['util.js', 'store.js', 'problems.js', 'reviews.js', 'review-data.js', 'admin.js', 'student.js', 'review.js']
+    .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n;\n') +
+    '\n;window.showLoading = showLoading; window.hideLoading = hideLoading;';
   try{ window.eval(code); }
   catch(e){ errors.push('脚本执行失败: ' + e.message + '\n' + (e.stack || '').split('\n').slice(0, 4).join('\n')); }
 }
@@ -156,15 +157,24 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   console.log('— 复习端 —');
   check('入口按钮存在', !!$('#btnEnterReview'));
   check('精讲数据 12 题齐全', window.REVIEWS && Object.keys(window.REVIEWS).length === 12);
+  check('通用板块数据 4 个', window.REVIEW_SECTIONS && Object.keys(window.REVIEW_SECTIONS).length === 4);
   click($('#btnEnterReview'));
   check('复习端打开', visible('reviewApp'));
   check('左侧列出 12 题', document.querySelectorAll('#revList .rev-item').length === 12);
+  // 顶部 5 个板块标签
+  check('板块标签 5 个', document.querySelectorAll('#revTabs .rev-tab').length === 5);
+  check('默认标签为精讲与练习', document.querySelector('#revTabs .rev-tab.active').textContent.includes('精讲与练习'));
   // 点第一题看精讲
   document.querySelector('#revList .rev-item').dispatchEvent(new window.Event('click', { bubbles: true }));
   await sleep(20);
   check('精讲面板含思路', !!document.querySelector('.rev-content .rev-block') && document.querySelector('.rev-content').textContent.includes('思路精讲'));
+  check('精讲面板含知识点', document.querySelector('.rev-content').textContent.includes('知识点'));
   check('精讲面板含参考代码', !!document.getElementById('revRun'));
+  check('精讲面板含自测练习', document.querySelector('.rev-content').textContent.includes('自测练习'));
   check('精讲面板含题面', document.querySelector('.rev-content').textContent.includes('题目描述') || document.querySelectorAll('.rev-content .rev-block').length >= 3);
+  // 自测提示可展开
+  const pracBtn = document.querySelector('.rev-prac-btn');
+  if (pracBtn){ pracBtn.dispatchEvent(new window.Event('click', { bubbles: true })); await sleep(10); check('自测提示可展开', !document.querySelector('.rev-prac-hint').classList.contains('hidden')); }
   // 勾选加入清单
   const cb = document.querySelector('#revList .rev-item input');
   cb.checked = true; cb.dispatchEvent(new window.Event('change', { bubbles: true }));
@@ -173,8 +183,41 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   click(document.querySelector('.rev-filter[data-f="list"]'));
   check('清单筛选只剩 1 题', document.querySelectorAll('#revList .rev-item').length === 1);
   click(document.querySelector('.rev-filter[data-f="all"]'));
+
+  // 逐一切换 4 个通用板块，验证左栏与右栏都能渲染
+  const tabs = [...document.querySelectorAll('#revTabs .rev-tab')];
+  const want = ['方法与技巧', '算法教学', '考前注意事项', 'IDE 指南'];
+  for (let i = 0; i < want.length; i++){
+    const tab = tabs.find(t => t.textContent.includes(want[i]));
+    tab.dispatchEvent(new window.Event('click', { bubbles: true }));
+    await sleep(10);
+    check('板块「' + want[i] + '」左栏有条目', document.querySelectorAll('#revList .rev-item').length > 0);
+    check('板块「' + want[i] + '」右栏有内容', document.querySelectorAll('#revContent .rev-block').length > 0);
+  }
+  // 算法教学：点一个章节看多个子块
+  const algoTab = tabs.find(t => t.textContent.includes('算法教学'));
+  algoTab.dispatchEvent(new window.Event('click', { bubbles: true }));
+  await sleep(10);
+  check('算法教学含 11 章', document.querySelectorAll('#revList .rev-item').length === 11);
+  document.querySelector('#revList .rev-item').dispatchEvent(new window.Event('click', { bubbles: true }));
+  await sleep(10);
+  check('算法章节渲染多个子块', document.querySelectorAll('#revContent .rev-block').length >= 3);
+
   click($('#btnReviewExit'));
   check('复习端返回开始界面', visible('startScreen'));
+
+  console.log('— 加载进度显示 —');
+  const showLoading = window.eval('showLoading');
+  const hideLoading = window.eval('hideLoading');
+  showLoading('正在进入考试', { total: 3, current: 1, file: 'problem-tests.js' });
+  check('加载遮罩显示', !$('#globalLoading').classList.contains('hidden'));
+  check('加载文字更新', $('#globalLoadingText').textContent.includes('正在进入考试'));
+  check('加载文件名更新', $('#globalLoadingFile').textContent.includes('problem-tests.js'));
+  check('进度条有宽度', /\d/.test($('#globalLoadingBar').style.width) && parseFloat($('#globalLoadingBar').style.width) > 0);
+  showLoading('下载中', { indeterminate: true });
+  check('无限进度模式生效', $('#globalLoadingBar').parentElement.classList.contains('g-bar-indet'));
+  hideLoading();
+  check('加载遮罩可隐藏', $('#globalLoading').classList.contains('hidden'));
 
   console.log('— 题库拆分验证 —');
   const pjsSize = fs.statSync(path.join(ROOT, 'problems.js')).size;
