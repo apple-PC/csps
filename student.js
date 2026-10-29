@@ -11,9 +11,12 @@ const Student = (() => {
   const wins = new Map();       // wid -> {el, taskBtn, title, ico, minimized}
 
   /* ================= 登录 ================= */
-  function show(){
+  async function show(){
     $('#startScreen').classList.add('hidden');
     $('#studentLogin').classList.remove('hidden');
+    // 本机没有配置时，先尝试从仓库拉取（Pages 部署下学生免连文件夹）
+    const hasLocal = localStorage.getItem(Store.K.settings) && localStorage.getItem(Store.K.problems);
+    if (!hasLocal) { try { await Store.initRemote(); } catch (e) {} }
     const s = Store.getSettings();
     const hasData = localStorage.getItem(Store.K.settings) && localStorage.getItem(Store.K.problems);
     $('#loginExamName').textContent = s.examName || 'CSP-S 复赛模拟考试';
