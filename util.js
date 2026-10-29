@@ -114,7 +114,13 @@ function hideLoading(){
   const box = document.getElementById('globalLoading');
   if (box) box.classList.add('hidden');
 }
-/* 让浏览器有机会重绘一帧（长同步任务前调用，避免动画卡住） */
+/* 让浏览器有机会重绘一帧（长同步任务前调用，避免动画卡住）
+ * 后台标签页里 rAF 不会触发，因此加 setTimeout 兜底，避免永久挂起 */
 function nextFrame(){
-  return new Promise(r => requestAnimationFrame(() => setTimeout(r, 16)));
+  return new Promise(function (resolve){
+    var done = false;
+    function go(){ if (!done){ done = true; resolve(); } }
+    try { requestAnimationFrame(function (){ setTimeout(go, 0); }); } catch (e) {}
+    setTimeout(go, 50);
+  });
 }
