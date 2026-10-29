@@ -46,14 +46,19 @@
 <div id="reviewApp" class="screen hidden">
   <div class="rev-top">
     <button id="btnReviewExit" class="adm-exit">← 返回开始界面</button>
-    <div class="rev-title" id="revTitle">复习端 · 精讲与练习</div>
+    <button id="btnRevHome" class="rev-homebtn" title="回到复习中心首页">⌂</button>
+    <button id="btnRevSide" class="rev-sidebtn" title="收起 / 展开目录（Tab）">
+      <span id="revSideIcon">‹</span>
+    </button>
+    <div class="rev-title" id="revTitle">复习中心</div>
     <div class="rev-tools" id="revTools"></div>
   </div>
   <div class="rev-tabs" id="revTabs"></div>
-  <div class="rev-body">
+  <div class="rev-body" id="revBody">
     <aside id="revList" class="rev-list"></aside>
     <main id="revContent" class="rev-content"></main>
   </div>
+  <div id="revHome" class="rev-home"></div>
 </div>
 
 <!-- ═══════════════ 管理员端 ═══════════════ -->

@@ -24,7 +24,7 @@ const { document } = window;
 // 手动按 index.html 的顺序执行脚本
 // 注意：浏览器中多个 <script> 共享全局词法作用域，这里拼接为一次 eval 等价模拟
 {
-  const code = ['util.js', 'store.js', 'problems.js', 'reviews.js', 'review-data.js', 'review-algo.js', 'admin.js', 'student.js', 'review.js']
+  const code = ['util.js', 'store.js', 'problems.js', 'reviews.js', 'review-data.js', 'review-algo.js', 'review-algo-deep.js', 'admin.js', 'student.js', 'review.js']
     .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n;\n') +
     '\n;window.showLoading = showLoading; window.hideLoading = hideLoading;';
   try{ window.eval(code); }
@@ -159,12 +159,34 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check('精讲数据 12 题齐全', window.REVIEWS && Object.keys(window.REVIEWS).length === 12);
   check('通用板块数据 4 个', window.REVIEW_SECTIONS && Object.keys(window.REVIEW_SECTIONS).length === 4);
   click($('#btnEnterReview'));
-  await sleep(60);
+  await sleep(120);
   check('复习端打开', visible('reviewApp'));
+  // 先落在复习中心主页
+  check('先进复习中心主页', visible('revHome') && !visible('revBody'));
+  check('主页有 logo', !!document.querySelector('#revHome .rh-logo svg'));
+  check('主页有 5 个板块卡片', document.querySelectorAll('#revHome .rh-card').length === 5);
+  check('主页有说明文字', (document.querySelector('#revHome .rh-desc') || {}).textContent.length > 60);
+  check('主页有统计指标', document.querySelectorAll('#revHome .rh-metric').length === 4);
+  check('主页无板块标签栏', document.getElementById('revTabs').classList.contains('hidden'));
+  // 点「精讲与练习」卡片进入板块
+  document.querySelector('#revHome .rh-card[data-id="jiang"]').dispatchEvent(new window.Event('click', { bubbles: true }));
+  await sleep(30);
+  check('卡片进入板块', visible('revBody') && !visible('revHome'));
   check('左侧列出 12 题', document.querySelectorAll('#revList .rev-item').length === 12);
   // 顶部 5 个板块标签
   check('板块标签 5 个', document.querySelectorAll('#revTabs .rev-tab').length === 5);
   check('默认标签为精讲与练习', document.querySelector('#revTabs .rev-tab.active').textContent.includes('精讲与练习'));
+  // 侧栏收起 / 展开
+  click($('#btnRevSide'));
+  check('侧栏可收起', document.getElementById('revBody').classList.contains('side-hidden'));
+  check('收起状态已持久化', window.localStorage.getItem('csp_sim:revside') === '1');
+  click($('#btnRevSide'));
+  check('侧栏可再次展开', !document.getElementById('revBody').classList.contains('side-hidden'));
+  // 回主页按钮
+  click($('#btnRevHome'));
+  check('可一键回到主页', visible('revHome'));
+  document.querySelector('#revHome .rh-card[data-id="jiang"]').dispatchEvent(new window.Event('click', { bubbles: true }));
+  await sleep(20);
   // 点第一题看精讲
   document.querySelector('#revList .rev-item').dispatchEvent(new window.Event('click', { bubbles: true }));
   await sleep(20);
@@ -211,13 +233,23 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   searchBox.value = '';
   searchBox.dispatchEvent(new window.Event('input', { bubbles: true }));
   await sleep(10);
-  document.querySelector('#revList .rev-item').dispatchEvent(new window.Event('click', { bubbles: true }));
+  // 点开「最短路」章节
+  const spItem = [...document.querySelectorAll('#revList .rev-item')].find(x => x.textContent.includes('最短路'));
+  spItem.dispatchEvent(new window.Event('click', { bubbles: true }));
   await sleep(10);
-  check('算法章节渲染多个子块', document.querySelectorAll('#revContent .rev-block').length >= 3);
-  // 抽查一张算法章节的模板代码是否原样保留（模板字符串未被吞掉换行/符号）
+  check('算法章节渲染多个子块', document.querySelectorAll('#revContent .rev-block').length >= 8);
+  check('深度讲解已合并（40 章）', (window.REVIEW_DEEP_COUNT || 0) >= 250);
+  check('深度讲解有表格块', document.querySelectorAll('#revContent .rev-table').length >= 2);
+  check('深度讲解有提示卡', document.querySelectorAll('#revContent .rev-note').length >= 2);
+  check('章节底部有上一章/下一章', !!document.querySelector('#revContent .rev-navbtn'));
+  check('章节有面包屑定位', !!document.querySelector('#revContent .rev-crumb'));
+  // 抽一张算法章节的模板代码是否原样保留（模板字符串未被吞掉换行/符号）
   const algoNode = (window.REVIEW_SECTIONS.algo.nodes || []).find(n => n.id === 'a19');
-  check('最短路模板代码完整', /if \(d > dist\[u\]\) continue;/.test(algoNode.blocks[1].code) &&
-    algoNode.blocks[1].code.split('\n').length > 10);
+  const dijk = (algoNode.blocks || []).find(b => b.code && b.code.includes('if (d > dist[u]) continue'));
+  check('最短路模板代码完整', !!dijk && dijk.code.split('\n').length > 10);
+  const totalDeep = (window.REVIEW_SECTIONS.algo.nodes || [])
+    .filter(n => window.REVIEW_ALGO_DEEP && window.REVIEW_ALGO_DEEP[n.id]).length;
+  check('40 章算法全部有深度讲解', totalDeep === 40);
 
   click($('#btnReviewExit'));
   check('复习端返回开始界面', visible('startScreen'));

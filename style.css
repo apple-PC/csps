@@ -456,3 +456,167 @@ input,select,textarea{ font:inherit; }
 }
 .rev-prac-btn:hover{ background:#1f6feb; color:#fff; }
 .rev-prac-hint{ margin-top:8px; color:#7a5a1f; background:#fff8ea; border:1px solid #f0e0bf; border-radius:8px; padding:8px 12px; font-size:13px; line-height:1.7; }
+
+/* ═══════════════ 复习中心 · 主页 ═══════════════ */
+.rev-home{ flex:1; overflow-y:auto; background:#f4f7fd; }
+.rev-home.hidden{ display:none; }
+.rh-wrap{ max-width:1080px; margin:0 auto; padding:40px 34px 70px; }
+
+.rh-hero{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+.rh-logo{
+  width:70px; height:70px; flex:none; border-radius:20px; background:#fff;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 8px 22px rgba(9,132,227,.18), 0 1px 0 #fff inset;
+}
+.rh-logo svg{ width:60px; height:60px; }
+.rh-brand{ flex:1; min-width:220px; }
+.rh-title{
+  margin:0; font-size:31px; letter-spacing:-.5px; font-weight:800; color:#182b63;
+  line-height:1.15;
+}
+.rh-title span{
+  background:linear-gradient(92deg,#0984e3,#38c8c0);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.rh-sub{ margin:7px 0 0; font-size:14px; color:#6b7d99; letter-spacing:.2px; }
+.rh-hero-badge{
+  font-size:12px; color:#0a7bbf; background:#e8f5ff; border:1px solid #c9e7ff;
+  padding:7px 14px; border-radius:20px; white-space:nowrap;
+}
+
+.rh-desc{
+  margin:26px 0 0; font-size:15px; line-height:1.95; color:#41546f;
+  background:#fff; border:1px solid #e4ecf8; border-left:4px solid #0984e3;
+  border-radius:4px 14px 14px 4px; padding:18px 22px;
+  box-shadow:0 2px 10px rgba(20,50,100,.04);
+}
+
+.rh-metrics{ display:flex; gap:14px; margin-top:20px; flex-wrap:wrap; }
+.rh-metric{
+  flex:1; min-width:130px; background:#fff; border:1px solid #e6eef8; border-radius:14px;
+  padding:15px 18px; display:flex; flex-direction:column; gap:3px;
+  box-shadow:0 2px 8px rgba(20,50,100,.04);
+}
+.rh-metric b{ font-size:26px; font-weight:800; letter-spacing:-.5px; line-height:1.1; }
+.rh-metric span{ font-size:12.5px; color:#8194ad; letter-spacing:.4px; }
+
+.rh-sec-head{
+  display:flex; align-items:baseline; gap:14px; margin:38px 0 16px;
+  padding-bottom:12px; border-bottom:2px solid #e2ebf7;
+}
+.rh-sec-head h2{ margin:0; font-size:20px; color:#182b63; font-weight:800; }
+.rh-sec-sub{ font-size:12.5px; color:#8b9cb5; }
+
+.rh-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:16px; }
+.rh-card{
+  position:relative; text-align:left; cursor:pointer; font:inherit;
+  background:#fff; border:1px solid #e5edf8; border-radius:16px; padding:20px 22px 16px;
+  display:flex; flex-direction:column; gap:9px; overflow:hidden;
+  transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+  box-shadow:0 2px 10px rgba(20,50,100,.045);
+}
+.rh-card::before{
+  content:''; position:absolute; left:0; top:0; bottom:0; width:4px;
+  background:var(--accent,#0984e3); opacity:.85;
+}
+.rh-card:hover{ transform:translateY(-3px); box-shadow:0 12px 26px rgba(20,60,120,.13); border-color:var(--accent); }
+.rh-card-top{ display:flex; align-items:center; justify-content:space-between; }
+.rh-ico{ font-size:24px; line-height:1; }
+.rh-chip{
+  font-size:11.5px; font-weight:700; color:var(--accent); background:color-mix(in srgb, var(--accent) 10%, #fff);
+  border:1px solid color-mix(in srgb, var(--accent) 26%, #fff);
+  width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+}
+.rh-card-title{ font-size:17px; font-weight:700; color:#1b2f52; }
+.rh-card-desc{ font-size:13px; line-height:1.8; color:#6d7f99; flex:1; }
+.rh-card-foot{
+  display:flex; align-items:center; justify-content:space-between; margin-top:4px;
+  padding-top:12px; border-top:1px dashed #e8eff9;
+}
+.rh-count{ font-size:12.5px; color:#8b9cb5; }
+.rh-go{ font-size:13px; font-weight:700; color:var(--accent); }
+
+.rh-path{
+  margin-top:34px; background:#fff; border:1px solid #e5edf8; border-radius:16px; padding:20px 22px 22px;
+  box-shadow:0 2px 10px rgba(20,50,100,.04);
+}
+.rh-path-h{ font-size:15px; font-weight:700; color:#1b2f52; margin-bottom:14px; }
+.rh-path-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; }
+.rh-pathcard{
+  border:1px solid #e8eef8; border-top:3px solid var(--accent); border-radius:12px;
+  padding:14px 16px; background:#fbfdff;
+}
+.rh-pc-t{ font-size:13px; font-weight:700; color:#41546f; }
+.rh-pc-r{ font-size:13px; color:var(--accent); font-weight:700; margin:7px 0 6px; }
+.rh-pc-x{ font-size:12.5px; line-height:1.75; color:#7b8da6; }
+
+.rh-note{
+  margin-top:22px; font-size:13.5px; color:#41546f; background:#eef6ff;
+  border:1px dashed #bfdcf8; border-radius:12px; padding:13px 18px;
+}
+
+/* ═══════════════ 复习中心 · 顶栏按钮 ═══════════════ */
+.rev-homebtn, .rev-sidebtn{
+  width:30px; height:30px; flex:none; border-radius:8px; cursor:pointer;
+  border:1px solid #d8e1ee; background:#f7f9fc; color:#41597a;
+  font-size:15px; line-height:1; display:flex; align-items:center; justify-content:center;
+  transition:.15s; padding:0;
+}
+.rev-homebtn:hover, .rev-sidebtn:hover{ background:#eaf2ff; border-color:#b9cdf0; color:#1f6feb; }
+.rev-sidebtn.off{ background:#1f6feb; border-color:#1f6feb; color:#fff; }
+
+/* 侧栏收起 */
+.rev-body.side-hidden .rev-list{ display:none; }
+.rev-body.side-hidden .rev-content{ padding-left:44px; }
+
+/* ═══════════════ 复习中心 · 正文增强块 ═══════════════ */
+.rev-crumb{
+  font-size:12px; color:#8b9cb5; letter-spacing:.6px; margin-bottom:8px;
+  text-transform:uppercase; font-weight:600;
+}
+.rev-block .rev-p + .rev-p{ margin-top:10px; }
+.rev-block .rev-p + .rev-ul, .rev-block .rev-p + .rev-ol,
+.rev-block .rev-ul + .rev-p, .rev-block .rev-ol + .rev-p,
+.rev-block .rev-tablewrap + .rev-p, .rev-block .rev-note + .rev-p{ margin-top:12px; }
+.rev-note{ margin:12px 0; border-radius:10px; padding:12px 16px; border:1px solid; font-size:13.5px; line-height:1.8; }
+.rev-note-h{ font-weight:700; margin-bottom:4px; font-size:13px; letter-spacing:.3px; }
+.rev-note-b{ color:inherit; }
+.rev-note-tip{ background:#f2f9f6; border-color:#c9e8dc; color:#256452; }
+.rev-note-warn{ background:#fff8f0; border-color:#f4ddc0; color:#8a5a20; }
+.rev-note-pit{ background:#fff5f5; border-color:#f6d3d3; color:#9b3535; }
+.rev-note-key{ background:#f4f6ff; border-color:#d6ddf8; color:#3a4590; }
+.rev-note-why{ background:#f3f9ff; border-color:#cde4fa; color:#2c5b86; }
+
+.rev-tablewrap{ margin:12px 0; overflow-x:auto; border:1px solid #e4ecf8; border-radius:10px; }
+.rev-table{ border-collapse:collapse; width:100%; font-size:13px; background:#fff; }
+.rev-table th{
+  background:#f2f7fe; color:#2b4670; font-weight:700; text-align:left;
+  padding:9px 12px; border-bottom:1px solid #dde8f6; white-space:nowrap;
+}
+.rev-table td{ padding:9px 12px; border-bottom:1px solid #eef3fa; color:#41546f; line-height:1.7; }
+.rev-table tr:last-child td{ border-bottom:none; }
+.rev-table tbody tr:nth-child(even){ background:#fbfdff; }
+.rev-table code{ font-size:12.5px; }
+.rev-tcaption{ font-size:12px; color:#8b9cb5; margin:-6px 0 12px; text-align:center; }
+
+.rev-ol{ list-style:decimal; }
+.rev-ol li{ margin-bottom:6px; }
+.rev-ul li code, .rev-ol li code{
+  background:#f1f4fa; padding:1px 5px; border-radius:4px;
+  font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12.5px; color:#b5302a;
+}
+
+.rev-nav{ display:flex; gap:14px; margin-top:26px; }
+.rev-nav > div{ flex:1; }
+.rev-navbtn{
+  flex:1; text-align:left; cursor:pointer; font:inherit; background:#fff;
+  border:1px solid #e2ebf7; border-radius:12px; padding:12px 18px; transition:.15s;
+}
+.rev-navbtn:hover{ border-color:#1f6feb; box-shadow:0 4px 14px rgba(31,111,235,.12); }
+.rev-navbtn span{ display:block; font-size:12px; color:#8b9cb5; margin-bottom:3px; }
+.rev-navbtn b{ font-size:14px; color:#1b2f52; }
+.rev-navbtn.next{ text-align:right; }
+.rev-navbtn.next span{ text-align:right; }
+
+/* 侧栏收起后正文过宽不利于阅读，限制单行长度 */
+.rev-content > *{ max-width:1100px; }
