@@ -89,6 +89,55 @@ const Admin = (() => {
     $('#setStartMode').addEventListener('change', () => {
       $('#rowScheduled').classList.toggle('hidden', $('#setStartMode').value !== 'scheduled');
     });
+
+    // 仓库发布 / 拉取
+    const token = Store.getGhToken ? Store.getGhToken() : (localStorage.getItem('csp_sim:ghtoken') || '');
+    if (token) $('#setGhToken').value = token;
+    $('#btnPublish').onclick = publishToRepo;
+    $('#btnPull').onclick = pullFromRepo;
+  }
+
+  function setPublishStatus(msg, ok){
+    const el = $('#publishStatus');
+    if (el) el.textContent = msg;
+  }
+  function b64encodeUnicode(str){
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+  async function publishToRepo(){
+    const token = $('#setGhToken').value.trim() || (localStorage.getItem('csp_sim:ghtoken') || '');
+    if (!token){ setPublishStatus('请先填写 GitHub Token'); return; }
+    localStorage.setItem('csp_sim:ghtoken', token);
+    const data = { settings: Store.getSettings(), problems: Store.getProblems(), publishedAt: new Date().toISOString() };
+    const content = b64encodeUnicode(JSON.stringify(data, null, 2));
+    const R = Store.REMOTE;
+    const api = `https://api.github.com/repos/${R.repo}/contents/${R.path}`;
+    const headers = { Authorization: 'token ' + token, Accept: 'application/vnd.github+json' };
+    setPublishStatus('正在发布…');
+    try {
+      const metaRes = await fetch(api + '?ref=' + R.branch, { headers });
+      const meta = metaRes.ok ? await metaRes.json() : null;
+      const payload = { message: '更新考试数据（管理员发布）', content, branch: R.branch };
+      if (meta && meta.sha) payload.sha = meta.sha;
+      const res = await fetch(api, { method: 'PUT', headers: Object.assign({ 'Content-Type': 'application/json' }, headers), body: JSON.stringify(payload) });
+      const j = await res.json();
+      if (res.ok && j.content) setPublishStatus('✓ 已发布到仓库（' + (j.commit && j.commit.html_url ? '提交已创建' : '成功') + '）');
+      else setPublishStatus('✗ 发布失败：' + (j.message || res.status));
+    } catch (e) { setPublishStatus('✗ 出错：' + e.message); }
+  }
+  async function pullFromRepo(){
+    setPublishStatus('正在从仓库拉取…');
+    const data = await Store.fetchRemote();
+    if (!data || !data.settings){ setPublishStatus('✗ 仓库中暂无 exam/data.json'); return; }
+    await Store.applyRemoteIfEmpty(data) || (function(){
+      // 即使本机已有，也允许用户手动覆盖为仓库版本
+      localStorage.setItem(Store.K.settings, JSON.stringify(data.settings));
+      if (data.problems) localStorage.setItem(Store.K.problems, JSON.stringify(data.problems));
+      return true;
+    })();
+    setPublishStatus('✓ 已从仓库载入配置');
+    if (show._bound) bindSettings._refresh && bindSettings._refresh();
+    renderProblems();
   }
 
   /* ---------- 数据文件夹 ---------- */
