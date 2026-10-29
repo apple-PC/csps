@@ -142,8 +142,9 @@ const Student = (() => {
       }
     }
     // 进桌面前先加载隐藏测试点（仅首次进入才下载 problem-tests.js）
-    showLoading('正在加载评测数据，请稍候…');
+    showLoading('正在进入考试，准备评测数据…', { total: 3, current: 1, file: 'problem-tests.js' });
     try { await loadHiddenTests(); } catch (e) {}
+    showLoading('正在初始化考试桌面…', { total: 3, current: 3, file: 'desktop' });
     hideLoading();
     bootDesktop();
   }
@@ -152,6 +153,7 @@ const Student = (() => {
   function loadHiddenTests(){
     return new Promise(resolve => {
       if (_testsMerged || window.BUILTIN_HIDDEN_TESTS){ mergeHidden(); return resolve(); }
+      showLoading('正在下载评测数据…', { total: 3, current: 1, file: 'problem-tests.js' });
       const sc = document.createElement('script');
       sc.src = 'problem-tests.js';
       sc.onload = () => { mergeHidden(); resolve(); };
