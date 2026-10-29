@@ -12,6 +12,8 @@
 <div id="globalLoading" class="g-loading hidden">
   <div class="g-spin"></div>
   <div class="g-loading-text" id="globalLoadingText">加载中…</div>
+  <div class="g-loading-file" id="globalLoadingFile"></div>
+  <div class="g-bar"><div class="g-bar-fill" id="globalLoadingBar"></div></div>
 </div>
 
 <!-- ═══════════════ 开始界面 ═══════════════ -->
@@ -43,12 +45,10 @@
 <div id="reviewApp" class="screen hidden">
   <div class="rev-top">
     <button id="btnReviewExit" class="adm-exit">← 返回开始界面</button>
-    <div class="rev-title">复习端 · 精讲与练习</div>
-    <div class="rev-filters">
-      <button class="rev-filter active" data-f="all">全部题目</button>
-      <button class="rev-filter" data-f="list">我的复习清单</button>
-    </div>
+    <div class="rev-title" id="revTitle">复习端 · 精讲与练习</div>
+    <div class="rev-tools" id="revTools"></div>
   </div>
+  <div class="rev-tabs" id="revTabs"></div>
   <div class="rev-body">
     <aside id="revList" class="rev-list"></aside>
     <main id="revContent" class="rev-content"></main>
@@ -205,6 +205,7 @@
 <script src="store.js"></script>
 <script src="problems.js"></script>
 <script src="reviews.js"></script>
+<script src="review-data.js"></script>
 <script src="admin.js"></script>
 <script src="student.js"></script>
 <script src="review.js"></script>
