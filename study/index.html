@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="CSP-S 复赛复习中心：12 道真题精讲、51 章算法教学、方法与技巧、考前注意事项与 IDE 指南。">
+<meta name="theme-color" content="#0984e3">
+<title>CSPS 复习中心 · 从语法到算法</title>
+<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="study.css">
+</head>
+<body class="study-body" data-fs="m">
+
+<!-- ═══════════════ 全局加载动画 ═══════════════ -->
+<div id="globalLoading" class="g-loading hidden">
+  <div class="g-spin"></div>
+  <div class="g-loading-text" id="globalLoadingText">加载中…</div>
+  <div class="g-loading-file" id="globalLoadingFile"></div>
+  <div class="g-bar"><div class="g-bar-fill" id="globalLoadingBar"></div></div>
+  <div class="g-pct" id="globalLoadingPct"></div>
+</div>
+
+<div id="reviewApp" class="screen">
+  <!-- ─────────── 顶栏 ─────────── -->
+  <header class="st-head">
+    <button id="btnRevSide" class="st-ico" title="收起 / 展开目录（[）"><span id="revSideIcon">‹</span></button>
+    <button id="btnRevHome" class="st-brand" title="回到课程首页（Esc）">
+      <span class="st-logo">
+        <svg viewBox="0 0 64 64" width="30" height="30" aria-hidden="true">
+          <defs><linearGradient id="stg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#0984e3"/><stop offset="100%" stop-color="#6fe7dd"/>
+          </linearGradient></defs>
+          <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#stg)"/>
+          <path d="M18 20h11a5 5 0 0 1 3 1.2A5 5 0 0 1 35 20h11v26H35a4 4 0 0 0-3 1.4 4 4 0 0 0-3-1.4H18z"
+                fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/>
+          <path d="M32 21.6v25.8" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="st-brand-t">CSPS <b>复习中心</b></span>
+    </button>
+    <div class="st-crumb" id="revTitle">课程首页</div>
+
+    <div class="st-actions">
+      <div class="st-search">
+        <svg class="st-search-ico" viewBox="0 0 20 20" width="15" height="15" aria-hidden="true">
+          <circle cx="8.5" cy="8.5" r="5.6" fill="none" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M12.8 12.8 17 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <input id="stSearch" type="text" placeholder="搜索章节" autocomplete="off" spellcheck="false">
+        <kbd class="st-kbd">/</kbd>
+        <div id="stSearchPop" class="st-pop hidden"></div>
+      </div>
+      <button id="stProgBtn" class="st-prog" title="学习进度：点击查看完成情况">
+        <svg viewBox="0 0 36 36" width="22" height="22" aria-hidden="true">
+          <circle cx="18" cy="18" r="15" fill="none" stroke="#dce8f7" stroke-width="4"/>
+          <circle id="stProgRing" cx="18" cy="18" r="15" fill="none" stroke="#0984e3" stroke-width="4"
+                  stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="94.2"
+                  transform="rotate(-90 18 18)"/>
+        </svg>
+        <span id="stProgTxt">0%</span>
+      </button>
+      <div class="st-fs" title="正文字号">
+        <button id="btnFsDown" class="st-ico" title="字号减小">A−</button>
+        <button id="btnFsUp" class="st-ico" title="字号增大">A+</button>
+      </div>
+      <a class="st-exit" href="../index.html" title="返回考试模拟器">返回模拟器</a>
+    </div>
+  </header>
+  <div class="st-readline"><i id="stReadBar"></i></div>
+
+  <!-- ─────────── 板块标签 ─────────── -->
+  <div class="rev-bar">
+    <div class="rev-tabs" id="revTabs"></div>
+    <div class="rev-tools" id="revTools"></div>
+  </div>
+
+  <!-- ─────────── 主体 ─────────── -->
+  <div class="rev-body" id="revBody">
+    <aside id="revList" class="rev-list"></aside>
+    <main id="revContent" class="rev-content"></main>
+    <aside id="revToc" class="rev-toc"></aside>
+  </div>
+
+  <div id="revHome" class="rev-home hidden"></div>
+</div>
+
+<div class="st-drawer-mask hidden" id="stMask"></div>
+
+<script src="../util.js"></script>
+<script src="../store.js"></script>
+<script src="../problems.js"></script>
+<script src="../reviews.js"></script>
+<script src="../review.js"></script>
+</body>
+</html>

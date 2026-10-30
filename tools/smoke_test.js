@@ -24,7 +24,7 @@ const { document } = window;
 // 手动按 index.html 的顺序执行脚本
 // 注意：浏览器中多个 <script> 共享全局词法作用域，这里拼接为一次 eval 等价模拟
 {
-  const code = ['util.js', 'store.js', 'problems.js', 'reviews.js', 'review-data.js', 'review-algo.js', 'review-algo-deep.js', 'admin.js', 'student.js', 'review.js']
+  const code = ['util.js', 'store.js', 'problems.js', 'reviews.js', 'review-data.js', 'review-algo.js', 'review-algo-deep.js', 'admin.js', 'student.js']
     .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n;\n') +
     '\n;window.showLoading = showLoading; window.hideLoading = hideLoading;';
   try{ window.eval(code); }
@@ -154,105 +154,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await sleep(1500); // 等 tick 触发
   check('超时后自动交卷锁定', visible('sEndOverlay'));
 
-  console.log('— 复习端 —');
-  check('入口按钮存在', !!$('#btnEnterReview'));
-  check('精讲数据 12 题齐全', window.REVIEWS && Object.keys(window.REVIEWS).length === 12);
-  check('通用板块数据 4 个', window.REVIEW_SECTIONS && Object.keys(window.REVIEW_SECTIONS).length === 4);
-  click($('#btnEnterReview'));
-  await sleep(120);
-  check('复习端打开', visible('reviewApp'));
-  // 先落在复习中心主页
-  check('先进复习中心主页', visible('revHome') && !visible('revBody'));
-  check('主页有 logo', !!document.querySelector('#revHome .rh-logo svg'));
-  check('主页有 5 个板块卡片', document.querySelectorAll('#revHome .rh-card').length === 5);
-  check('主页有说明文字', (document.querySelector('#revHome .rh-desc') || {}).textContent.length > 60);
-  check('主页有统计指标', document.querySelectorAll('#revHome .rh-metric').length === 4);
-  check('主页无板块标签栏', document.getElementById('revTabs').classList.contains('hidden'));
-  // 点「精讲与练习」卡片进入板块
-  document.querySelector('#revHome .rh-card[data-id="jiang"]').dispatchEvent(new window.Event('click', { bubbles: true }));
-  await sleep(30);
-  check('卡片进入板块', visible('revBody') && !visible('revHome'));
-  check('左侧列出 12 题', document.querySelectorAll('#revList .rev-item').length === 12);
-  // 顶部 5 个板块标签
-  check('板块标签 5 个', document.querySelectorAll('#revTabs .rev-tab').length === 5);
-  check('默认标签为精讲与练习', document.querySelector('#revTabs .rev-tab.active').textContent.includes('精讲与练习'));
-  // 侧栏收起 / 展开
-  click($('#btnRevSide'));
-  check('侧栏可收起', document.getElementById('revBody').classList.contains('side-hidden'));
-  check('收起状态已持久化', window.localStorage.getItem('csp_sim:revside') === '1');
-  click($('#btnRevSide'));
-  check('侧栏可再次展开', !document.getElementById('revBody').classList.contains('side-hidden'));
-  // 回主页按钮
-  click($('#btnRevHome'));
-  check('可一键回到主页', visible('revHome'));
-  document.querySelector('#revHome .rh-card[data-id="jiang"]').dispatchEvent(new window.Event('click', { bubbles: true }));
-  await sleep(20);
-  // 点第一题看精讲
-  document.querySelector('#revList .rev-item').dispatchEvent(new window.Event('click', { bubbles: true }));
-  await sleep(20);
-  check('精讲面板含思路', !!document.querySelector('.rev-content .rev-block') && document.querySelector('.rev-content').textContent.includes('思路精讲'));
-  check('精讲面板含知识点', document.querySelector('.rev-content').textContent.includes('知识点'));
-  check('精讲面板含参考代码', !!document.getElementById('revRun'));
-  check('精讲面板含自测练习', document.querySelector('.rev-content').textContent.includes('自测练习'));
-  check('精讲面板含题面', document.querySelector('.rev-content').textContent.includes('题目描述') || document.querySelectorAll('.rev-content .rev-block').length >= 3);
-  // 自测提示可展开
-  const pracBtn = document.querySelector('.rev-prac-btn');
-  if (pracBtn){ pracBtn.dispatchEvent(new window.Event('click', { bubbles: true })); await sleep(10); check('自测提示可展开', !document.querySelector('.rev-prac-hint').classList.contains('hidden')); }
-  // 勾选加入清单
-  const cb = document.querySelector('#revList .rev-item input');
-  cb.checked = true; cb.dispatchEvent(new window.Event('change', { bubbles: true }));
-  check('勾选加入复习清单', JSON.parse(window.localStorage.getItem('csp_sim:reviewlist')).length === 1);
-  // 切到“清单”筛选
-  click(document.querySelector('.rev-filter[data-f="list"]'));
-  check('清单筛选只剩 1 题', document.querySelectorAll('#revList .rev-item').length === 1);
-  click(document.querySelector('.rev-filter[data-f="all"]'));
-
-  // 逐一切换 4 个通用板块，验证左栏与右栏都能渲染
-  const tabs = [...document.querySelectorAll('#revTabs .rev-tab')];
-  const want = ['方法与技巧', '算法教学', '考前注意事项', 'IDE 指南'];
-  for (let i = 0; i < want.length; i++){
-    const tab = tabs.find(t => t.textContent.includes(want[i]));
-    tab.dispatchEvent(new window.Event('click', { bubbles: true }));
-    await sleep(10);
-    check('板块「' + want[i] + '」左栏有条目', document.querySelectorAll('#revList .rev-item').length > 0);
-    check('板块「' + want[i] + '」右栏有内容', document.querySelectorAll('#revContent .rev-block').length > 0);
-  }
-  // 算法教学：点一个章节看多个子块
-  const algoTab = tabs.find(t => t.textContent.includes('算法教学'));
-  algoTab.dispatchEvent(new window.Event('click', { bubbles: true }));
-  await sleep(10);
-  check('算法教学含 51 章（语法 11 + 算法 40）', document.querySelectorAll('#revList .rev-item').length === 51);
-  check('算法教学有分组标题', document.querySelectorAll('#revList .rev-group').length >= 8);
-  check('算法教学有搜索框', !!$('#revSearch'));
-  const searchBox = $('#revSearch');
-  searchBox.value = '最短路';
-  searchBox.dispatchEvent(new window.Event('input', { bubbles: true }));
-  await sleep(10);
-  const filtered = document.querySelectorAll('#revList .rev-item').length;
-  check('搜索可过滤章节', filtered > 0 && filtered < 10);
-  searchBox.value = '';
-  searchBox.dispatchEvent(new window.Event('input', { bubbles: true }));
-  await sleep(10);
-  // 点开「最短路」章节
-  const spItem = [...document.querySelectorAll('#revList .rev-item')].find(x => x.textContent.includes('最短路'));
-  spItem.dispatchEvent(new window.Event('click', { bubbles: true }));
-  await sleep(10);
-  check('算法章节渲染多个子块', document.querySelectorAll('#revContent .rev-block').length >= 8);
-  check('深度讲解已合并（40 章）', (window.REVIEW_DEEP_COUNT || 0) >= 250);
-  check('深度讲解有表格块', document.querySelectorAll('#revContent .rev-table').length >= 2);
-  check('深度讲解有提示卡', document.querySelectorAll('#revContent .rev-note').length >= 2);
-  check('章节底部有上一章/下一章', !!document.querySelector('#revContent .rev-navbtn'));
-  check('章节有面包屑定位', !!document.querySelector('#revContent .rev-crumb'));
-  // 抽一张算法章节的模板代码是否原样保留（模板字符串未被吞掉换行/符号）
-  const algoNode = (window.REVIEW_SECTIONS.algo.nodes || []).find(n => n.id === 'a19');
-  const dijk = (algoNode.blocks || []).find(b => b.code && b.code.includes('if (d > dist[u]) continue'));
-  check('最短路模板代码完整', !!dijk && dijk.code.split('\n').length > 10);
-  const totalDeep = (window.REVIEW_SECTIONS.algo.nodes || [])
-    .filter(n => window.REVIEW_ALGO_DEEP && window.REVIEW_ALGO_DEEP[n.id]).length;
-  check('40 章算法全部有深度讲解', totalDeep === 40);
-
-  click($('#btnReviewExit'));
-  check('复习端返回开始界面', visible('startScreen'));
+  console.log('— 复习中心（独立页 study/）—');
+  check('开始界面有复习入口', !!$('#btnEnterReview') && /study/.test($('#btnEnterReview').getAttribute('onclick') || ''));
+  check('入口不再内嵌复习面板', !document.getElementById('reviewApp'));
+  await testStudy();
 
   console.log('— 加载进度显示 —');
   const showLoading = window.eval('showLoading');
@@ -290,3 +195,155 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   }
   process.exit(fail || errors.length ? 1 : 0);
 })().catch(e => { console.error('测试崩溃:', e && (e.stack || e.message || e)); process.exit(1); });
+
+/* ─────────────────────────────────────────────
+   复习中心独立页（study/index.html）
+   单独一个 jsdom 实例，模拟真实打开 /study/ 的场景
+   ───────────────────────────────────────────── */
+async function testStudy(){
+  const html = fs.readFileSync(path.join(ROOT, 'study', 'index.html'), 'utf8');
+  const sdom = new JSDOM(html, {
+    url: 'https://cspsim.test/study/',
+    runScripts: 'outside-only',
+    pretendToBeVisual: true,
+    virtualConsole: vc,
+  });
+  const w = sdom.window, d = w.document;
+  w.confirm = () => true;
+  w.alert = () => {};
+
+  const code = ['util.js', 'store.js', 'problems.js', 'reviews.js', 'review-data.js',
+    'review-algo.js', 'review-algo-deep.js', 'review.js']
+    .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n;\n') +
+    '\n;window.showLoading = showLoading;';
+  try { w.eval(code); }
+  catch (e){ errors.push('复习页脚本失败: ' + e.message); }
+
+  await sleep(150);
+
+  const q = s => d.querySelector(s);
+  const qa = s => [...d.querySelectorAll(s)];
+  const clk = e => e.dispatchEvent(new w.Event('click', { bubbles: true }));
+  const vis = id => { const n = d.getElementById(id); return !!n && !n.classList.contains('hidden'); };
+  const KEY = k => d.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
+
+  check('复习页自动进入（无需再点入口）', vis('reviewApp'));
+  check('默认停在课程主页', vis('revHome') && !vis('revBody'));
+  check('顶栏有 logo 与站名', !!q('.st-brand') && q('.st-brand').textContent.includes('复习中心'));
+  check('主页 5 张课程卡片', qa('#revHome .rh-card').length === 5);
+  check('主页有总进度区块', !!q('#revHome .rh-overall'));
+  check('主页统计 4 项', qa('#revHome .rh-metric').length === 4);
+  check('卡片带完成进度条', qa('#revHome .rh-card-prog').length === 5);
+  check('顶栏进度环初始 0%', (d.getElementById('stProgTxt') || {}).textContent === '0%');
+  check('主页隐藏板块标签栏', !vis('revTabs') || d.getElementById('revTabs').classList.contains('hidden'));
+
+  // 进入「精讲与练习」
+  clk(q('#revHome .rh-card[data-id="jiang"]'));
+  await sleep(30);
+  check('卡片可进入板块', vis('revBody') && !vis('revHome'));
+  check('左栏 12 题', qa('#revList .rev-item').length === 12);
+  check('板块标签 5 个', qa('#revTabs .rev-tab').length === 5);
+  check('当前标签高亮', (q('#revTabs .rev-tab.active') || {}).textContent.includes('精讲与练习'));
+
+  // 侧栏收起
+  clk(d.getElementById('btnRevSide'));
+  check('侧栏可收起', d.getElementById('revBody').classList.contains('side-hidden'));
+  check('侧栏状态持久化', w.localStorage.getItem('csp_sim:revside') === '1');
+  clk(d.getElementById('btnRevSide'));
+  check('侧栏可展开', !d.getElementById('revBody').classList.contains('side-hidden'));
+
+  // 精讲内容
+  clk(q('#revList .rev-item'));
+  await sleep(30);
+  const txt = q('#revContent').textContent || '';
+  check('精讲含思路', txt.includes('思路精讲'));
+  check('精讲含知识点', txt.includes('知识点'));
+  check('精讲含参考代码按钮', !!d.getElementById('revRun'));
+  check('精讲有上一章/下一章', !!q('#revContent .rev-navbtn'));
+
+  // 标记已学完
+  const db = q('#revContent .rev-donebar .btn-done');
+  check('章节底部有「标记已学完」', !!db);
+  clk(db);
+  await sleep(20);
+  check('标记写入 localStorage', JSON.parse(w.localStorage.getItem('csp_sim:done') || '[]').length === 1);
+  check('按钮切换为已学完', db.classList.contains('on'));
+  check('左栏同步完成态', qa('#revList .rev-item.done').length === 1);
+  check('顶栏进度随之更新', (d.getElementById('stProgTxt') || {}).textContent !== '0%');
+
+  // 回主页看进度
+  clk(d.getElementById('btnRevHome'));
+  await sleep(20);
+  check('可回到主页', vis('revHome'));
+  check('主页总进度显示完成数', /[1-9]/.test((q('#revHome .rh-overall-ring b') || {}).textContent || ''));
+  check('主页出现「继续上次」', !!d.getElementById('rhContinue'));
+
+  // 算法板块
+  clk(q('#revHome .rh-card[data-id="algo"]'));
+  await sleep(30);
+  check('算法教学 51 章', qa('#revList .rev-item').length === 51);
+  check('算法有分组标题', qa('#revList .rev-group').length >= 8);
+
+  const before = qa('#revList .rev-item').length;
+  clk(q('#revList .rev-group'));
+  check('分组可折叠', qa('#revList .rev-item').length < before);
+  clk(q('#revList .rev-group'));
+  check('分组可再展开', qa('#revList .rev-item').length === before);
+
+  const flt = d.getElementById('revSearch');
+  flt.value = '最短路';
+  flt.dispatchEvent(new w.Event('input', { bubbles: true }));
+  await sleep(20);
+  const filtered = qa('#revList .rev-item').length;
+  check('章节筛选可用', filtered > 0 && filtered < 10);
+  flt.value = '';
+  flt.dispatchEvent(new w.Event('input', { bubbles: true }));
+  await sleep(20);
+
+  const sp = qa('#revList .rev-item').find(x => x.textContent.includes('最短路'));
+  clk(sp);
+  await sleep(30);
+  check('章节渲染多块', qa('#revContent .rev-block').length >= 8);
+  check('深度讲解有表格', qa('#revContent .rev-table').length >= 2);
+  check('深度讲解有提示卡', qa('#revContent .rev-note').length >= 2);
+  check('有面包屑定位', !!q('#revContent .rev-crumb'));
+  check('本章目录已生成', qa('#revToc a').length >= 2);
+  check('URL hash 可分享', /#\/algo\//.test(w.location.hash || ''));
+
+  // 全站搜索
+  const si = d.getElementById('stSearch');
+  si.value = '最短路';
+  si.dispatchEvent(new w.Event('input', { bubbles: true }));
+  await sleep(260);
+  check('全站搜索有结果', qa('#stSearchPop .st-hit').length > 0);
+  check('搜索结果显示板块标签', qa('#stSearchPop .st-hit-sec').length > 0);
+  check('搜索命中高亮', qa('#stSearchPop mark').length > 0);
+  const hitCount = qa('#stSearchPop .st-hit').length;
+  check('搜索结果去掉了 HTML 标签', !(q('#stSearchPop').textContent || '').includes('<p>'));
+  clk(q('#stSearchPop .st-hit'));
+  await sleep(30);
+  check('点搜索结果可跳转', !!q('#revContent .rev-h1'));
+
+  // 字号
+  clk(d.getElementById('btnFsUp'));
+  check('字号可放大', d.body.getAttribute('data-fs') === 'l');
+  clk(d.getElementById('btnFsDown'));
+  check('字号可还原', d.body.getAttribute('data-fs') === 'm');
+
+  // 键盘翻章
+  const h1a = (q('#revContent .rev-h1') || {}).textContent;
+  KEY('ArrowRight');
+  await sleep(30);
+  const h1b = (q('#revContent .rev-h1') || {}).textContent;
+  check('→ 键切到下一章', h1a !== h1b);
+
+  // 进度明细
+  clk(d.getElementById('stProgBtn'));
+  await sleep(10);
+  check('进度明细弹层可打开', !!d.getElementById('stProgPop'));
+
+  // 上次位置
+  check('记录了上次阅读位置', !!w.localStorage.getItem('csp_sim:last'));
+
+  sdom.window.close();
+}

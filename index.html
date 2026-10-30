@@ -33,32 +33,13 @@
         <span class="boot-ico">🛠️</span>
         <span class="boot-txt"><b>管理员端</b><i>考试设置 · 题库 · 考试控制</i></span>
       </button>
-      <button class="boot-btn" id="btnEnterReview">
+      <button class="boot-btn" id="btnEnterReview" onclick="location.href = location.protocol === 'file:' ? 'study/index.html' : 'study/'">
         <span class="boot-ico">📚</span>
-        <span class="boot-txt"><b>复习端</b><i>选题意精讲 · 可运行代码</i></span>
+        <span class="boot-txt"><b>复习中心</b><i>真题精讲 · 51 章算法课</i></span>
       </button>
     </div>
     <p class="boot-foot">所有管理员设置实时保存在考试数据文件夹中</p>
   </div>
-</div>
-
-<!-- ═══════════════ 复习端 ═══════════════ -->
-<div id="reviewApp" class="screen hidden">
-  <div class="rev-top">
-    <button id="btnReviewExit" class="adm-exit">← 返回开始界面</button>
-    <button id="btnRevHome" class="rev-homebtn" title="回到复习中心首页">⌂</button>
-    <button id="btnRevSide" class="rev-sidebtn" title="收起 / 展开目录（Tab）">
-      <span id="revSideIcon">‹</span>
-    </button>
-    <div class="rev-title" id="revTitle">复习中心</div>
-    <div class="rev-tools" id="revTools"></div>
-  </div>
-  <div class="rev-tabs" id="revTabs"></div>
-  <div class="rev-body" id="revBody">
-    <aside id="revList" class="rev-list"></aside>
-    <main id="revContent" class="rev-content"></main>
-  </div>
-  <div id="revHome" class="rev-home"></div>
 </div>
 
 <!-- ═══════════════ 管理员端 ═══════════════ -->
@@ -213,6 +194,5 @@
 <script src="reviews.js"></script>
 <script src="admin.js"></script>
 <script src="student.js"></script>
-<script src="review.js"></script>
 </body>
 </html>
