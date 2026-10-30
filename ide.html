@@ -5404,7 +5404,7 @@ function runOneCase(program, useVM, cg, tc, maxSteps, timeLimitMs){
     errMsg = e.message;
   }
   const timeMs = performance.now() - t0;
-  if (verdict === 'AC' && normOut(output) !== normOut(tc.expected)) verdict = 'WA';
+  if (verdict === 'AC' && tc.expected != null && normOut(output) !== normOut(tc.expected)) verdict = 'WA';
   return { verdict, timeMs, expected: tc.expected, actual: output, errMsg };
 }
 
@@ -5511,8 +5511,11 @@ setTimeout(() => {
      {type:'ide:setJudge', cases, tl, steps}         注入本题测试点
      {type:'ide:getCode'}                            请求当前代码
      {type:'ide:runJudge'}                           触发评测
+     {type:'ide:req', id, op, code, ...}              外部编译/运行/评测（终端与 Arbiter 用）
+       op = 'compile' | 'run'(input,tl) | 'judge'(cases,tl)
    消息（IDE → 父）:
      {type:'ide:ready'} / {type:'ide:code', code}
+     {type:'ide:res', id, ok, data|error}              ide:req 的应答
    ============================================================ */
 (function(){
   function setCode(code){
@@ -5555,9 +5558,49 @@ setTimeout(() => {
       if (typeof renderJudgeCases === 'function') renderJudgeCases();
     }catch(e){}
   }
+  /* ---- 供父页面在终端 / Arbiter 中调用：真编译、真运行、真评测 ---- */
+  async function handleReq(d){
+    var res = { type:'ide:res', id:d.id, ok:false, phase:'CE', error:'' };
+    try{
+      var src = typeof d.code === 'string' ? d.code : codeEl.value;
+      if (!src.trim()) throw new Error('源文件为空');
+      var clean = prepareCspSource(src);
+      var tokens = stripStd(tokenize(clean));
+      var program = new Parser(tokens).parseProgram();
+      var cg = null, useVM = false;
+      try { cg = new VMCodeGen(program); cg.compile(); useVM = true; } catch(e){ useVM = false; }
+      var stepsEl = document.getElementById('judgeSteps');
+      var maxSteps = Math.max(10000, (stepsEl && +stepsEl.value) || 50000000);
+      var tl = +d.tl || 2000;
+      if (d.op === 'compile'){
+        res.ok = true; res.phase = 'ok';
+        res.data = { mode: useVM ? 'VM' : 'interp' };
+      } else if (d.op === 'run'){
+        var r = runOneCase(program, useVM, cg, { input: d.input || '', expected: null }, maxSteps, tl);
+        res.ok = true; res.phase = 'ok';
+        res.data = { stdout: r.actual, verdict: r.verdict, ms: r.timeMs, err: r.errMsg, mode: useVM ? 'VM' : 'interp' };
+      } else if (d.op === 'judge'){
+        var cases = d.cases || [], out = [];
+        for (var i = 0; i < cases.length; i++){
+          out.push(runOneCase(program, useVM, cg, cases[i], maxSteps, tl));
+          if (i % 4 === 3) await new Promise(function(r){ setTimeout(r, 0); });
+        }
+        res.ok = true; res.phase = 'ok';
+        res.data = { mode: useVM ? 'VM' : 'interp', cases: out.map(function(x){
+          return { verdict:x.verdict, ms:x.timeMs, actual:x.actual, expected:x.expected, err:x.errMsg };
+        }) };
+      } else throw new Error('未知操作: ' + d.op);
+    }catch(e){
+      res.ok = false;
+      res.error = (e && e.message) || String(e);
+    }
+    try{ parent.postMessage(res, '*'); }catch(e){}
+  }
+
   window.addEventListener('message', function(ev){
     var d = ev.data;
     if (!d || typeof d.type !== 'string') return;
+    if (d.type === 'ide:req'){ handleReq(d); return; }
     if (d.type === 'ide:config') applyConfig(d);
     else if (d.type === 'ide:setCode') setCode(d.code || '');
     else if (d.type === 'ide:setJudge') setJudge(d.cases, d.tl, d.steps);

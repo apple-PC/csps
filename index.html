@@ -156,19 +156,36 @@
   </div>
 </div>
 
-<!-- ═══════════════ 学生考试桌面 ═══════════════ -->
+<!-- ═══════════════ 学生考试桌面（NOI Linux 2.0 / GNOME Flashback） ═══════════════ -->
 <div id="studentApp" class="screen hidden">
   <div id="sWatermark" class="s-watermark hidden"></div>
-  <div id="sDesktop" class="s-desktop"></div>
 
-  <div id="sTaskbar" class="s-taskbar">
-    <div class="s-task-title" id="sExamTag">NOI Linux — CSP-S 模拟考</div>
-    <div class="s-task-wins" id="sTaskWins"></div>
-    <div class="s-task-clock">
-      <span id="sRemain" class="s-remain">--:--:--</span>
-      <span id="sClock" class="s-clock">--:--</span>
+  <!-- 顶部面板：应用程序 · 位置 · 系统状态区 -->
+  <div id="sTop" class="gp-top">
+    <button class="gp-menu" id="sAppBtn"><span class="gp-mark"></span>应用程序</button>
+    <button class="gp-menu" id="sPlacesBtn">位置</button>
+    <div class="gp-title" id="sExamTag">NOI Linux 2.0</div>
+    <div class="gp-topright">
+      <span class="gp-tray-ico" id="sNetIco" title="有线网络：已连接（无互联网访问）"></span>
+      <span class="gp-tray-ico" id="sVolIco" title="音量 60%"></span>
+      <span class="s-remain" id="sRemain">--:--:--</span>
+      <span class="s-clock" id="sClock">--:--</span>
+      <button class="gp-sys" id="sSysBtn" title="系统菜单">⏻</button>
     </div>
   </div>
+
+  <div id="sDesktop" class="s-desktop"></div>
+
+  <!-- 底部面板：窗口列表 -->
+  <div id="sBottom" class="gp-bottom">
+    <button class="gp-showdesk" id="sShowDesk" title="显示桌面 (Ctrl+D)">▤</button>
+    <div class="gp-tasks" id="sTaskWins"></div>
+    <div class="gp-ws" title="工作区"><span class="ws on"></span><span class="ws"></span></div>
+  </div>
+
+  <!-- 弹出菜单 / 右键菜单 -->
+  <div id="sPop" class="gp-pop hidden"></div>
+  <div id="sCtx" class="gp-ctx hidden"></div>
 
   <div id="sWaitOverlay" class="s-overlay hidden">
     <div class="s-overlay-card">
@@ -193,6 +210,7 @@
 <script src="problems.js"></script>
 <script src="reviews.js"></script>
 <script src="admin.js"></script>
+<script src="desktop.js"></script>
 <script src="student.js"></script>
 </body>
 </html>
