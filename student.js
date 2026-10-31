@@ -668,7 +668,13 @@ const Student = (() => {
       out.scrollTop = out.scrollHeight;
     }
     function sync(){
-      promptEl.textContent = 'student@noi:' + fs.pretty(fs.cwd) + '$ ';
+      // Ubuntu 默认 PS1：user@host 绿色加粗，路径蓝色，$ 白色
+      promptEl.innerHTML = '';
+      const u = document.createElement('span'); u.textContent = 'student@noi';
+      const c1 = document.createTextNode(':');
+      const pth = document.createElement('span'); pth.className = 'p-path'; pth.textContent = fs.pretty(fs.cwd);
+      const sym = document.createElement('span'); sym.className = 'p-sym'; sym.textContent = '$ ';
+      promptEl.appendChild(u); promptEl.appendChild(c1); promptEl.appendChild(pth); promptEl.appendChild(sym);
       const t = 'student@noi: ' + fs.pretty(fs.cwd);
       win.title = t;
       const tt = win.head.querySelector('.win-title');

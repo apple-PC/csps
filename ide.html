@@ -198,7 +198,7 @@ body.resizing.row{cursor:row-resize;}
     <section class="pane pane-artifact" id="paneArtifact">
       <div class="pane-head tabs">
         <button class="tab active" data-view="info">编译信息</button>
-        <button class="tab" data-view="asm">虚拟汇编 (VM-32)</button>
+        <button class="tab" data-view="asm">结构视图</button>
         <button class="tab" data-view="trace">执行统计</button>
         <button class="tab" data-view="judge">CSP-S 评测</button>
       </div>
@@ -208,12 +208,13 @@ body.resizing.row{cursor:row-resize;}
   </div>
 
   <footer class="statusbar">
-    <span id="modeInfo">VM 模式：编译到虚拟汇编后由 VM 逐条执行（不支持则回退解释器）</span>
+    <span id="modeInfo">解释执行：直接运行语法树（g++ 语义子集，不生成机器码）</span>
     <span class="spacer"></span>
     <span id="stats"></span>
   </footer>
 </div>
 
+<script src="cpp-engine.js"></script>
 <script>
 /* ============================================================
    tokenizer.js
@@ -4857,18 +4858,15 @@ async function runProgram(){
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   const tCompileStart = performance.now();
-  let program;
-  try {
-    const clean = prepareCspSource(codeEl.value);
-    let tokens = tokenize(clean);
-    tokens = stripStd(tokens);
-    const parser = new Parser(tokens);
-    program = parser.parseProgram();
-  } catch (e){
-    const tEnd = performance.now();
-    outEl.innerHTML = `<span style="color:var(--red)">编译错误：${esc(e.message)}</span>`;
+  let program = null, ce = null;
+  try { program = CppEngine.compile(codeEl.value); }
+  catch (e){ ce = e; }
+  const compileTime = performance.now() - tCompileStart;
+
+  if (ce){
+    outEl.innerHTML = `<span style="color:var(--red)">编译错误：${esc(ce.message)}</span>`;
     setStatus('编译失败', 'err');
-    lastInfo = `编译错误：${e.message}\n\n耗时：${(tEnd - tCompileStart).toFixed(2)} ms`;
+    lastInfo = '编译错误：' + ce.message + '\n\n耗时：' + compileTime.toFixed(2) + ' ms';
     lastAsm = '';
     lastTrace = '';
     modeInfo.textContent = '—';
@@ -4879,137 +4877,55 @@ async function runProgram(){
     return;
   }
 
-  const capIssues = scanCapabilities(codeEl.value);
-  renderCapabilityBar(capIssues);
+  renderCapabilityBar(scanCapabilities(codeEl.value));
 
-  let vmResult = null, vmError = null;
-  try {
-    const cg = new VMCodeGen(program);
-    cg.compile();
-    const asmText = cg.disassemble();
-    const tCompileEnd = performance.now();
-    const compileTime = tCompileEnd - tCompileStart;
+  const r = CppEngine.run(program, stdinEl.value, { timeLimitMs: RUN_TIME_LIMIT_MS });
+  modeInfo.textContent = 'NOI Linux 2.0 · g++ 9.3.0（-std=c++14 -O2）';
 
-    outEl.innerHTML = '';
-    const vm = new VM(cg.instructions, cg.strings, stdinEl.value, partial => {
-      outEl.textContent = partial;
-    });
-    vm.timeLimitMs = RUN_TIME_LIMIT_MS;
-    const tRunStart = performance.now();
-    vm.run();
-    const runTime = performance.now() - tRunStart;
-
-    vmResult = {
-      asm: asmText,
-      out: vm.out,
-      steps: vm.steps,
-      compileTime,
-      runTime,
-      instructionCount: cg.instructions.filter(c => c.kind === 'instr').length
-    };
-  } catch (e){
-    vmError = e;
-  }
-
-  if (vmResult){
-    modeInfo.textContent = 'VM 模式：编译到 VM-32 虚拟汇编后逐条执行';
-    lastAsm = vmResult.asm;
-
-    const infoLines = [];
-    infoLines.push('✔ VM 编译成功');
-    infoLines.push('===============================================');
-    infoLines.push('编译模式   : 编译到 VM-32 虚拟汇编 + 虚拟机执行');
-    infoLines.push('目标平台   : VM-32（8 个 32 位寄存器，256KB 内存）');
-    infoLines.push('编译器选项 : ' + stdSel.value);
-    infoLines.push('源文件     : main.cpp');
-    infoLines.push('编译耗时   : ' + vmResult.compileTime.toFixed(2) + ' ms');
-    infoLines.push('生成指令数 : ' + vmResult.instructionCount + ' 条');
-    infoLines.push('');
-    infoLines.push('[函数]');
-    for (const f of program.funcs){
-      const ps = f.params.map(p => p.type + (p.name ? ' ' + p.name : '')).join(', ');
-      infoLines.push('  ' + f.retType + ' ' + f.name + '(' + ps + ')');
-    }
-    lastInfo = infoLines.join('\n');
-
-    if (!vmResult.out) outEl.innerHTML = '<span style="color:var(--dim)">(程序没有产生任何输出)</span>';
-
-    lastTrace = (
-      '编译耗时   : ' + vmResult.compileTime.toFixed(2) + ' ms\n' +
-      '执行耗时   : ' + vmResult.runTime.toFixed(2) + ' ms\n' +
-      '执行指令数 : ' + vmResult.steps + ' 条\n' +
-      '生成指令数 : ' + vmResult.instructionCount + ' 条\n' +
-      '输出字节   : ' + vmResult.out.length + '\n' +
-      '模式       : VM 虚拟汇编执行'
-    );
+  if (r.verdict === 'OK'){
+    outEl.innerHTML = r.output ? esc(r.output)
+      : '<span style="color:var(--dim)">(程序没有产生任何输出)</span>';
     setStatus('✓ 运行完成', 'ok');
-    exitInfo.textContent = 'VM 模式';
-    statsEl.textContent = `编译 ${vmResult.compileTime.toFixed(1)}ms · 执行 ${vmResult.steps} 条指令`;
+    exitInfo.textContent = '退出码 0';
   } else {
-    const realReason = vmError ? (vmError.message || String(vmError)) : '未知原因';
-    modeInfo.textContent = '解释器模式（VM 不支持：' + realReason + '）';
-    const tCompileEnd = performance.now();
-    const compileTime = tCompileEnd - tCompileStart;
-
-    lastAsm = '; VM 模式不支持当前代码，已回退到解释器。\n' +
-              '; 真实原因：' + realReason + '\n';
-
-    const infoLines = [];
-    infoLines.push('⚠ 已回退到解释器模式');
-    infoLines.push('===============================================');
-    infoLines.push('回退原因   : ' + realReason);
-    infoLines.push('编译耗时   : ' + compileTime.toFixed(2) + ' ms');
-    infoLines.push('');
-    infoLines.push('[函数]');
-    for (const f of program.funcs){
-      const ps = f.params.map(p => p.type + (p.name ? ' ' + p.name : '')).join(', ');
-      infoLines.push('  ' + f.retType + ' ' + f.name + '(' + ps + ')');
-    }
-    lastInfo = infoLines.join('\n');
-
-    setStatus('运行中… (解释器)', 'busy');
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-    const tRunStart = performance.now();
-    let interp;
-    try {
-      interp = new Interpreter(program, stdinEl.value);
-      interp.timeLimitMs = RUN_TIME_LIMIT_MS;
-      const ret = interp.run();
-      const runTime = performance.now() - tRunStart;
-
-      let html = '';
-      if (interp.out) html += esc(interp.out);
-      if (interp.err) html += `<span style="color:var(--red)">${esc(interp.err)}</span>`;
-      if (!html) html = '<span style="color:var(--dim)">(程序没有产生任何输出)</span>';
-      outEl.innerHTML = html;
-
-      lastTrace = (
-        '编译耗时   : ' + compileTime.toFixed(2) + ' ms\n' +
-        '执行耗时   : ' + runTime.toFixed(2) + ' ms\n' +
-        '执行步数   : ' + interp.steps + '\n' +
-        '返回值     : ' + ret + '\n' +
-        '输出字节   : ' + interp.out.length + '\n' +
-        '模式       : 解释器（AST 遍历）'
-      );
-      setStatus('✓ 运行完成 (解释器) · 返回 ' + ret, 'ok');
-      exitInfo.textContent = '退出码 ' + ret;
-      statsEl.textContent = `编译 ${compileTime.toFixed(1)}ms · 解释执行 ${interp.steps} 步`;
-    } catch (e){
-      const runTime = performance.now() - tRunStart;
-      let html = '';
-      if (interp && interp.out) html += esc(interp.out);
-      html += `<span style="color:var(--red)">\n运行时错误：${esc(e.message)}</span>`;
-      outEl.innerHTML = html;
-      setStatus('运行时错误', 'err');
-      exitInfo.textContent = '异常终止';
-      lastTrace = (
-        '编译耗时 : ' + compileTime.toFixed(2) + ' ms\n' +
-        '执行耗时 : ' + runTime.toFixed(2) + ' ms\n' +
-        '运行时错误：' + e.message
-      );
-    }
+    let html = r.output ? esc(r.output) : '';
+    html += `<span style="color:var(--red)">\n${r.verdict === 'TLE' ? '运行超时' : '运行时错误'}：${esc(r.error || '')}</span>`;
+    outEl.innerHTML = html;
+    setStatus(r.verdict === 'TLE' ? '运行超时' : '运行时错误', 'err');
+    exitInfo.textContent = r.verdict === 'TLE' ? '超时终止' : '异常终止';
   }
 
+  const fnLines = program.funcs.map(f =>
+    '  ' + f.retType + ' ' + f.name + '(' +
+    f.params.map(p => p.type + (p.name ? ' ' + p.name : '')).join(', ') + ')');
+
+  lastInfo = [
+    ce ? '✗ 编译失败' : '✔ 编译成功',
+    '===============================================',
+    '编译器     : g++ 9.3.0（NOI Linux 2.0 / Ubuntu 20.04.1）',
+    '编译选项   : ' + (stdSel.value || '-std=c++14') + ' -O2 -Wall',
+    '源文件     : main.cpp',
+    '编译耗时   : ' + compileTime.toFixed(2) + ' ms',
+    '',
+    '[函数]',
+  ].concat(fnLines.length ? fnLines : ['  (无)']).join('\n');
+
+  lastAsm =
+    '本引擎直接解释执行语法树，不生成虚拟汇编。\n\n[全局变量]\n' +
+    (program.globals.length
+      ? program.globals.map(g => '  ' + g.type + ' ' + g.name + (g.dims && g.dims.length ? '[]' : '')).join('\n')
+      : '  (无)') +
+    '\n\n[结构体]\n' +
+    (program.structs.length ? program.structs.map(t => '  struct ' + t.name).join('\n') : '  (无)');
+
+  lastTrace = [
+    '编译耗时   : ' + compileTime.toFixed(2) + ' ms',
+    '执行耗时   : ' + r.ms.toFixed(2) + ' ms',
+    '输出字节   : ' + r.output.length,
+    '退出状态   : ' + (r.verdict === 'OK' ? '正常返回（return 0）' : r.verdict),
+  ].join('\n');
+
+  statsEl.textContent = '编译 ' + compileTime.toFixed(1) + 'ms · 运行 ' + r.ms.toFixed(1) + 'ms';
   showView();
   running = false;
   runBtn.disabled = false;
@@ -5033,7 +4949,7 @@ function showView(){
   if (currentView === 'info'){
     artifactEl.textContent = lastInfo || '点击「编译并运行」后这里显示编译信息。';
   } else if (currentView === 'asm'){
-    artifactEl.textContent = lastAsm || '点击「编译并运行」后这里显示生成的 VM-32 虚拟汇编。';
+    artifactEl.textContent = lastAsm || '点击「编译并运行」后这里显示全局变量与结构体。';
   } else {
     artifactEl.textContent = lastTrace || '点击「编译并运行」后这里显示执行统计。';
   }
@@ -5381,31 +5297,14 @@ function readJudgeTimeLimit(){
 }
 
 function runOneCase(program, useVM, cg, tc, maxSteps, timeLimitMs){
-  const t0 = performance.now();
-  let output = '', errMsg = '', verdict = 'AC';
-  try {
-    if (useVM){
-      const vm = new VM(cg.instructions, cg.strings, tc.input, () => {});
-      vm.maxSteps = maxSteps;
-      if (timeLimitMs) vm.timeLimitMs = timeLimitMs;
-      vm.run();
-      output = vm.out;
-    } else {
-      const interp = new Interpreter(program, tc.input);
-      interp.maxSteps = maxSteps;
-      if (timeLimitMs) interp.timeLimitMs = timeLimitMs;
-      try { interp.run(); }
-      catch(e){ if (!(e instanceof ReturnSignal)) throw e; }
-      output = interp.out;
-    }
-  } catch (e){
-    if (/步数|steps|死循环|maxSteps|超出限制|超时|timeout/i.test(e.message)) verdict = 'TLE';
-    else verdict = 'RE';
-    errMsg = e.message;
-  }
-  const timeMs = performance.now() - t0;
-  if (verdict === 'AC' && tc.expected != null && normOut(output) !== normOut(tc.expected)) verdict = 'WA';
-  return { verdict, timeMs, expected: tc.expected, actual: output, errMsg };
+  // 统一走 cpp-engine：真预处理、真类型、真 STL
+  const r = CppEngine.run(program, tc.input || '', {
+    timeLimitMs: timeLimitMs || RUN_TIME_LIMIT_MS,
+    maxSteps: maxSteps || 0,
+  });
+  let verdict = r.verdict === 'OK' ? 'AC' : r.verdict;
+  if (verdict === 'AC' && tc.expected != null && normOut(r.output) !== normOut(tc.expected)) verdict = 'WA';
+  return { verdict, timeMs: r.ms, expected: tc.expected, actual: r.output, errMsg: r.error };
 }
 
 async function runJudgeAll(){
@@ -5420,10 +5319,7 @@ async function runJudgeAll(){
 
   let program;
   try {
-    const clean = prepareCspSource(codeEl.value);
-    let tokens = tokenize(clean);
-    tokens = stripStd(tokens);
-    program = new Parser(tokens).parseProgram();
+    program = CppEngine.compile(codeEl.value);
   } catch(e){
     summary.textContent = '编译错误 (CE)';
     summary.style.color = 'var(--red)';
@@ -5432,8 +5328,7 @@ async function runJudgeAll(){
     return;
   }
 
-  let useVM = false, cg = null;
-  try { cg = new VMCodeGen(program); cg.compile(); useVM = true; } catch(e){ useVM = false; }
+  const useVM = false, cg = null;   // 已统一到 cpp-engine，保留变量兼容旧调用
 
   const maxSteps = Math.max(10000, +$('#judgeSteps').value || 50000000);
   const judgeTL = readJudgeTimeLimit();
@@ -5492,7 +5387,7 @@ renderEditor();
 updateSkeleton();
 artifactEl.textContent = '代码区已清空。输入 C++ 代码后点击「编译并运行」。';
 setStatus('初始化中…', 'busy');
-modeInfo.textContent = 'VM 模式：编译到虚拟汇编后由 VM 逐条执行（不支持则回退解释器）';
+modeInfo.textContent = '解释执行：直接运行语法树（g++ 语义子集，不生成机器码）';
 
 setTimeout(() => {
   bootOverlay.classList.add('hide');
@@ -5564,11 +5459,8 @@ setTimeout(() => {
     try{
       var src = typeof d.code === 'string' ? d.code : codeEl.value;
       if (!src.trim()) throw new Error('源文件为空');
-      var clean = prepareCspSource(src);
-      var tokens = stripStd(tokenize(clean));
-      var program = new Parser(tokens).parseProgram();
+      var program = CppEngine.compile(src);
       var cg = null, useVM = false;
-      try { cg = new VMCodeGen(program); cg.compile(); useVM = true; } catch(e){ useVM = false; }
       var stepsEl = document.getElementById('judgeSteps');
       var maxSteps = Math.max(10000, (stepsEl && +stepsEl.value) || 50000000);
       var tl = +d.tl || 2000;

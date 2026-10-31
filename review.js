@@ -50,6 +50,9 @@
     { id: 'algo',    label: '算法教学',     icon: '📚', accent: '#6c5ce7',
       desc: '按 CSP-J/S 考纲组织的 51 章算法课，从枚举到网络流，每章都有推导、手算演示和可直接提交的模板。',
       tag: '51 章' },
+    { id: 'template', label: '模板速查',    icon: '⚡', accent: '#e84393',
+      desc: '22 个高频算法的最短可提交写法：标签、用途、复杂度、模板代码、易错点，另附考前 10 分钟自检清单。',
+      tag: '考场可抄' },
     { id: 'preexam', label: '考前注意事项', icon: '⚠️', accent: '#e17055',
       desc: '考前一周做什么、考场怎么分配时间、文件与目录怎么建、编译参数与常见 CE/RE 原因。',
       tag: '别丢冤枉分' },
@@ -178,7 +181,8 @@
       '</div>';
 
     h += '<p class="rh-desc">这里把复赛要考的东西按「先会做题、再补模板」的顺序重新排了一遍：' +
-      '先用真题精讲把套路走通，再用方法与技巧补审题和调试，然后是分章节的算法课，最后过一遍考前细节与 IDE 操作。' +
+      '先用真题精讲把套路走通，再用方法与技巧补审题和调试，然后是分章节的算法课；' +
+      '考前去模板速查过一遍能直接抄的写法与易错点，最后是考前细节与 IDE 操作。' +
       '所有参考代码都能一键丢进内置 IDE 编译运行，改一个字符就能看到结果。</p>';
 
     var lp = lastPos();
@@ -989,6 +993,9 @@
     if (window.REVIEW_SECTIONS) return Promise.resolve();
     showLoading('正在加载复习资料…', { percent: 8, detail: 'review-data.js · 方法与技巧 / 考前 / IDE' });
     return loadScriptOnce(BASE + 'review-data.js').then(function (){
+      showLoading('正在加载模板速查…', { percent: 30, detail: 'review-template.js · 22 个高频算法模板' });
+      return loadScriptOnce(BASE + 'review-template.js').catch(function (){});
+    }).then(function (){
       showLoading('正在加载算法章节…', { percent: 45, detail: 'review-algo.js · CSP-J/S 全考纲算法' });
       return loadScriptOnce(BASE + 'review-algo.js');
     }).then(function (){

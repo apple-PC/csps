@@ -145,14 +145,17 @@ const Desktop = (() => {
     win.style.top = Math.max(6, (dw.clientHeight - H) / 2 + (wins.size % 5) * 22 - 36) + 'px';
 
     const head = el('div', 's-win-head');
-    head.innerHTML = '<span class="win-ico">' + (ICONS[opts.ico] || ICONS.app) + '</span>' +
-      '<span class="win-title">' + esc(opts.title || '') + '</span>';
+    // Ambiance 主题：窗口按钮在左侧，顺序为 关闭 / 最小化 / 最大化
     const btnBox = el('div', 'win-btns');
+    const bX = el('button', 'win-btn close', '✕');
     const bMin = el('button', 'win-btn', '—');
     const bMax = el('button', 'win-btn', '▢');
-    const bX = el('button', 'win-btn close', '✕');
-    btnBox.appendChild(bMin); btnBox.appendChild(bMax); btnBox.appendChild(bX);
+    bX.title = '关闭'; bMin.title = '最小化'; bMax.title = '最大化';
+    btnBox.appendChild(bX); btnBox.appendChild(bMin); btnBox.appendChild(bMax);
     head.appendChild(btnBox);
+    head.insertAdjacentHTML('beforeend',
+      '<span class="win-ico">' + (ICONS[opts.ico] || ICONS.app) + '</span>' +
+      '<span class="win-title">' + esc(opts.title || '') + '</span>');
     const body = el('div', 's-win-body');
     win.appendChild(head); win.appendChild(body);
     dw.appendChild(win);
@@ -346,14 +349,15 @@ const Desktop = (() => {
   }
 
   /* ═══════════════ 壁纸 ═══════════════ */
+  // NOI Linux 2.0 = Ubuntu 20.04（Focal Fossa），默认壁纸为深紫渐变
   const WALLS = [
-    { id: 'plain', name: '默认（朴素灰）' },
-    { id: 'slate', name: '青灰' },
+    { id: 'focal', name: 'Focal Fossa（默认）' },
+    { id: 'focal-dark', name: 'Focal Fossa 深色' },
+    { id: 'plain', name: '素灰' },
     { id: 'noi', name: 'NOI 纪念（深蓝）' },
     { id: 'olive', name: '橄榄绿' },
-    { id: 'warm', name: '暖褐' },
   ];
-  function wallpaper(){ return localStorage.getItem('csp_sim:wall') || 'plain'; }
+  function wallpaper(){ return localStorage.getItem('csp_sim:wall') || 'focal'; }
   function setWallpaper(id){
     localStorage.setItem('csp_sim:wall', id);
     const d = deskEl();
@@ -472,10 +476,15 @@ const Desktop = (() => {
     const stu = window.__stu || {};
     openMenuAt(anchor, '', [
       { head: '系统' },
-      { label: '考试信息', ico: 'settings', run(){ if (window.__app) window.__app('sysinfo'); } },
+      { label: '首选项', ico: 'settings', run(){ if (window.__app) window.__app('sysinfo'); } },
+      { label: '系统管理', ico: 'settings', run(){ if (window.__app) window.__app('sysinfo'); } },
+      { sep: true },
+      { label: '考试信息', ico: 'browse', run(){ if (window.__app) window.__app('sysinfo'); } },
       { label: '提交试卷', ico: 'submit', run(){ if (window.__app) window.__app('submit'); } },
       { sep: true },
-      { label: (stu.name || 'student') + ' 已登录', dim: true },
+      { label: '锁定屏幕', dim: true },
+      { label: '注销 ' + (stu.name || 'student'), dim: true },
+      { label: '关机', dim: true },
     ]);
   }
   function openWallMenu(x, y){

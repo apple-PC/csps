@@ -16,6 +16,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const LOGIN = `
   const sleep = ms => new Promise(r => setTimeout(r, ms));
+  // 等开始界面渲染（题库/隐藏测试点可能还在下载）
+  for (let i = 0; i < 120; i++){
+    const b = document.getElementById('btnEnterAdmin');
+    const ld = document.getElementById('globalLoading');
+    if (b && (!ld || ld.classList.contains('hidden'))) break;
+    await sleep(150);
+  }
+  await sleep(200);
   document.getElementById('btnEnterAdmin').click();
   await sleep(700);
   document.getElementById('btnAdminExit').click();
@@ -34,8 +42,34 @@ const LOGIN = `
   await sleep(300);
 `;
 
+const STUDY = `
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  for (let i = 0; i < 150; i++){
+    if (document.querySelector('#revHome .rh-card')) break;
+    await sleep(150);
+  }
+  await sleep(400);
+`;
+
 const SCENES = {
   desk: LOGIN,
+
+  // 复习中心：模板速查板块
+  tpl: STUDY + `
+    document.querySelector('#revHome .rh-card[data-id="template"]').click();
+    await sleep(400);
+    const it = [...document.querySelectorAll('#revList .rev-item')].find(x => x.textContent.includes('并查集'));
+    if (it) it.click();
+    await sleep(350);
+  `,
+
+  // 复习中心：课程首页，滚到「模板速查」卡片
+  revhome: STUDY + `
+    const cards = document.querySelectorAll('#revHome .rh-card');
+    const t = [...cards].find(c => c.textContent.includes('模板速查'));
+    if (t) t.scrollIntoView({ block: 'center' });
+    await sleep(350);
+  `,
 
   menu: LOGIN + `
     document.getElementById('sAppBtn').click();

@@ -281,7 +281,7 @@ async function testStudy(){
   w.alert = () => {};
 
   const code = ['util.js', 'store.js', 'problems.js', 'reviews.js', 'review-data.js',
-    'review-algo.js', 'review-algo-deep.js', 'review.js']
+    'review-template.js', 'review-algo.js', 'review-algo-deep.js', 'review.js']
     .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n;\n') +
     '\n;window.showLoading = showLoading;';
   try { w.eval(code); }
@@ -298,10 +298,10 @@ async function testStudy(){
   check('复习页自动进入（无需再点入口）', vis('reviewApp'));
   check('默认停在课程主页', vis('revHome') && !vis('revBody'));
   check('顶栏有 logo 与站名', !!q('.st-brand') && q('.st-brand').textContent.includes('复习中心'));
-  check('主页 5 张课程卡片', qa('#revHome .rh-card').length === 5);
+  check('主页 6 张课程卡片', qa('#revHome .rh-card').length === 6);
   check('主页有总进度区块', !!q('#revHome .rh-overall'));
   check('主页统计 4 项', qa('#revHome .rh-metric').length === 4);
-  check('卡片带完成进度条', qa('#revHome .rh-card-prog').length === 5);
+  check('卡片带完成进度条', qa('#revHome .rh-card-prog').length === 6);
   check('顶栏进度环初始 0%', (d.getElementById('stProgTxt') || {}).textContent === '0%');
   check('主页隐藏板块标签栏', !vis('revTabs') || d.getElementById('revTabs').classList.contains('hidden'));
 
@@ -310,7 +310,7 @@ async function testStudy(){
   await sleep(30);
   check('卡片可进入板块', vis('revBody') && !vis('revHome'));
   check('左栏 12 题', qa('#revList .rev-item').length === 12);
-  check('板块标签 5 个', qa('#revTabs .rev-tab').length === 5);
+  check('板块标签 6 个', qa('#revTabs .rev-tab').length === 6);
   check('当前标签高亮', (q('#revTabs .rev-tab.active') || {}).textContent.includes('精讲与练习'));
 
   // 侧栏收起
@@ -377,6 +377,32 @@ async function testStudy(){
   check('有面包屑定位', !!q('#revContent .rev-crumb'));
   check('本章目录已生成', qa('#revToc a').length >= 2);
   check('URL hash 可分享', /#\/algo\//.test(w.location.hash || ''));
+
+  // 模板速查板块
+  clk(d.getElementById('btnRevHome'));
+  await sleep(20);
+  clk(q('#revHome .rh-card[data-id="template"]'));
+  await sleep(30);
+  check('模板速查 23 条（1 自检 + 22 模板）', qa('#revList .rev-item').length === 23);
+  check('模板速查按算法分类分组', qa('#revList .rev-group').length >= 5);
+
+  const tplItem = qa('#revList .rev-item').find(x => x.textContent.includes('并查集'));
+  check('左栏列出并查集模板', !!tplItem);
+  clk(tplItem);
+  await sleep(30);
+  const tplTxt = q('#revContent').textContent || '';
+  check('模板标注用途与复杂度', tplTxt.includes('用途与复杂度'));
+  check('模板渲染出代码块', qa('#revContent .rev-pre').length >= 1);
+  check('模板代码内容正确', ((q('#revContent .rev-pre') || {}).textContent || '').includes('find'));
+  check('模板带易错点列表', qa('#revContent .rev-ul').length >= 1);
+  check('模板显示标签徽章', !!q('#revContent .rev-tag'));
+
+  const chkItem = qa('#revList .rev-item').find(x => x.textContent.includes('考前 10 分钟'));
+  check('含考前自检章节', !!chkItem);
+  clk(chkItem);
+  await sleep(20);
+  check('自检清单 5 条', qa('#revContent .rev-ol li').length === 5);
+  check('自检有警示卡', qa('#revContent .rev-note').length >= 1);
 
   // 全站搜索
   const si = d.getElementById('stSearch');
