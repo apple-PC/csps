@@ -160,27 +160,37 @@
 <div id="studentApp" class="screen hidden">
   <div id="sWatermark" class="s-watermark hidden"></div>
 
-  <!-- 顶部面板：应用程序 · 位置 · 系统状态区 -->
-  <div id="sTop" class="gp-top">
-    <button class="gp-menu" id="sAppBtn"><span class="gp-mark"></span>应用程序</button>
-    <button class="gp-menu" id="sPlacesBtn">位置</button>
-    <div class="gp-title" id="sExamTag">NOI Linux 2.0</div>
-    <div class="gp-topright">
-      <span class="gp-tray-ico" id="sNetIco" title="有线网络：已连接（无互联网访问）"></span>
-      <span class="gp-tray-ico" id="sVolIco" title="音量 60%"></span>
-      <span class="s-remain" id="sRemain">--:--:--</span>
-      <span class="s-clock" id="sClock">--:--</span>
-      <button class="gp-sys" id="sSysBtn" title="系统菜单">系统</button>
+  <!-- ═══ 顶部面板：Ubuntu 20.04 GNOME（活动/应用菜单 · 时钟 · 状态区） ═══ -->
+  <div id="sTop" class="ub-top">
+    <button class="ub-act" id="sActBtn">
+      <span class="ub-act-ico" id="sActIco"></span>
+      <span class="ub-act-lbl" id="sActLbl">活动</span>
+    </button>
+    <div class="ub-clock" id="sClock">--</div>
+    <div class="ub-tray">
+      <span class="ub-remain" id="sRemain">--:--:--</span>
+      <span class="ub-ime" id="sIme" title="输入法：中文（智能拼音）">zh<b>▾</b></span>
+      <span class="ub-ico" id="sNetIco" title="有线网络：已连接（无互联网访问）"></span>
+      <span class="ub-ico" id="sVolIco" title="音量 60%"></span>
+      <button class="ub-ico ub-power" id="sSysBtn" title="系统菜单"></button>
+      <span class="ub-caret">▾</span>
     </div>
+  </div>
+
+  <!-- ═══ 左侧 Dock（dash-to-dock，固定不隐藏，运行指示为橙点） ═══ -->
+  <div id="sDock" class="ub-dock">
+    <div class="ub-dock-apps" id="sDockApps"></div>
+    <button class="ub-dock-grid" id="sShowApps" title="显示应用 (Super+A)"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></button>
   </div>
 
   <div id="sDesktop" class="s-desktop"></div>
 
-  <!-- 底部面板：窗口列表 -->
-  <div id="sBottom" class="gp-bottom">
-    <button class="gp-showdesk" id="sShowDesk" title="显示桌面 (Ctrl+D)">▤</button>
-    <div class="gp-tasks" id="sTaskWins"></div>
-    <div class="gp-ws" title="工作区"><span class="ws on"></span><span class="ws"></span></div>
+  <!-- ═══ 应用网格（Super+A） ═══ -->
+  <div id="sGrid" class="ub-grid hidden">
+    <div class="ub-grid-inner">
+      <div class="ub-grid-search"><span class="ub-grid-mag"></span><input id="sGridInput" placeholder="输入名称以搜索…" autocomplete="off" spellcheck="false"></div>
+      <div class="ub-grid-body" id="sGridBody"></div>
+    </div>
   </div>
 
   <!-- 弹出菜单 / 右键菜单 -->

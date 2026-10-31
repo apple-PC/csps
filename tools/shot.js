@@ -51,6 +51,16 @@ const STUDY = `
   await sleep(400);
 `;
 
+const APP = name => `
+  // 从「显示应用程序」网格启动（桌面不再摆启动器）
+  Desktop.openAppGrid();
+  { const gi = document.getElementById('sGridInput');
+    gi.value = ${JSON.stringify(name)};
+    gi.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector('#sGridBody .ub-grid-app').click(); }
+  await sleep(450);
+`;
+
 const SCENES = {
   desk: LOGIN,
 
@@ -71,16 +81,86 @@ const SCENES = {
     await sleep(350);
   `,
 
-  menu: LOGIN + `
-    document.getElementById('sAppBtn').click();
-    await sleep(200);
+  // 尺寸探针：不关心截图，只量 DOM
+  probe: LOGIN + `
+    const r = el => { const b = el.getBoundingClientRect(); return Math.round(b.width) + 'x' + Math.round(b.height); };
+    const out = {};
+    out.viewport = window.innerWidth + 'x' + window.innerHeight;
+    out.iconBox = r(document.querySelector('.s-icon'));
+    out.icoSpan = r(document.querySelector('.s-icon .ico'));
+    const svg = document.querySelector('.s-icon .ico svg');
+    out.svgBox = r(svg);
+    out.svgStyle = getComputedStyle(svg).width + '/' + getComputedStyle(svg).height;
+    out.icoStyle = getComputedStyle(document.querySelector('.s-icon .ico')).width;
+    out.lblBox = r(document.querySelector('.s-icon .lbl'));
+    out.desktop = r(document.querySelector('.s-desktop'));
+    out.colWidth = getComputedStyle(document.querySelector('.s-desktop')).columnWidth;
+    out.dockItem = r(document.querySelector('.ub-dock-item'));
+    out.dockSvg = r(document.querySelector('.ub-dock-item svg'));
+    out.top = r(document.querySelector('.ub-top'));
+    const ab = document.getElementById('sActBtn');
+    const abg = getComputedStyle(ab);
+    out.actBtn = r(ab) + ' bg=' + abg.backgroundColor + ' radius=' + abg.borderRadius;
+    const tb = document.getElementById('sDock');
+    out.dockBg = getComputedStyle(tb).backgroundColor;
+    out.iconCount = document.querySelectorAll('.s-icon').length;
+    return JSON.stringify(out, null, 1);
   `,
 
-  terminal: LOGIN + `
-    document.getElementById('sAppBtn').click();
-    await sleep(150);
-    [...document.querySelectorAll('#sPop .gp-item')].find(b => b.textContent.includes('终端')).click();
+  // 窗口标题栏探针
+  winprobe: LOGIN + APP('终端') + `
+    const h = document.querySelector('.s-win-head');
+    const t = h && h.querySelector('.win-title');
+    if (!t) return 'no .win-title; head=' + (h ? h.innerHTML.slice(0, 300) : 'null');
+    const cs = getComputedStyle(t), hb = h.getBoundingClientRect(), tb = t.getBoundingClientRect();
+    return JSON.stringify({
+      headHTML: h.innerHTML.slice(0, 200),
+      head: Math.round(hb.left) + '..' + Math.round(hb.right) + ' w=' + Math.round(hb.width),
+      title: Math.round(tb.left) + '..' + Math.round(tb.right),
+      pos: cs.position, left: cs.left, transform: cs.transform, cls: t.className
+    }, null, 1);
+  `,
+
+  // 应用网格（GNOME：点「活动」）
+  grid: LOGIN + `
+    document.getElementById('sActBtn').click();
+    await sleep(320);
+    const g = document.getElementById('sGrid');
+    const inn = document.querySelector('.ub-grid-inner');
+    const gb = g.getBoundingClientRect(), ib = inn.getBoundingClientRect();
+    return JSON.stringify({
+      grid: Math.round(gb.top)+'..'+Math.round(gb.bottom)+' h='+Math.round(gb.height),
+      inner: Math.round(ib.top)+'..'+Math.round(ib.bottom)+' h='+Math.round(ib.height),
+      gridCenter: Math.round((gb.top+gb.bottom)/2),
+      innerCenter: Math.round((ib.top+ib.bottom)/2),
+      display: getComputedStyle(g).display + '/' + getComputedStyle(inn).marginTop
+    }, null, 1);
+  `,
+
+  // 程序回收系统：登录页
+  rclogin: LOGIN + `
+    Desktop.launch('recovery');
+    await sleep(700);
+  `,
+
+  // 程序回收系统：登录后切到「答题」
+  recovery: LOGIN + `
+    Desktop.launch('recovery');
+    await sleep(700);
+    document.querySelector('#rcPwd').value = 'demo1234';
+    document.querySelector('#rcLoginBtn').click();
+    await sleep(500);
+    [...document.querySelectorAll('.rc-nav a')].find(a => a.dataset.tab === 'answer').click();
     await sleep(400);
+  `,
+
+  // 顶栏系统菜单
+  menu: LOGIN + `
+    document.getElementById('sSysBtn').click();
+    await sleep(220);
+  `,
+
+  terminal: LOGIN + APP('终端') + `
     const inp = document.querySelector('.term-input-row input');
     async function sh(cmd){
       inp.value = cmd;
@@ -97,9 +177,8 @@ const SCENES = {
     await sleep(200);
   `,
 
-  arbiter: LOGIN + `
-    [...document.querySelectorAll('.s-icon')].find(i => i.textContent.includes('Arbiter')).dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-    await sleep(400);
+  arbiter: LOGIN + APP('Arbiter_local') + `
+    await sleep(300);
   `,
 
   files: LOGIN + `
@@ -110,9 +189,8 @@ const SCENES = {
     await sleep(300);
   `,
 
-  ide: LOGIN + `
-    [...document.querySelectorAll('.s-icon')].find(i => i.textContent.includes('Code::Blocks')).dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-    await sleep(2500);
+  ide: LOGIN + APP('Code::Blocks') + `
+    await sleep(2200);
   `,
 
   vim: LOGIN + `
@@ -207,10 +285,15 @@ function connect(wsUrl){
     const r = await cdp.send('Runtime.evaluate', {
       expression: '(async () => {' + script + '})()',
       awaitPromise: true,
+      returnByValue: true,
       timeout: 90000,
     });
     if (r.exceptionDetails){
       console.error('页面脚本异常:', JSON.stringify(r.exceptionDetails.exception && r.exceptionDetails.exception.description || r.exceptionDetails.text));
+    }
+    // SHOT_LOG=1 时打印场景脚本的返回值（用于量尺寸 / 取文本，不必看图猜）
+    if (process.env.SHOT_LOG && r.result && r.result.value !== undefined){
+      console.log(typeof r.result.value === 'string' ? r.result.value : JSON.stringify(r.result.value, null, 1));
     }
     await sleep(400);
 

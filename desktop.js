@@ -13,23 +13,41 @@ const Desktop = (() => {
   let ctxEl = null;
   let popEl = null;
   let mounted = false;
+  let lastLaunch = null;          // 最近一次 launch 的应用 id，供 createWindow 认领归属
+  let lastLaunchAt = 0;
 
-  /* ═══════════════ 图标（内联 SVG，朴素风格） ═══════════════ */
+  /* ═══════════════ 图标（Yaru 风格：彩色圆角底板 + 简洁图形） ═══════════════ */
   const ICONS = {
-    folder: '<svg viewBox="0 0 48 48"><path d="M3 11a3 3 0 013-3h12l4 4h20a3 3 0 013 3v24a3 3 0 01-3 3H6a3 3 0 01-3-3z" fill="#d9a13a" stroke="#a97c22" stroke-width="1.2"/><path d="M3 16h42v22a3 3 0 01-3 3H6a3 3 0 01-3-3z" fill="#f0c05a" stroke="#a97c22" stroke-width="1.2"/><path d="M3 16h42" stroke="#c08d2c" stroke-width="1.4"/></svg>',
-    zip: '<svg viewBox="0 0 48 48"><rect x="9" y="4" width="30" height="40" rx="3" fill="#eef2f6" stroke="#6f7d8a" stroke-width="1.4"/><rect x="9" y="4" width="30" height="10" rx="3" fill="#cdd7e1" stroke="#6f7d8a" stroke-width="1.4"/><rect x="22" y="15" width="4" height="15" fill="#5b6874"/><path d="M22 18h4M22 22h4M22 26h4" stroke="#eef2f6" stroke-width="1.6"/><rect x="18.5" y="30" width="11" height="10" rx="2" fill="#5b6874"/><circle cx="24" cy="35" r="1.8" fill="#eef2f6"/></svg>',
-    text: '<svg viewBox="0 0 48 48"><path d="M10 4h19l9 9v31a2 2 0 01-2 2H10a2 2 0 01-2-2V6a2 2 0 012-2z" fill="#fbfcfd" stroke="#7f8d9b" stroke-width="1.3"/><path d="M29 4l9 9h-9z" fill="#dbe3eb" stroke="#7f8d9b" stroke-width="1.3"/><path d="M14 21h18M14 27h18M14 33h11" stroke="#9aa8b6" stroke-width="2.2" stroke-linecap="round"/></svg>',
-    code: '<svg viewBox="0 0 48 48"><rect x="4" y="7" width="40" height="34" rx="4" fill="#e7edf4" stroke="#7f8d9b" stroke-width="1.4"/><path d="M4 12a4 4 0 014-4h32a4 4 0 014 4v4H4z" fill="#c9d6e3"/><path d="M16 23l-5 6 5 6M32 23l5 6-5 6M27 21l-6 16" stroke="#2b6ca3" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    term: '<svg viewBox="0 0 48 48"><rect x="4" y="7" width="40" height="34" rx="4" fill="#242c33" stroke="#9fb0c0" stroke-width="1.6"/><path d="M12 19l6 5-6 5" stroke="#7fe08a" stroke-width="2.9" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M23 30h12" stroke="#e2ecf5" stroke-width="2.9" stroke-linecap="round"/></svg>',
-    submit: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="19" fill="#2f8f5b" stroke="#1f6b43" stroke-width="1.4"/><path d="M24 33V15M17 22l7-7 7 7" stroke="#fff" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    browse: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="18" fill="#e8622c" stroke="#b8481c" stroke-width="1.4"/><path d="M24 6c6 6 6 30 0 36M6 24h36" stroke="#fbd0b6" stroke-width="2" fill="none"/><circle cx="24" cy="24" r="6" fill="#fbd0b6" opacity=".9"/></svg>',
-    judge: '<svg viewBox="0 0 48 48"><rect x="7" y="5" width="34" height="38" rx="3" fill="#fbfcfd" stroke="#7f8d9b" stroke-width="1.4"/><path d="M13 14h22M13 21h22M13 28h11" stroke="#c3ccd6" stroke-width="2.4" stroke-linecap="round"/><path d="M24 33l4 4 8-9" stroke="#2f8f5b" stroke-width="3.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    dbg: '<svg viewBox="0 0 48 48"><rect x="4" y="7" width="40" height="34" rx="4" fill="#e7edf4" stroke="#7f8d9b" stroke-width="1.4"/><circle cx="19" cy="21" r="6" fill="none" stroke="#b8862f" stroke-width="2.9"/><path d="M23.5 25.5L30 32" stroke="#b8862f" stroke-width="2.9" stroke-linecap="round"/><path d="M33 17h7M33 23h7M33 29h5" stroke="#9aa8b6" stroke-width="2.1" stroke-linecap="round"/></svg>',
-    app: '<svg viewBox="0 0 48 48"><rect x="5" y="6" width="38" height="36" rx="4" fill="#e7edf4" stroke="#7f8d9b" stroke-width="1.4"/><rect x="5" y="6" width="38" height="7" rx="4" fill="#c1cfdd"/><rect x="10" y="17" width="12" height="9" rx="1.5" fill="#f0c05a"/><rect x="24" y="17" width="14" height="9" rx="1.5" fill="#8fd6a8"/><rect x="10" y="28" width="28" height="8" rx="1.5" fill="#9fb8d0"/></svg>',
-    settings: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="7" fill="none" stroke="#8b98a5" stroke-width="4"/><path d="M24 6v6M24 36v6M6 24h6M36 24h6M11 11l4 4M33 33l4 4M37 11l-4 4M15 33l-4 4" stroke="#8b98a5" stroke-width="4" stroke-linecap="round"/></svg>',
-    home: '<svg viewBox="0 0 48 48"><path d="M6 23L24 7l18 16" stroke="#a9b6c4" stroke-width="3.2" fill="none" stroke-linejoin="round"/><path d="M11 22v19h26V22" fill="#c9d3dc" stroke="#8b98a5" stroke-width="1.6"/><rect x="20" y="29" width="8" height="12" fill="#6d7a87"/></svg>',
-    net: '<svg viewBox="0 0 24 24"><path d="M4 15h4v5H4zM10 9h4v11h-4zM16 12h4v8h-4z" fill="#cfd6dd"/></svg>',
-    vol: '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" fill="#cfd6dd"/><path d="M16 9.5a4 4 0 010 5M18.5 7a7.5 7.5 0 010 10" stroke="#cfd6dd" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>',
+    folder: '<svg viewBox="0 0 48 48"><path d="M4 13a3 3 0 0 1 3-3h11l4 4h19a3 3 0 0 1 3 3v20a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3z" fill="#bcbcbc"/><path d="M4 18h40v17a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3z" fill="#e9e9e9"/><path d="M4 18h40" stroke="#adadad" stroke-width="1.1"/></svg>',
+    zip: '<svg viewBox="0 0 48 48"><rect x="8" y="4" width="32" height="40" rx="4" fill="#f0b429"/><rect x="8" y="4" width="32" height="9" rx="4" fill="#d99a12"/><rect x="21.5" y="14" width="5" height="14" fill="#8a6410"/><path d="M21.5 17h5M21.5 20.5h5M21.5 24h5" stroke="#f0b429" stroke-width="1.8"/><rect x="17" y="29" width="14" height="11" rx="2.5" fill="#8a6410"/><circle cx="24" cy="34.5" r="2" fill="#f0b429"/><rect x="23" y="34.5" width="2" height="4" fill="#f0b429"/></svg>',
+    text: '<svg viewBox="0 0 48 48"><path d="M11 4h18l8 8v32a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="#fbfbfb"/><path d="M29 4l8 8h-8z" fill="#dcdcdc"/><path d="M15 20h16M15 26h16M15 32h10" stroke="#b4b4b4" stroke-width="2.2" stroke-linecap="round"/><rect x="11" y="4" width="26" height="44" rx="2" fill="none" stroke="#c8c8c8" stroke-width="1"/></svg>',
+    code: '<svg viewBox="0 0 48 48"><rect x="3.5" y="3.5" width="19" height="19" rx="3" fill="#e94b3c"/><rect x="25.5" y="3.5" width="19" height="19" rx="3" fill="#f5c344"/><rect x="3.5" y="25.5" width="19" height="19" rx="3" fill="#3d8ec9"/><rect x="25.5" y="25.5" width="19" height="19" rx="3" fill="#5aa84e"/></svg>',
+    term: '<svg viewBox="0 0 48 48"><rect x="3" y="6" width="42" height="36" rx="4.5" fill="#2c001e"/><path d="M11 18.5l5.5 4.5-5.5 4.5" stroke="#ffffff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M21.5 28h12" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/></svg>',
+    firefox: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="#e8442a"/><path d="M24 4.5a19.5 19.5 0 1 1-13.8 5.7A15 15 0 0 1 24 8.5z" fill="#ff8a1f" opacity=".62"/><circle cx="24.5" cy="25" r="9.4" fill="#5d2a8a"/><path d="M25 14.8c5.9 0 10.7 4.8 10.7 10.7 0 3.3-1.5 6.3-3.9 8.2 4-1.2 7-5.1 7-10 0-7.4-6-13.2-13.4-13.1-4.4.1-8.4 2.3-10.8 5.5 2.6-2.2 6.4-2.7 10.4-1.3z" fill="#ffb347" opacity=".95"/></svg>',
+    submit: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="19" fill="#2aa05a"/><path d="M24 33.5V15M17 22l7-7 7 7" stroke="#fff" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    browse: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="19" fill="#e8662c"/><circle cx="24" cy="24" r="12.5" fill="none" stroke="#ffd9c4" stroke-width="1.6"/><path d="M24 4.5c7 6 7 33 0 39M4.5 24h39" stroke="#ffd9c4" stroke-width="1.6" fill="none"/><circle cx="24" cy="24" r="6" fill="#ffd9c4" opacity=".92"/></svg>',
+    judge: '<svg viewBox="0 0 48 48"><rect x="6" y="4.5" width="36" height="39" rx="4" fill="#f7f7f7" stroke="#cfcfcf" stroke-width="1"/><path d="M13 14h22M13 21h22M13 28h11" stroke="#c9c9c9" stroke-width="2.6" stroke-linecap="round"/><path d="M23 33.5l4.5 4.5 9-10" stroke="#2aa05a" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    dbg: '<svg viewBox="0 0 48 48"><rect x="3" y="6" width="42" height="36" rx="4.5" fill="#f0f0f0" stroke="#d0d0d0" stroke-width="1"/><circle cx="19" cy="20" r="6.5" fill="none" stroke="#b8862f" stroke-width="3"/><path d="M23.8 24.8L31 32.5" stroke="#b8862f" stroke-width="3" stroke-linecap="round"/><path d="M33 15h8M33 21h8M33 27h6" stroke="#b0b0b0" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    app: '<svg viewBox="0 0 48 48"><rect x="5" y="5" width="38" height="38" rx="6" fill="#f0f0f0" stroke="#d4d4d4" stroke-width="1"/><rect x="5" y="5" width="38" height="8" rx="6" fill="#c9c9c9"/><rect x="10" y="18" width="12" height="9" rx="2" fill="#f0b429"/><rect x="25" y="18" width="13" height="9" rx="2" fill="#7bc47f"/><rect x="10" y="30" width="28" height="8" rx="2" fill="#8ab4d8"/></svg>',
+    settings: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="18" fill="#f2f2f2" stroke="#d2d2d2" stroke-width="1"/><circle cx="24" cy="24" r="7" fill="none" stroke="#8a8a8a" stroke-width="4"/><path d="M24 6.5v6M24 35.5v6M6.5 24h6M35.5 24h6M11.6 11.6l4.2 4.2M32.2 32.2l4.2 4.2M36.4 11.6l-4.2 4.2M15.8 32.2l-4.2 4.2" stroke="#8a8a8a" stroke-width="4" stroke-linecap="round"/></svg>',
+    home: '<svg viewBox="0 0 48 48"><path d="M5 23.5L24 6.5l19 17" stroke="#9a9a9a" stroke-width="3.4" fill="none" stroke-linejoin="round"/><path d="M10.5 22v19.5h27V22" fill="#e3e3e3" stroke="#b9b9b9" stroke-width="1.4"/><rect x="20" y="29" width="8.5" height="12.5" rx="1" fill="#8a8a8a"/></svg>',
+    net: '<svg viewBox="0 0 24 24"><path d="M12 4.2l7.2 4.2v7.2L12 19.8 4.8 15.6V8.4z" fill="none" stroke="#eaeaea" stroke-width="1.7"/><path d="M12 8.6l3.4 2v4l-3.4 2-3.4-2v-4z" fill="#eaeaea"/></svg>',
+    vol: '<svg viewBox="0 0 24 24"><path d="M4.5 9.2h3.6L13 5.4v13.2l-4.9-3.8H4.5z" fill="#eaeaea"/><path d="M16 9.4a4 4 0 0 1 0 5.2M18.4 7a7.4 7.4 0 0 1 0 10" stroke="#eaeaea" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>',
+    power: '<svg viewBox="0 0 24 24"><path d="M12 3.5v7.2" stroke="#eaeaea" stroke-width="2" stroke-linecap="round"/><path d="M7.6 6.3a7.4 7.4 0 1 0 8.8 0" stroke="#eaeaea" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+    /* 各应用的独立图标：GNOME 网格里每个应用都该有自己的样子 */
+    cb: '<svg viewBox="0 0 48 48"><rect x="3.5" y="3.5" width="19" height="19" rx="3" fill="#e94b3c"/><rect x="25.5" y="3.5" width="19" height="19" rx="3" fill="#f5c344"/><rect x="3.5" y="25.5" width="19" height="19" rx="3" fill="#3d8ec9"/><rect x="25.5" y="25.5" width="19" height="19" rx="3" fill="#5aa84e"/></svg>',
+    geany: '<svg viewBox="0 0 48 48"><rect x="4" y="7" width="40" height="34" rx="4" fill="#e8e4d8"/><rect x="4" y="7" width="40" height="8" rx="4" fill="#c4631f"/><path d="M11 22h20M11 28h26M11 34h14" stroke="#9a8f78" stroke-width="2.4" stroke-linecap="round"/><circle cx="36" cy="34" r="4" fill="#c4631f" opacity=".75"/></svg>',
+    gedit: '<svg viewBox="0 0 48 48"><path d="M12 5h17l9 9v29a2 2 0 0 1-2 2H12a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="#fdfdfd" stroke="#c8c8c8" stroke-width="1.2"/><path d="M29 5l9 9h-9z" fill="#e0e0e0"/><path d="M16 17h14M16 23h14M16 29h9" stroke="#b8c4cf" stroke-width="2.2" stroke-linecap="round"/><path d="M29 34l9-9 4 4-9 9-5 1z" fill="#e8b23a"/></svg>',
+    vim: '<svg viewBox="0 0 48 48"><rect x="5" y="5" width="38" height="38" rx="5" fill="#17963f"/><path d="M14 16l8 16 8-16" fill="none" stroke="#eafff0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M31 16h5v16" fill="none" stroke="#b6f0c4" stroke-width="3" stroke-linecap="round"/></svg>',
+    nano: '<svg viewBox="0 0 48 48"><rect x="5" y="5" width="38" height="38" rx="5" fill="#f4f4f4" stroke="#c4c4c4" stroke-width="1.2"/><text x="24" y="33" font-family="monospace" font-size="24" font-weight="700" fill="#3b6fa8" text-anchor="middle">n</text></svg>',
+    emacs: '<svg viewBox="0 0 48 48"><rect x="5" y="5" width="38" height="38" rx="5" fill="#7a4ba8"/><path d="M17 34c-3-6-2-14 3-18 4-3 9-2 11 2 1 3 0 6-3 7-2 1-4 0-4-2" fill="none" stroke="#eee6f7" stroke-width="3.4" stroke-linecap="round"/><circle cx="31" cy="30" r="3" fill="#eee6f7"/></svg>',
+    lazarus: '<svg viewBox="0 0 48 48"><rect x="5" y="5" width="38" height="38" rx="5" fill="#3a6ea8"/><path d="M14 34V14h6v16h14v4z" fill="#dfeaf5"/><circle cx="33" cy="17" r="4" fill="#f0b429"/></svg>',
+    /* LibreOffice Writer：白纸 + 蓝色标题条，ISO 里预装 6.4.4 */
+    low: '<svg viewBox="0 0 48 48"><rect x="6" y="3" width="36" height="42" rx="3" fill="#fbfbfb" stroke="#c6c6c6" stroke-width="1.1"/><path d="M6 6a3 3 0 0 1 3-3h30a3 3 0 0 1 3 3v6.5H6z" fill="#2b5f9e"/><path d="M13 19.5h22M13 26h22M13 32.5h14" stroke="#8aa9c9" stroke-width="2.4" stroke-linecap="round"/><rect x="13" y="38" width="9" height="2.4" rx="1.2" fill="#2b5f9e"/></svg>',
+    ddd: '<svg viewBox="0 0 48 48"><rect x="3" y="6" width="42" height="36" rx="4.5" fill="#f7f0e4" stroke="#d8c9b0" stroke-width="1"/><rect x="8" y="12" width="14" height="10" rx="2" fill="#a8c9e8"/><rect x="8" y="26" width="22" height="8" rx="2" fill="#cfe0f0"/><path d="M28 14l4 4 7-8" stroke="#2aa05a" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    grid: '<svg viewBox="0 0 24 24"><g fill="#e8e8e8"><circle cx="6" cy="6" r="1.8"/><circle cx="12" cy="6" r="1.8"/><circle cx="18" cy="6" r="1.8"/><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/><circle cx="6" cy="18" r="1.8"/><circle cx="12" cy="18" r="1.8"/><circle cx="18" cy="18" r="1.8"/></g></svg>',
+    /* 回收站：灰白桶身 + 绿色回收标志，与 Nautilus 的 trash 图标一致 */
+    trash: '<svg viewBox="0 0 48 48"><path d="M12.6 14h22.8l-2.3 26.2a3.2 3.2 0 0 1-3.2 2.9H18.1a3.2 3.2 0 0 1-3.2-2.9z" fill="#dedede" stroke="#b6b6b6" stroke-width="1.2"/><rect x="9.5" y="9.2" width="29" height="5.2" rx="2.6" fill="#c9c9c9" stroke="#b0b0b0" stroke-width=".9"/><path d="M19.4 9.1a4.6 4.6 0 0 1 9.2 0" fill="none" stroke="#b0b0b0" stroke-width="2"/><path d="M21 21.8l3.6 3.1-1.5 4.3h-2.6l-1.5-4.3z" fill="#5aa84e"/><path d="M27 21.8l-3.6 3.1 1.5 4.3h2.6l1.5-4.3z" fill="#5aa84e"/><path d="M24 21.8v7.4" stroke="#5aa84e" stroke-width="1.6"/></svg>',
   };
   function ico(name, cls){
     return '<span class="ico' + (cls ? ' ' + cls : '') + '">' + (ICONS[name] || ICONS.app) + '</span>';
@@ -144,17 +162,18 @@ const Desktop = (() => {
     win.style.left = Math.max(6, (dw.clientWidth - W) / 2 + (wins.size % 5) * 24 - 40) + 'px';
     win.style.top = Math.max(6, (dw.clientHeight - H) / 2 + (wins.size % 5) * 22 - 36) + 'px';
 
+    // Yaru 主题：按钮在标题栏右上角，顺序为 最小化 / 最大化 / 关闭（关闭为红圆）
     const head = el('div', 's-win-head');
-    // Ambiance 主题：窗口按钮在左侧，顺序为 关闭 / 最小化 / 最大化
+    head.insertAdjacentHTML('beforeend',
+      '<span class="win-ico">' + (ICONS[opts.ico] || ICONS.app) + '</span>');
     const btnBox = el('div', 'win-btns');
-    const bX = el('button', 'win-btn close', '✕');
-    const bMin = el('button', 'win-btn', '—');
-    const bMax = el('button', 'win-btn', '▢');
-    bX.title = '关闭'; bMin.title = '最小化'; bMax.title = '最大化';
-    btnBox.appendChild(bX); btnBox.appendChild(bMin); btnBox.appendChild(bMax);
+    const bMin = el('button', 'win-btn', '\u2013');
+    const bMax = el('button', 'win-btn', '\u25a1');
+    const bX = el('button', 'win-btn close', '\u2715');
+    bMin.title = '最小化'; bMax.title = '最大化'; bX.title = '关闭';
+    btnBox.appendChild(bMin); btnBox.appendChild(bMax); btnBox.appendChild(bX);
     head.appendChild(btnBox);
     head.insertAdjacentHTML('beforeend',
-      '<span class="win-ico">' + (ICONS[opts.ico] || ICONS.app) + '</span>' +
       '<span class="win-title">' + esc(opts.title || '') + '</span>');
     const body = el('div', 's-win-body');
     win.appendChild(head); win.appendChild(body);
@@ -166,16 +185,7 @@ const Desktop = (() => {
     };
     wins.set(wid, rec);
 
-    const taskBtn = el('button', 's-taskbtn active');
-    taskBtn.innerHTML = (ICONS[opts.ico] || ICONS.app).replace('<svg', '<svg class="tsk-svg"') +
-      '<span>' + esc(opts.title || '') + '</span>';
-    taskBtn.onclick = () => {
-      if (rec.minimized){ toggleMin(rec); focusWin(rec); }
-      else if (win.classList.contains('focused')) toggleMin(rec);
-      else focusWin(rec);
-    };
-    document.getElementById('sTaskWins').appendChild(taskBtn);
-    rec.taskBtn = taskBtn;
+    rec.appId = opts.appId || ((Date.now() - lastLaunchAt < 900) ? lastLaunch : null);
 
     win.addEventListener('mousedown', () => focusWin(rec));
     bX.onclick = e => { e.stopPropagation(); closeWin(rec); };
@@ -205,12 +215,13 @@ const Desktop = (() => {
   }
 
   function focusWin(rec){
-    wins.forEach(w => { w.el.classList.remove('focused'); if (w.taskBtn) w.taskBtn.classList.remove('active'); });
+    wins.forEach(w => w.el.classList.remove('focused'));
     rec.el.classList.add('focused');
-    if (rec.taskBtn) rec.taskBtn.classList.add('active');
     if (rec.minimized && rec.el.style.display === 'none'){ rec.minimized = false; rec.el.style.display = 'flex'; }
     zTop(rec);
+    closeAppGrid();
     closePop();
+    setActTitle(rec.title, rec.ico);
   }
   let zBase = 100;
   function zTop(rec){
@@ -222,14 +233,16 @@ const Desktop = (() => {
     if (!rec) return;
     if (rec.onClose){ try { rec.onClose(); } catch (e) {} }
     rec.el.remove();
-    if (rec.taskBtn) rec.taskBtn.remove();
     for (const [k, w] of wins){ if (w === rec){ wins.delete(k); break; } }
+    syncDock();
+    if (![...wins.values()].some(w => !w.minimized)) setActTitle(null);
   }
   function toggleMin(rec){
     rec.minimized = !rec.minimized;
     rec.el.style.display = rec.minimized ? 'none' : 'flex';
-    if (rec.taskBtn) rec.taskBtn.classList.toggle('min', rec.minimized);
     if (!rec.minimized) focusWin(rec);
+    else if (![...wins.values()].some(w => !w.minimized && w.el.classList.contains('focused'))) setActTitle(null);
+    syncDock();
   }
   function dragify(head, win){
     let sx, sy, ox, oy, on = false;
@@ -253,8 +266,8 @@ const Desktop = (() => {
   }
   function closeAllWins(){
     for (const [, w] of [...wins]) closeWin(w);
-    const t = document.getElementById('sTaskWins');
-    if (t) t.innerHTML = '';
+    syncDock();
+    setActTitle(null);
   }
   function showDesktop(){
     const visible = [...wins.values()].filter(w => !w.minimized);
@@ -349,30 +362,46 @@ const Desktop = (() => {
   }
 
   /* ═══════════════ 壁纸 ═══════════════ */
-  // NOI Linux 2.0 = Ubuntu 20.04（Focal Fossa），默认壁纸为深紫渐变
+  /* 直接取自 NOI Linux 2.0 ISO 的 /usr/share/backgrounds/noi_wallpaper_00..08.png
+     （/etc/skel/.config/dconf/user 记录默认值就是 noi_wallpaper_00） */
   const WALLS = [
-    { id: 'focal', name: 'Focal Fossa（默认）' },
-    { id: 'focal-dark', name: 'Focal Fossa 深色' },
-    { id: 'plain', name: '素灰' },
-    { id: 'noi', name: 'NOI 纪念（深蓝）' },
-    { id: 'olive', name: '橄榄绿' },
+    { id: 'noi-00', name: 'NOI Linux 2.0（默认）', src: 'assets/wall/noi-00.png' },
+    { id: 'noi-01', name: 'NOI Linux 光影',        src: 'assets/wall/noi-01.jpg' },
+    { id: 'noi-02', name: 'NOI Linux 线框',        src: 'assets/wall/noi-02.jpg' },
+    { id: 'noi-03', name: '企鹅 · 努力成就梦想',   src: 'assets/wall/noi-03.jpg' },
+    { id: 'noi-04', name: '企鹅 · 浅黄',           src: 'assets/wall/noi-04.jpg' },
+    { id: 'noi-05', name: 'NOI Linux 浅蓝',        src: 'assets/wall/noi-05.jpg' },
+    { id: 'noi-06', name: 'NOI 数字城市',          src: 'assets/wall/noi-06.jpg' },
+    { id: 'noi-07', name: 'NOI 历年徽标',          src: 'assets/wall/noi-07.jpg' },
+    { id: 'noi-08', name: 'NOI 立体方块',          src: 'assets/wall/noi-08.jpg' },
   ];
-  function wallpaper(){ return localStorage.getItem('csp_sim:wall') || 'focal'; }
+  function wallById(id){ return WALLS.find(w => w.id === id) || WALLS[0]; }
+  function wallpaper(){
+    const v = localStorage.getItem('csp_sim:wall');
+    return WALLS.some(w => w.id === v) ? v : 'noi-00';
+  }
   function setWallpaper(id){
     localStorage.setItem('csp_sim:wall', id);
-    const d = deskEl();
-    if (d) d.dataset.wall = id;
-    document.querySelectorAll('.s-watermark').forEach(w => { w.dataset.wall = id; });
+    const root = app();
+    if (root) root.style.setProperty('--wall', 'url("' + wallById(id).src + '")');
   }
 
   /* ═══════════════ 应用注册与启动 ═══════════════ */
   function addApp(a){ if (!apps.find(x => x.id === a.id)) apps.push(a); }
-  function registerApps(list){ list.forEach(addApp); }
+  function registerApps(list){
+    list.forEach(addApp);
+    // 应用是分批注册进来的，注册完要刷新 Dock 与已打开的应用网格
+    if (mounted){ syncDock(); if (gridOpen()) renderGrid(''); }
+  }
   function launch(id){
     const a = apps.find(x => x.id === id);
     if (!a) return null;
     if (a.disabled){ toast(a.disabled, 'err'); return null; }
-    try { return a.run(); } catch (e){ toast('启动失败：' + (e.message || e), 'err'); return null; }
+    lastLaunch = id; lastLaunchAt = Date.now();
+    let r = null;
+    try { r = a.run(); } catch (e){ toast('启动失败：' + (e.message || e), 'err'); }
+    syncDock();
+    return r;
   }
   function appsByGroup(){
     const g = new Map();
@@ -384,6 +413,94 @@ const Desktop = (() => {
     return g;
   }
 
+  /* ═══════════════ Dock / 应用网格 ═══════════════ */
+  // 顶栏左侧：有聚焦窗口时显示应用名（Ubuntu 的全局应用菜单位），否则显示「活动」
+  function setActTitle(title, icoName){
+    const lbl = document.getElementById('sActLbl');
+    const ic = document.getElementById('sActIco');
+    if (!lbl) return;
+    if (title){
+      lbl.textContent = title;
+      if (ic) ic.innerHTML = ICONS[icoName] || ICONS.app;
+    } else {
+      lbl.textContent = '活动';
+      if (ic) ic.innerHTML = '';
+    }
+  }
+
+  // Dock：固定启动器 + 运行中的应用，运行中右上角有橙色小圆点
+  function syncDock(){
+    const host = document.getElementById('sDockApps');
+    if (!host) return;
+    const pinned = apps.filter(a => a.pin && !a.hidden);
+    const list = pinned.slice();
+    wins.forEach(w => {
+      if (!w.appId || list.some(a => a.id === w.appId)) return;
+      const a = apps.find(x => x.id === w.appId);
+      if (a) list.push(a);
+    });
+    host.innerHTML = '';
+    list.forEach(a => {
+      const b = el('button', 'ub-dock-item');
+      b.title = a.label;
+      b.dataset.app = a.id;
+      b.innerHTML = ICONS[a.ico] || ICONS.app;
+      const opened = [...wins.values()].filter(w => w.appId === a.id);
+      if (opened.length) b.classList.add('running');
+      b.onclick = e => {
+        e.stopPropagation();
+        closeAppGrid(); closePop();
+        if (!opened.length){ launch(a.id); return; }
+        const top = opened[opened.length - 1];
+        if (top.minimized){ focusWin(top); }
+        else if (top.el.classList.contains('focused')) toggleMin(top);
+        else focusWin(top);
+      };
+      host.appendChild(b);
+    });
+  }
+
+  function openAppGrid(){
+    const g = document.getElementById('sGrid');
+    if (!g) return;
+    closePop();
+    renderGrid('');
+    g.classList.remove('hidden');
+    setActTitle(null);
+    const inp = document.getElementById('sGridInput');
+    if (inp){ inp.value = ''; setTimeout(() => { try { inp.focus(); } catch (e){} }, 0); }
+  }
+  function closeAppGrid(){
+    const g = document.getElementById('sGrid');
+    if (g) g.classList.add('hidden');
+  }
+  function gridOpen(){ const g = document.getElementById('sGrid'); return g && !g.classList.contains('hidden'); }
+
+  // GNOME 应用网格：不分组，按名称排序
+  function renderGrid(q){
+    const body = document.getElementById('sGridBody');
+    if (!body) return;
+    q = String(q || '').trim().toLowerCase();
+    let list = apps.filter(a => !a.hidden);
+    if (q){
+      list = list.filter(a =>
+        a.label.toLowerCase().includes(q) ||
+        (a.desc || '').toLowerCase().includes(q) ||
+        (a.id || '').toLowerCase().includes(q));
+    }
+    list.sort((a, b) => String(a.label).localeCompare(String(b.label), 'zh-Hans-CN'));
+    if (!list.length){ body.innerHTML = '<div class="ub-grid-empty">没有匹配的应用</div>'; return; }
+    body.innerHTML = '';
+    list.forEach(a => {
+      const b = el('button', 'ub-grid-app');
+      b.title = a.desc ? (a.label + ' — ' + a.desc) : a.label;
+      b.innerHTML = (ICONS[a.ico] || ICONS.app) + '<span>' + esc(a.label) + '</span>';
+      if (a.disabled) b.disabled = true;
+      b.onclick = () => { closeAppGrid(); launch(a.id); };
+      body.appendChild(b);
+    });
+  }
+
   /* ═══════════════ 初始化 ═══════════════ */
   function mount(){
     if (mounted) return;
@@ -392,70 +509,60 @@ const Desktop = (() => {
     if (fs.nodes.size === 0) fs.reset();
     setWallpaper(wallpaper());
 
-    const appBtn = document.getElementById('sAppBtn');
-    const placesBtn = document.getElementById('sPlacesBtn');
+    const actBtn = document.getElementById('sActBtn');
+    if (actBtn) actBtn.onclick = e => { e.stopPropagation(); gridOpen() ? closeAppGrid() : openAppGrid(); };
     const sysBtn = document.getElementById('sSysBtn');
-
-    appBtn.onclick = e => { e.stopPropagation(); openAppsMenu(appBtn); };
-    placesBtn.onclick = e => { e.stopPropagation(); openPlacesMenu(placesBtn); };
-    sysBtn.onclick = e => { e.stopPropagation(); openSysMenu(sysBtn); };
+    if (sysBtn){
+      sysBtn.innerHTML = ICONS.power;
+      sysBtn.onclick = e => { e.stopPropagation(); openSysMenu(sysBtn); };
+    }
+    const showApps = document.getElementById('sShowApps');
+    if (showApps) showApps.onclick = e => { e.stopPropagation(); gridOpen() ? closeAppGrid() : openAppGrid(); };
 
     const netIco = document.getElementById('sNetIco');
     if (netIco) netIco.innerHTML = ICONS.net;
     const volIco = document.getElementById('sVolIco');
     if (volIco) volIco.innerHTML = ICONS.vol;
 
-    const showDesk = document.getElementById('sShowDesk');
-    if (showDesk) showDesk.onclick = () => showDesktop();
+    const gi = document.getElementById('sGridInput');
+    if (gi) gi.addEventListener('input', () => renderGrid(gi.value));
 
     const desk = deskEl();
-    desk.addEventListener('mousedown', e => {
-      if (e.target === desk || e.target.classList.contains('s-icon')) { /* keep */ }
-      if (e.target === desk) selectIcon(null);
-    });
-    desk.addEventListener('contextmenu', e => {
-      if (e.target.closest('.s-icon') || e.target.closest('.s-win')) return;
-      e.preventDefault();
-      const p = deskEl();
-      const rect = p.getBoundingClientRect();
-      showCtx(e.clientX, e.clientY, [
-        { label: '更换壁纸', ico: 'app', sub: true, run(){ openWallMenu(e.clientX, e.clientY); } },
-        { sep: true },
-        { label: '新建文件夹', ico: 'folder', run(){ promptMkdir(); } },
-        { label: '在终端中打开', ico: 'term', run(){ launch('terminal'); } },
-        { label: '打开考试目录', ico: 'home', run(){ launch('files'); } },
-        { sep: true },
-        { label: '排列图标', ico: 'settings', run(){ toast('图标已按名称排列'); } },
-      ]);
-    });
+    if (desk){
+      desk.addEventListener('mousedown', e => {
+        if (e.target === desk) selectIcon(null);
+      });
+      desk.addEventListener('contextmenu', e => {
+        if (e.target.closest('.s-icon') || e.target.closest('.s-win')) return;
+        e.preventDefault();
+        showCtx(e.clientX, e.clientY, [
+          { label: '新建文件夹', ico: 'folder', run(){ promptMkdir(); } },
+          { sep: true },
+          { label: '更改背景…', ico: 'settings', run(){ openWallMenu(e.clientX, e.clientY); } },
+          { label: '显示设置', ico: 'settings', run(){ if (window.__app) window.__app('sysinfo'); } },
+          { label: '设置', ico: 'settings', run(){ if (window.__app) window.__app('sysinfo'); } },
+        ]);
+      });
+    }
 
     document.addEventListener('mousedown', e => {
-      if (!e.target.closest('.gp-pop') && !e.target.closest('.gp-ctx') &&
-          !e.target.closest('#sAppBtn') && !e.target.closest('#sPlacesBtn') && !e.target.closest('#sSysBtn')){
-        closePop();
-      }
+      if (e.target.closest('.gp-pop') || e.target.closest('.gp-ctx') || e.target.closest('.ub-grid')) return;
+      if (e.target.closest('#sActBtn') || e.target.closest('#sSysBtn') || e.target.closest('#sShowApps')) return;
+      closePop();
+      if (gridOpen() && !e.target.closest('#sDock')) closeAppGrid();
     });
     window.addEventListener('resize', closePop);
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape'){ closePop(); closeAppGrid(); }
+      // Super（Meta）单独按下 = 打开应用网格，与 GNOME 一致
+      if (e.key === 'Meta' && !e.repeat){ e.preventDefault(); gridOpen() ? closeAppGrid() : openAppGrid(); }
+    });
+
+    syncDock();
   }
 
-  function openAppsMenu(anchor){
-    const items = [];
-    appsByGroup().forEach((list, group) => {
-      items.push({ head: group });
-      list.forEach(a => items.push({
-        label: a.label, ico: a.ico, hint: a.desc, key: a.id,
-        run(){ launch(a.id); },
-      }));
-    });
-    const host = popHost();
-    host.className = 'gp-pop gp-pop-wide';
-    host.innerHTML = renderMenu(items);
-    const r = anchor.getBoundingClientRect();
-    host.style.left = Math.max(4, r.left) + 'px';
-    host.style.top = (r.bottom + 3) + 'px';
-    host.classList.remove('hidden');
-    bindMenu(host, items);
-  }
+  function openAppsMenu(){ openAppGrid(); }
   function openPlacesMenu(anchor){
     const items = [
       { head: '位置' },
@@ -480,7 +587,8 @@ const Desktop = (() => {
       { label: '系统管理', ico: 'settings', run(){ if (window.__app) window.__app('sysinfo'); } },
       { sep: true },
       { label: '考试信息', ico: 'browse', run(){ if (window.__app) window.__app('sysinfo'); } },
-      { label: '提交试卷', ico: 'submit', run(){ if (window.__app) window.__app('submit'); } },
+      { label: '程序回收系统', ico: 'browse', run(){ if (window.__app) window.__app('recovery'); } },
+      { label: '交卷并结束考试', ico: 'submit', run(){ if (window.__app) window.__app('finish'); } },
       { sep: true },
       { label: '锁定屏幕', dim: true },
       { label: '注销 ' + (stu.name || 'student'), dim: true },
@@ -504,9 +612,10 @@ const Desktop = (() => {
     mount, closePop,
     createWindow, closeWin, focusWin, toggleMin, closeAllWins, showDesktop,
     renderIcons, makeIcon, selectIcon, ico, ICONS,
-    addApp, registerApps, launch, apps,
-    setWallpaper, wallpaper, WALLS,
-    openMenuAt, showCtx, openAppsMenu,
+    addApp, registerApps, launch, apps, syncDock,
+    setWallpaper, wallpaper, WALLS, wallById,
+    openMenuAt, showCtx, openAppsMenu, openAppGrid, closeAppGrid, renderGrid,
+    openPlacesMenu, openSysMenu, openWallMenu, setActTitle,
     fs, HOME,
     get wins(){ return wins; },
   };

@@ -164,7 +164,7 @@ body.resizing.row{cursor:row-resize;}
   <div class="workspace">
     <section class="pane pane-code" id="paneCode">
       <div class="pane-head">
-        <span>main.cpp</span>
+        <span id="paneFile">main.cpp</span>
         <span class="hint">Ctrl+Enter 运行 · Ctrl+K 补全 · Tab 缩进</span>
       </div>
       <div class="editor">
@@ -4840,6 +4840,7 @@ function renderCapabilityBar(issues){
 }
 
 let lastInfo = '', lastAsm = '', lastTrace = '';
+let CURRENT_FILE = 'main.cpp';   // 当前题目源文件名，由父页面通过 ide:file 消息同步
 let currentView = 'info';
 let running = false;
 
@@ -4904,7 +4905,7 @@ async function runProgram(){
     '===============================================',
     '编译器     : g++ 9.3.0（NOI Linux 2.0 / Ubuntu 20.04.1）',
     '编译选项   : ' + (stdSel.value || '-std=c++14') + ' -O2 -Wall',
-    '源文件     : main.cpp',
+    '源文件     : ' + CURRENT_FILE,
     '编译耗时   : ' + compileTime.toFixed(2) + ' ms',
     '',
     '[函数]',
@@ -5495,6 +5496,11 @@ setTimeout(() => {
     if (d.type === 'ide:req'){ handleReq(d); return; }
     if (d.type === 'ide:config') applyConfig(d);
     else if (d.type === 'ide:setCode') setCode(d.code || '');
+    else if (d.type === 'ide:file'){
+      CURRENT_FILE = d.name || 'main.cpp';
+      var pf = document.getElementById('paneFile');
+      if (pf) pf.textContent = CURRENT_FILE;
+    }
     else if (d.type === 'ide:setJudge') setJudge(d.cases, d.tl, d.steps);
     else if (d.type === 'ide:getCode'){
       try{ parent.postMessage({ type:'ide:code', code: codeEl.value }, '*'); }catch(e){}

@@ -21,6 +21,7 @@ const Store = (() => {
     submissions: 'csp_sim:submissions',
     studentState: 'csp_sim:studentState',
     ghToken: 'csp_sim:ghtoken',       // 管理员粘贴的 GitHub token，仅存本机，绝不进代码
+    rcSubmits: 'csp_sim:rcsubmits',   // 程序回收系统的提交记录 { [pid]: {time, size} }
   };
 
   function lsGet(key, fallback){
@@ -155,7 +156,8 @@ const Store = (() => {
     scheduledAt: '',
     allowJudge: true,             // 允许学生在 IDE 内本地评测
     allowCopy: true,              // 允许 IDE 复制粘贴
-    watermark: true,
+    watermark: false,            // NOI Linux 桌面本身没有水印；需要防拍照时由管理员开启
+    desktopIcons: 'real',         // real: 只放考生目录+回收站（与官方演示一致）| exam: 平铺题目压缩包，便于点选
     notice: '1. 考试期间请独立完成作答。\n2. 每题源程序请保存在 IDE 中，交卷前确认已保存。\n3. 时间结束后系统将自动交卷。',
   };
 
@@ -190,6 +192,14 @@ const Store = (() => {
     },
     getSettings(){ return Object.assign({}, DEFAULT_SETTINGS, lsGet(K.settings, {})); },
     getGhToken(){ return lsGet(K.ghToken, ''); },
+    /* 程序回收系统：每题提交一次，记录提交时间与代码字节数（与真实系统的表格列一致） */
+    getRcSubmits(){ return lsGet(K.rcSubmits, {}); },
+    saveRcSubmit(pid, rec){
+      const m = this.getRcSubmits();
+      m[pid] = rec;
+      lsSet(K.rcSubmits, m);
+      return m;
+    },
     saveSettings(s){ lsSet(K.settings, s); fs.mirrorDebounced(); },
     getProblems(){ return lsGet(K.problems, null); },
     /* 保存题库：内置题只存元信息（避免大测试点数据撑爆 localStorage 配额），

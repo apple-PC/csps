@@ -198,156 +198,151 @@ input,select,textarea{ font:inherit; }
   -webkit-font-smoothing:antialiased;
 }
 
-/* ---- 上下两条面板 ---- */
-.gp-top,.gp-bottom{
-  position:absolute; left:0; right:0; z-index:7000; height:24px;
-  display:flex; align-items:center; gap:2px; padding:0 4px;
-  background:linear-gradient(var(--panel-bg-a), var(--panel-bg-b));
-  color:var(--panel-fg); font-size:11px; font-family:var(--ui-font);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 1px 0 var(--panel-line);
-  border-bottom:1px solid var(--panel-line);
+/* ═══════════════ Ubuntu 20.04 GNOME 桌面外壳 ═══════════════ */
+/* 依据 NOI Linux 2.0 官方 ISO（Ubuntu 20.04.1 LTS）实测：
+   - org.gnome.desktop.session session-name = "ubuntu" → 默认 GNOME 会话，非 Flashback
+   - dash-to-dock：dock-fixed=true / extend-height=true / background-opacity=0.7
+     / running-indicator-style='DOTS' / custom-theme-running-dots-color='#e95420'
+   - /etc/skel/.config/dconf/user 里唯一的定制：壁纸 noi_wallpaper_00.png
+   - favorite-apps = [ubiquity, firefox, nautilus] */
+
+/* ---- 顶部面板：26px，近黑半透明，白色 12.5px 文字 ---- */
+.ub-top{
+  position:absolute; left:0; right:0; top:0; height:26px; z-index:7000;
+  display:flex; align-items:center; padding:0 4px;
+  background:rgba(29,29,29,.93);
+  color:#fff; font-family:var(--ui-font); font-size:12.5px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
 }
-.gp-top{ top:0; }
-.gp-bottom{ bottom:0; box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 -1px 0 var(--panel-line); border-bottom:0; }
-.gp-menu{
-  height:20px; padding:0 7px; border:0; border-radius:2px; background:transparent;
-  color:var(--panel-fg); font:11px/20px var(--ui-font); cursor:default;
-  display:flex; align-items:center; gap:5px; white-space:nowrap;
+.ub-act{
+  height:26px; padding:0 9px; border:0; border-radius:0; background:transparent;
+  color:#fff; font:12.5px/26px var(--ui-font); cursor:default;
+  display:flex; align-items:center; gap:6px; white-space:nowrap; max-width:46%;
 }
-.gp-menu:hover,.gp-menu.active{ background:var(--panel-hover); }
-.gp-menu:active{ background:#5b5952; }
-.gp-mark{ width:10px; height:10px; border-radius:2px; display:inline-block;
-  background:radial-gradient(circle at 30% 25%, #f8b26a, #e07b34 70%, #b75f22); }
-.gp-title{
+.ub-act:hover{ background:rgba(255,255,255,.17); }
+.ub-act:focus,.ub-ico:focus,.ub-power:focus,.ub-dock-item:focus,.ub-dock-grid:focus,
+.ub-grid-app:focus,.win-btn:focus{ outline:none; }
+.ub-act-ico{ display:none; width:14px; height:14px; flex:none; }
+.ub-act-ico:not(:empty){ display:flex; }
+.ub-act-ico svg{ width:14px; height:14px; }
+.ub-act-lbl{ overflow:hidden; text-overflow:ellipsis; }
+.ub-clock{
   position:absolute; left:50%; transform:translateX(-50%);
-  font-size:11px; color:#e9e8e5; max-width:46%;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; pointer-events:none;
+  font:12.5px/26px var(--ui-font); color:#fff; white-space:nowrap; pointer-events:none;
 }
-.gp-topright{ margin-left:auto; display:flex; align-items:center; gap:7px; padding-right:2px; }
-.gp-tray-ico{ width:14px; height:14px; opacity:.9; display:inline-flex; align-items:center; justify-content:center; }
-.gp-tray-ico svg{ width:14px; height:14px; }
-.gp-sys{
-  min-width:20px; padding:0 6px; height:20px; border:0; border-radius:2px; background:transparent;
-  color:#e9e8e5; font-size:11px; line-height:1; cursor:default;
-}
-.gp-sys:hover{ background:#8f3a35; }
-.s-remain{ font-size:11px; font-weight:700; color:#c6e6a0; font-family:var(--mono-font);
-  letter-spacing:.3px; }
-.s-remain.warn{ color:#f2c14b; }
-.s-remain.crit{ color:#ff8a7a; animation:blink 1s step-start infinite; }
+.ub-tray{ margin-left:auto; display:flex; align-items:center; gap:11px; padding-right:2px; }
+.ub-ico{ width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center; opacity:.95; }
+.ub-ico svg{ width:16px; height:16px; }
+.ub-power{ width:16px; height:16px; padding:0; border:0; background:transparent; color:#fff; }
+.ub-power:hover{ opacity:.7; }
+.ub-ime{ font-size:12.5px; display:inline-flex; align-items:center; gap:1px; }
+.ub-ime b{ font-weight:400; font-size:9px; opacity:.8; }
+.ub-caret{ font-size:9px; opacity:.85; }
+.ub-remain{ font:700 11.5px var(--mono-font); color:#c6e6a0; letter-spacing:.2px; }
+.ub-remain.warn{ color:#f2c14b; }
+.ub-remain.crit{ color:#ff8a7a; animation:blink 1s step-start infinite; }
 @keyframes blink{ 50%{ opacity:.35; } }
-.s-clock{ font-size:11px; color:#f2f1ef; font-family:var(--ui-font); font-weight:700; }
 
-/* ---- 桌面：Ubuntu 20.04 Focal Fossa 壁纸 ---- */
+/* ---- 左侧 Dock：64px，70% 不透明黑，占满顶栏以下高度 ---- */
+.ub-dock{
+  position:absolute; left:0; top:26px; bottom:0; width:64px; z-index:6900;
+  display:flex; flex-direction:column; align-items:center;
+  padding:8px 0 6px; gap:4px;
+  background:rgba(28,28,28,.72);
+}
+.ub-dock-apps{
+  flex:1; width:100%; display:flex; flex-direction:column; align-items:center;
+  gap:4px; overflow:hidden;
+}
+.ub-dock-item{
+  position:relative; width:48px; height:48px; flex:none; padding:0;
+  border:0; border-radius:5px; background:transparent; cursor:default;
+  display:flex; align-items:center; justify-content:center;
+}
+.ub-dock-item:hover{ background:rgba(255,255,255,.13); }
+.ub-dock-item svg{ width:40px; height:40px; }
+/* 运行指示：右上角橙色小圆点（dash-to-dock DOTS 样式） */
+.ub-dock-item.running::after{
+  content:''; position:absolute; right:3px; top:50%; margin-top:-2.5px;
+  width:5px; height:5px; border-radius:50%; background:#e95420;
+  box-shadow:0 0 2px rgba(0,0,0,.6);
+}
+.ub-dock-grid{
+  width:42px; height:42px; flex:none; padding:10px;
+  border:0; border-radius:50%; background:transparent;
+  display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
+  gap:2px; cursor:default;
+}
+.ub-dock-grid:hover{ background:rgba(255,255,255,.13); }
+.ub-dock-grid i{ display:block; width:3.5px; height:3.5px; margin:auto; border-radius:50%; background:#e6e6e6; }
+
+/* ---- 桌面：壁纸铺满整个屏幕，Dock 压在上面 ---- */
+#studentApp{
+  background-color:#000;
+  background-image:var(--wall, url(assets/wall/noi-00.png));
+  background-size:cover; background-position:center; background-repeat:no-repeat;
+}
 .s-desktop{
-  position:absolute; inset:24px 0 24px 0; padding:8px 6px;
-  display:block; column-width:88px; column-gap:0; column-fill:auto;
-  overflow:hidden;
-  background:
-    radial-gradient(ellipse 70% 55% at 78% 12%, rgba(233,84,107,.55), transparent 62%),
-    radial-gradient(ellipse 65% 60% at 18% 88%, rgba(120,40,140,.55), transparent 60%),
-    linear-gradient(160deg,#5e2750 0%,#3d1a3a 45%,#2c001e 100%);
-  transition:background .3s ease;
+  position:absolute; inset:26px 0 0 64px; padding:10px 8px;
+  display:block; column-width:100px; column-gap:0; column-fill:auto;
+  overflow:hidden; background:transparent;
 }
-.s-desktop[data-wall="focal"]{
-  background:
-    radial-gradient(ellipse 70% 55% at 78% 12%, rgba(233,84,107,.55), transparent 62%),
-    radial-gradient(ellipse 65% 60% at 18% 88%, rgba(120,40,140,.55), transparent 60%),
-    linear-gradient(160deg,#5e2750 0%,#3d1a3a 45%,#2c001e 100%);
-}
-.s-desktop[data-wall="focal-dark"]{
-  background:
-    radial-gradient(ellipse 60% 50% at 82% 8%, rgba(180,60,90,.35), transparent 60%),
-    linear-gradient(165deg,#2c001e 0%,#1a0012 70%,#12000c 100%);
-}
-.s-desktop[data-wall="plain"]{ background:linear-gradient(165deg,#5b6b77 0%,#3f4d57 100%); }
-.s-desktop[data-wall="noi"]{ background:radial-gradient(circle at 28% 18%,#20405f,#0d1a28 72%); }
-.s-desktop[data-wall="noi"]::after{
-  content:'NOI'; position:absolute; right:36px; bottom:22px; font-size:120px; font-weight:800;
-  color:rgba(255,255,255,.035); letter-spacing:6px; pointer-events:none;
-}
-.s-desktop[data-wall="olive"]{ background:linear-gradient(165deg,#4c5442,#31382b); }
-
-/* ---- 桌面图标（Adwaita 尺寸：48px 图标 + 11px 两行标签） ---- */
 .s-icon{
-  width:88px; margin:0; break-inside:avoid; padding:5px 3px 4px; display:flex; flex-direction:column; align-items:center; gap:4px;
-  color:#fff; cursor:default; border:1px solid transparent; border-radius:3px; user-select:none;
-  text-align:center; flex:0 0 auto; font-family:var(--ui-font);
+  width:100px; margin:0; break-inside:avoid; padding:7px 3px 8px;
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  border-radius:5px; border:1px solid transparent; cursor:default; user-select:none;
 }
-.s-icon:hover{ background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.16); }
-.s-icon.selected{ background:rgba(240,119,70,.45); border-color:rgba(240,119,70,.85); }
+.s-icon:hover{ background:rgba(255,255,255,.13); border-color:rgba(255,255,255,.14); }
+.s-icon.selected{ background:rgba(233,84,32,.42); border-color:rgba(233,84,32,.75); }
 .s-icon .ico{ width:48px; height:48px; display:flex; align-items:center; justify-content:center; }
 .s-icon .ico svg{ width:48px; height:48px; }
 .s-icon .lbl{
-  font-size:11px; line-height:1.32; text-shadow:0 1px 2px rgba(0,0,0,.85); word-break:break-all;
-  max-height:2.8em; overflow:hidden;
+  font-size:11.5px; line-height:1.35; text-align:center; color:#fff;
+  max-width:96px; word-break:break-all;
+  text-shadow:0 1px 3px rgba(0,0,0,.95), 0 0 2px rgba(0,0,0,.9);
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
 }
 .s-watermark{
-  position:absolute; inset:24px 0 24px 0; z-index:6; pointer-events:none; overflow:hidden;
-  opacity:.028; font-size:22px; color:#fff; font-weight:700; line-height:2.6; letter-spacing:2px;
-  transform:rotate(-24deg) scale(1.4); white-space:pre-wrap;
+  position:absolute; inset:26px 0 0 64px; z-index:6000; pointer-events:none;
+  display:flex; align-items:center; justify-content:center; overflow:hidden;
+  color:#fff; font-family:var(--mono-font); text-align:center;
+  opacity:.016; font-size:20px; font-weight:700; line-height:3; letter-spacing:1px;
+  white-space:pre-wrap; word-break:break-all;
 }
+.s-watermark.hidden{ display:none; }
 
-/* ---- 底部面板 ---- */
-.gp-showdesk{
-  width:24px; height:20px; border:1px solid #232220; border-radius:2px;
-  background:linear-gradient(#4a4842,#3d3b36); color:#e9e8e5; font-size:10px; line-height:1; cursor:default;
-}
-.gp-showdesk:hover{ background:linear-gradient(#57554e,#47453f); }
-.gp-tasks{ flex:1; display:flex; gap:2px; overflow:hidden; align-items:center; }
-.s-taskbtn:focus,.gp-menu:focus,.gp-sys:focus,.gp-showdesk:focus,.win-btn:focus{ outline:none; }
-.s-taskbtn{
-  display:flex; align-items:center; gap:5px; max-width:200px; overflow:hidden;
-  background:transparent; border:1px solid transparent; color:#dedcd8;
-  font-size:11px; font-family:var(--ui-font); padding:0 8px; height:20px;
-  border-radius:2px; cursor:default;
-}
-.s-taskbtn:hover{ background:rgba(255,255,255,.10); border-color:rgba(255,255,255,.12); }
-.s-taskbtn.active{ background:linear-gradient(#5d5b54,#4a4842); border-color:#201f1d; color:#fff; }
-.s-taskbtn.min{ opacity:.62; }
-.s-taskbtn span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.s-taskbtn .tsk-svg{ width:12px; height:12px; flex:none; }
-.gp-ws{ display:flex; gap:3px; align-items:center; padding:0 4px; }
-.gp-ws .ws{ width:9px; height:9px; border-radius:1px; background:#26251f; border:1px solid #4a4842; }
-.gp-ws .ws.on{ background:#9a9890; }
-
-/* ---- 窗口（Ambiance 装饰：左侧按钮、4px 圆角、24px 标题栏） ---- */
+/* ---- 窗口（Yaru：深灰标题栏、标题居中、右上角按钮、关闭为红圆） ---- */
 .s-win{
-  position:absolute; min-width:340px; min-height:200px; z-index:100;
-  background:#f2f1f0; border-radius:4px 4px 3px 3px;
-  box-shadow:0 6px 24px rgba(0,0,0,.55), 0 0 0 1px #1c1b1a;
-  display:flex; flex-direction:column; overflow:hidden;
+  position:absolute; display:flex; flex-direction:column; min-width:300px; min-height:180px;
+  background:#f6f5f4; color:#2c2c2c; border-radius:6px; overflow:hidden;
+  box-shadow:0 6px 22px rgba(0,0,0,.42), 0 0 0 1px rgba(0,0,0,.26);
 }
-.s-win.maxed{ border-radius:0; box-shadow:none; }
+.s-win.maxed{ border-radius:0; box-shadow:0 0 0 1px rgba(0,0,0,.4); }
 .s-win-head{
-  height:24px; flex:0 0 auto; display:flex; align-items:center; gap:6px; padding:0 6px 0 5px;
-  background:linear-gradient(var(--title-b),#302f2c);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.07);
-  cursor:move; user-select:none; font-size:11px; font-family:var(--ui-font); color:#c9c7c2;
+  position:relative; height:30px; flex:none; display:flex; align-items:center;
+  padding:0 6px 0 10px; gap:6px;
+  background:linear-gradient(#3c3c3c,#333);
+  color:#cfcfcf; font-size:12px; cursor:default; user-select:none;
 }
-.s-win.focused .s-win-head{
-  background:linear-gradient(var(--title-a),var(--title-b));
-  color:var(--title-fg);
-}
-.s-win-head .win-ico{ width:14px; height:14px; display:flex; align-items:center; justify-content:center; flex:none; }
+.s-win.focused .s-win-head{ background:linear-gradient(#4a4a4a,#3b3b3b); color:#f4f4f4; }
+.s-win-head .win-ico{ width:14px; height:14px; flex:none; display:flex; align-items:center; justify-content:center; opacity:.9; }
 .s-win-head .win-ico svg{ width:14px; height:14px; }
 .s-win-head .win-title{
-  flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  text-align:center; font-weight:400; margin-right:24px;
+  position:absolute; left:50%; transform:translateX(-50%);
+  max-width:calc(100% - 160px); font-size:12px; font-weight:700;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; pointer-events:none;
 }
-.win-btns{ display:flex; gap:4px; align-items:center; flex:none; }
+.win-btns{ display:flex; gap:5px; align-items:center; margin-left:auto; flex:none; z-index:1; }
 .win-btn{
-  width:16px; height:16px; border:1px solid #232220; border-radius:50%;
-  background:radial-gradient(circle at 35% 30%, #6a6862, #3a3934 75%);
-  font-size:8px; line-height:1; color:#e8e6e1; display:flex; align-items:center; justify-content:center;
-  padding:0; cursor:default;
+  width:22px; height:22px; padding:0; border:0; border-radius:50%;
+  background:transparent; color:#cfcfcf; cursor:default;
+  display:flex; align-items:center; justify-content:center;
+  font:400 10px/1 var(--ui-font);
 }
-.win-btn:hover{ background:radial-gradient(circle at 35% 30%, #84817a, #4a4842 75%); }
-.win-btn:active{ background:radial-gradient(circle at 35% 30%, #2e2d29, #48463f 75%); }
-.win-btn.close{ background:radial-gradient(circle at 35% 30%, #7d6058, #4a3630 75%); }
-.win-btn.close:hover{ background:radial-gradient(circle at 35% 30%, #e06a60, #b03a32 75%); color:#fff; }
-.s-win-body{ flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; position:relative;
-  background:#f2f1f0; font-family:var(--ui-font); font-size:11px; color:#3c3b37; }
+.win-btn:hover{ background:rgba(255,255,255,.18); color:#fff; }
+.win-btn.close{ background:#e01b24; color:#fff; }
+.win-btn.close:hover{ background:#f22b35; }
+.s-win-body{ flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; background:#fff; }
 
 /* ---- GTK 菜单栏 / 工具栏 / 状态栏 ---- */
 .s-menubar{
@@ -401,7 +396,7 @@ input,select,textarea{ font:inherit; }
 /* ---- IDE 窗口 ---- */
 .ide-bar{
   flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:5px 12px;
-  background:#dde3ea; border-bottom:1px solid #b8c2cf; font-size:12.5px;
+  background:linear-gradient(#f4f3f2,#e8e7e5); border-bottom:1px solid #c9c7c4; font-size:12.5px;
 }
 .ide-bar select{ padding:3px 8px; border:1px solid #b3bdc9; border-radius:5px; background:#fff; }
 .ide-bar .save-dot{ font-size:11.5px; color:#666; }
@@ -780,6 +775,56 @@ input,select,textarea{ font:inherit; }
 .gp-item:hover .gp-chk{ color:#fff; }
 .gp-sep{ height:1px; background:#dcd9d4; margin:3px 2px; }
 
+/* ═══════════════ 应用网格（Super+A / 点 Dock 底部九宫格） ═══════════════ */
+.ub-grid{
+  position:absolute; left:0; right:0; top:26px; bottom:0; z-index:7400;
+  background:rgba(24,24,24,.95);
+  overflow-y:auto; overscroll-behavior:contain;
+  display:flex; flex-direction:column;
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+}
+.ub-grid.hidden{ display:none; }
+/* GNOME 把整块网格在可视区里垂直居中；margin:auto 在 flex 里正好做到这一点 */
+.ub-grid-inner{ width:min(880px, 90%); margin:auto; padding:26px 0 40px; }
+.ub-grid-search{
+  display:flex; align-items:center; gap:9px; height:34px;
+  width:min(460px, 100%); margin:0 auto 30px; padding:0 13px; border-radius:8px;
+  background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.08);
+}
+.ub-grid-search input{
+  flex:1; border:0; background:transparent; outline:none;
+  color:#fff; font:13px var(--ui-font);
+}
+.ub-grid-search input::placeholder{ color:rgba(255,255,255,.55); }
+.ub-grid-mag{
+  width:13px; height:13px; flex:none; border:2px solid rgba(255,255,255,.65);
+  border-radius:50%; position:relative;
+}
+.ub-grid-mag::after{
+  content:''; position:absolute; right:-4px; bottom:-3px; width:6px; height:2px;
+  background:rgba(255,255,255,.65); transform:rotate(45deg); border-radius:1px;
+}
+.ub-grid-group{ margin:0 0 22px; }
+.ub-grid-gt{
+  font-size:11px; letter-spacing:.8px; color:rgba(255,255,255,.5);
+  margin:0 0 10px 4px; font-weight:700;
+}
+.ub-grid-body{ display:grid; grid-template-columns:repeat(auto-fill, minmax(112px, 1fr)); gap:2px 0; }
+.ub-grid-app{
+  display:flex; flex-direction:column; align-items:center; gap:7px;
+  padding:12px 4px 10px; border:0; border-radius:6px; background:transparent;
+  color:#fff; cursor:default; width:100%;
+}
+.ub-grid-app:hover{ background:rgba(255,255,255,.14); }
+.ub-grid-app:disabled{ opacity:.42; }
+.ub-grid-app svg{ width:50px; height:50px; flex:none; }
+.ub-grid-app span{
+  font-size:11.5px; line-height:1.3; text-align:center;
+  max-width:104px; overflow:hidden; display:-webkit-box;
+  -webkit-line-clamp:2; -webkit-box-orient:vertical;
+}
+.ub-grid-empty{ color:rgba(255,255,255,.5); font-size:12.5px; padding:26px 4px; }
+
 /* ═══════════════ 终端行 ═══════════════ */
 .term .t-line{ min-height:1.15em; white-space:pre-wrap; word-break:break-all; }
 .term .t-cmd{ color:#ffffff; }
@@ -956,7 +1001,116 @@ input,select,textarea{ font:inherit; }
   border:1px dashed #cddbeb; border-radius:5px; padding:7px 11px; margin:0 0 12px;
 }
 
-/* 底部面板右侧工作区指示 */
-.gp-ws{ display:flex; gap:3px; align-items:center; padding:0 4px; }
-.gp-ws .ws{ width:14px; height:9px; border:1px solid #6d6d6d; border-radius:2px; background:#4a4a4a; }
-.gp-ws .ws.on{ background:#9a9a9a; border-color:#b0b0b0; }
+
+/* ═══════════════ 程序回收系统（Firefox 内的考场站点） ═══════════════
+   配色取自官方《程序回收系统使用说明》里的界面截图：
+   顶栏青 #3aa0b8 / 侧栏青蓝→深蓝渐变 / 选中项草绿 / 登录按钮绿 / 提交按钮蓝 */
+.rc-app{
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  background:#fff; font:13px/1.6 var(--ui-font); color:#333; overflow:hidden;
+}
+.rc-top{
+  flex:none; height:52px; display:flex; align-items:center; padding:0 16px;
+  background:linear-gradient(90deg,#3aa0b8,#3d93b4 60%,#3a8fb0); color:#fff;
+}
+.rc-top h1{ margin:0; font-size:18px; font-weight:700; letter-spacing:1.2px; }
+.rc-logout{
+  margin-left:auto; flex:none; border:0; border-radius:3px; padding:5px 12px;
+  background:#fff; color:#2f7fb8; font:12.5px var(--ui-font); cursor:default;
+}
+.rc-logout:hover{ background:#eef7fb; }
+
+.rc-body{ flex:1; display:flex; min-height:0; }
+.rc-side{
+  flex:none; width:186px; color:#fff; padding-top:6px;
+  background:linear-gradient(180deg,#2f9ab4 0%,#2b73a5 58%,#1f5c8f 100%);
+}
+.rc-clock{ padding:5px 14px; font-size:13px; letter-spacing:.5px; }
+.rc-clock b{ font-weight:400; }
+.rc-user{ padding:3px 14px 8px; font-size:13px; }
+.rc-nav a{
+  display:flex; align-items:center; gap:9px; padding:9px 14px;
+  color:#e8f6ff; font-size:13px; text-decoration:none; cursor:default;
+}
+.rc-nav a:hover{ background:rgba(255,255,255,.12); }
+.rc-nav a.on{ background:#7cb342; color:#fff; }
+.rc-nav .rc-i{ width:13px; height:13px; flex:none; }
+
+.rc-main{
+  flex:1; min-width:0; overflow:auto; padding:30px 24px 28px; position:relative;
+  background:
+    radial-gradient(180px 180px at 78% 22%, rgba(150,205,255,.30), transparent 70%),
+    radial-gradient(220px 220px at 62% 78%, rgba(120,230,235,.28), transparent 72%),
+    radial-gradient(140px 140px at 92% 62%, rgba(150,170,240,.26), transparent 70%),
+    linear-gradient(160deg,#ffffff 0%,#f4f9ff 55%,#eef6ff 100%);
+}
+.rc-card{ background:#fff; border:1px solid #dfe8f2; border-radius:3px; box-shadow:0 1px 3px rgba(30,60,100,.06); }
+.rc-card-h{ padding:9px 14px; border-bottom:1px solid #e8eef5; font-size:13px; color:#333; }
+.rc-card-b{ padding:14px 18px 18px; }
+.rc-notice p{ margin:0 0 9px; font-size:13px; line-height:1.85; text-indent:0; }
+.rc-notice p b{ font-weight:400; }
+
+.rc-hint{ margin:0 0 14px; font-size:12.5px; color:#5b6b7c; }
+.rc-empty{ padding:40px 0; text-align:center; color:#93a3b3; font-size:13px; }
+
+.rc-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+.rc-table th{
+  background:#eef4fa; color:#55677a; font-weight:400; text-align:left;
+  padding:7px 10px; border-bottom:1px solid #dde7f1; white-space:nowrap;
+}
+.rc-table td{ padding:7px 10px; border-bottom:1px solid #eef2f7; vertical-align:middle; }
+.rc-table tr:hover td{ background:#f7fbff; }
+.rc-table .rc-num{ width:52px; color:#55677a; }
+.rc-table .rc-time{ color:#5b6b7c; font-variant-numeric:tabular-nums; }
+.rc-table .rc-size{ color:#5b6b7c; font-variant-numeric:tabular-nums; }
+.rc-acts{ display:flex; gap:6px; }
+.rc-btn{
+  border:0; border-radius:3px; padding:3px 11px; font:12px var(--ui-font);
+  cursor:default; white-space:nowrap;
+}
+.rc-btn.view{ background:#e9eef4; color:#33455a; }
+.rc-btn.view:hover{ background:#dde5ee; }
+.rc-btn.submit{ background:#2f7fc1; color:#fff; }
+.rc-btn.submit:hover{ background:#3a8ed2; }
+.rc-btn.down{ background:#2f7fc1; color:#fff; }
+.rc-btn.down:hover{ background:#3a8ed2; }
+.rc-btn:disabled{ opacity:.45; }
+
+/* 登录页 */
+.rc-login{
+  position:relative; flex:1; min-height:0; display:flex; flex-direction:column;
+  background:linear-gradient(120deg,#0a2a63 0%,#0d2f70 45%,#0a2a63 100%); overflow:hidden;
+}
+.rc-login::after{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:
+    radial-gradient(120px 120px at 12% 22%, rgba(255,255,255,.16), transparent 70%),
+    radial-gradient(90px 90px at 22% 74%, rgba(255,255,255,.12), transparent 70%),
+    radial-gradient(70px 70px at 6% 58%, rgba(255,255,255,.10), transparent 70%);
+}
+.rc-login-body{ flex:1; display:flex; align-items:center; justify-content:center; padding-bottom:40px; }
+.rc-form{ position:relative; z-index:1; width:min(330px,84%); }
+.rc-form table{ width:100%; border-collapse:separate; border-spacing:0; }
+.rc-form td{
+  background:#fff; padding:0; border:1px solid #cfd8e3; height:38px;
+}
+.rc-form tr:first-child td{ border-bottom:0; }
+.rc-form td.lab{
+  width:74px; text-align:center; font-size:12.5px; color:#33507a;
+  border-right:1px solid #e3e9f1; white-space:nowrap;
+}
+.rc-form input{
+  width:100%; height:36px; border:0; padding:0 11px; box-sizing:border-box;
+  font:13px var(--ui-font); color:#22303f; outline:none; background:transparent;
+}
+.rc-form input::placeholder{ color:#9aa8b6; }
+.rc-login-btn{
+  width:100%; height:36px; margin-top:14px; border:0; border-radius:3px;
+  background:#6fae3f; color:#fff; font:13.5px var(--ui-font); cursor:default;
+}
+.rc-login-btn:hover{ background:#7cbd49; }
+.rc-login-err{
+  margin-top:10px; color:#ffd6d6; font-size:12px; text-align:center; min-height:16px;
+}
+.rc-bye{ flex:1; display:flex; align-items:center; justify-content:center; }
+.rc-bye p{ font-size:14px; color:#3b5570; max-width:420px; line-height:2; }

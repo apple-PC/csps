@@ -90,49 +90,86 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await sleep(60);
   check('进入考试桌面', visible('studentApp'));
 
-  // ── GNOME Flashback 双面板 ──
+  // ── Ubuntu 20.04 GNOME：顶栏 + 左侧 Dock（无底部面板） ──
   check('有顶部面板', !!document.getElementById('sTop'));
-  check('有底部面板', !!document.getElementById('sBottom'));
-  check('顶部有应用程序菜单', /应用程序/.test(document.getElementById('sAppBtn').textContent));
-  check('顶部有位置菜单', /位置/.test(document.getElementById('sPlacesBtn').textContent));
-  check('顶部有系统状态区', !!document.getElementById('sSysBtn') && !!document.getElementById('sRemain'));
+  check('没有底部面板（GNOME 单面板）', !document.getElementById('sBottom'));
+  check('顶栏左侧是「活动」', /活动/.test(document.getElementById('sActLbl').textContent));
+  check('顶栏有时钟（GNOME 中文格式）', /\d+月\d+日 星期[日一二三四五六], \d{2}:\d{2}/.test(document.getElementById('sClock').textContent));
+  check('顶栏有状态区（输入法/网络/音量/电源）',
+    !!document.getElementById('sIme') && !!document.getElementById('sNetIco') &&
+    !!document.getElementById('sVolIco') && !!document.getElementById('sSysBtn'));
+  check('有左侧 Dock', !!document.getElementById('sDock'));
+  check('Dock 常驻 Firefox 与文件', document.querySelectorAll('.ub-dock-item').length >= 2);
+  check('Dock 底部有九宫格按钮', !!document.getElementById('sShowApps'));
   check('桌面图标用 SVG 而非 emoji', document.querySelectorAll('.s-icon .ico svg').length > 0);
 
   const icons = [...document.querySelectorAll('.s-icon')];
-  check('桌面图标数（4 题 + 目录 + 须知 + 3 工具 + 交卷）', icons.length === 10);
+  check('桌面只有考生目录与回收站两个图标（照官方演示）', icons.length === 2);
   check('桌面有准考证号目录', icons.some(i => i.textContent.includes('GZ-001')));
+  check('桌面有回收站', icons.some(i => i.textContent.includes('回收站')));
 
-  // ── 壁纸 ──
-  const wall0 = document.getElementById('sDesktop').dataset.wall;
-  window.Desktop.setWallpaper('noi');
-  check('壁纸可切换', document.getElementById('sDesktop').dataset.wall === 'noi');
-  window.Desktop.setWallpaper(wall0 || 'plain');
+  /* 桌面上不再摆启动器：应用一律从「显示应用程序」网格启动，与真实 NOI Linux 的操作一致 */
+  async function launchApp(name){
+    window.Desktop.openAppGrid();
+    const box = document.getElementById('sGridInput');
+    box.value = name;
+    box.dispatchEvent(new window.Event('input', { bubbles: true }));
+    const btn = document.querySelector('#sGridBody .ub-grid-app');
+    if (!btn) throw new Error('网格里找不到应用：' + name);
+    btn.dispatchEvent(new window.Event('click', { bubbles: true }));
+    await sleep(40);
+  }
 
-  // ── 应用程序菜单（按分类列出预装软件） ──
-  document.getElementById('sAppBtn').dispatchEvent(new window.Event('click', { bubbles: true }));
-  const pop = document.getElementById('sPop');
-  check('应用程序菜单打开', !pop.classList.contains('hidden'));
-  check('菜单按分组列出', /编程/.test(pop.textContent) && /系统工具/.test(pop.textContent) && /互联网/.test(pop.textContent));
-  check('菜单含 Code::Blocks / Geany', /Code::Blocks/.test(pop.textContent) && /Geany/.test(pop.textContent));
-  check('菜单含 Vim / GDB / Arbiter_local', /Vim/.test(pop.textContent) && /GDB/.test(pop.textContent) && /Arbiter_local/.test(pop.textContent));
-  check('菜单含 Firefox', /Firefox/.test(pop.textContent));
-  window.Desktop.closePop();
-  check('菜单可关闭', pop.classList.contains('hidden'));
+  // ── 壁纸（ISO 内 9 张 NOI 官方图，默认 noi-00） ──
+  check('默认壁纸为 noi-00', window.Desktop.wallpaper() === 'noi-00');
+  check('壁纸共 9 张官方原图', window.Desktop.WALLS.length === 9);
+  const wall0 = window.Desktop.wallpaper();
+  window.Desktop.setWallpaper('noi-03');
+  check('壁纸可切换', window.Desktop.wallpaper() === 'noi-03' &&
+    document.getElementById('studentApp').style.getPropertyValue('--wall').includes('noi-03'));
+  window.Desktop.setWallpaper(wall0);
 
-  // ── 压缩包 → 题面 ──
-  document.querySelectorAll('.s-icon')[0].dispatchEvent(new window.Event('dblclick', { bubbles: true }));
-  check('zip 窗口打开', document.querySelectorAll('.s-win').length === 1 && document.querySelector('.win-title').textContent.includes('.zip'));
+  // ── 应用网格（GNOME：点「活动」或 Dock 九宫格） ──
+  document.getElementById('sActBtn').dispatchEvent(new window.Event('click', { bubbles: true }));
+  const grid = document.getElementById('sGrid');
+  check('应用网格打开', !grid.classList.contains('hidden'));
+  const gridTxt = document.getElementById('sGridBody').textContent;
+  check('网格含 Code::Blocks / Geany', /Code::Blocks/.test(gridTxt) && /Geany/.test(gridTxt));
+  check('网格含 Vim / GDB / Arbiter_local', /Vim/.test(gridTxt) && /GDB/.test(gridTxt) && /Arbiter_local/.test(gridTxt));
+  check('网格含 Firefox', /Firefox/.test(gridTxt));
+  check('网格图标为 SVG', document.querySelectorAll('#sGridBody .ub-grid-app svg').length >= 10);
+  check('网格按名称排序', (() => {
+    const names = [...document.querySelectorAll('#sGridBody .ub-grid-app span')].map(x => x.textContent.trim());
+    return names.length > 1 && names.join('|') === [...names].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN')).join('|');
+  })());
+  const gi = document.getElementById('sGridInput');
+  gi.value = 'vim';
+  gi.dispatchEvent(new window.Event('input', { bubbles: true }));
+  check('应用网格可搜索', document.querySelectorAll('#sGridBody .ub-grid-app').length === 1);
+  gi.value = '';
+  gi.dispatchEvent(new window.Event('input', { bubbles: true }));
+  window.Desktop.closeAppGrid();
+  check('应用网格可关闭', grid.classList.contains('hidden'));
+
+  // ── 文件管理器：真实目录结构（桌面上只有这一个考生目录） ──
+  icons.find(i => i.textContent.includes('GZ-001')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
+  await sleep(20);
+  check('文件管理器打开', !!document.querySelector('.fman-list'));
+  check('文件管理器列出 4 个题目目录', [...document.querySelectorAll('.fman-row .fman-type')].filter(x => x.textContent === '文件夹').length === 4);
+  check('状态栏显示准考证号路径', /GZ-001/.test(document.querySelector('.fman-status').textContent));
+  const homeRows = [...document.querySelectorAll('.fman-row')];
+  check('考生目录内有压缩包', homeRows.some(r => r.textContent.includes('.zip')));
+  check('考生目录内有考试须知', homeRows.some(r => r.textContent.includes('考试须知')));
+
+  // ── 压缩包 → 题面（在考生目录里双击，而不是桌面上） ──
+  homeRows.find(r => r.textContent.includes('.zip')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
+  await sleep(20);
+  check('zip 窗口打开', [...document.querySelectorAll('.win-title')].some(t => t.textContent.includes('.zip')));
   document.querySelector('.zip-row').dispatchEvent(new window.Event('dblclick', { bubbles: true }));
   await sleep(20);
   check('题面窗口打开', document.querySelector('.pdf-name') !== null);
   check('题面含标题', document.querySelector('.prob-doc h2') !== null);
 
-  // ── 文件管理器：真实目录结构 ──
-  icons.find(i => i.textContent.includes('GZ-001')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
-  await sleep(20);
-  check('文件管理器打开', !!document.querySelector('.fman-list'));
-  check('文件管理器列出 4 个题目目录', document.querySelectorAll('.fman-row').length === 4);
-  check('状态栏显示准考证号路径', /GZ-001/.test(document.querySelector('.fman-status').textContent));
   document.querySelector('.fman-row').dispatchEvent(new window.Event('dblclick', { bubbles: true }));
   await sleep(20);
   const fmRows = [...document.querySelectorAll('.fman-row')];
@@ -140,9 +177,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check('题目目录含样例 .in/.ans', fmRows.some(r => r.textContent.includes('.in')) && fmRows.some(r => r.textContent.includes('.ans')));
 
   // ── IDE ──
-  icons.find(i => i.textContent.includes('Code::Blocks')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
-  await sleep(20);
-  check('Code::Blocks 打开（NOI Linux 标题）', [...document.querySelectorAll('.win-title')].some(t => t.textContent.includes('Code::Blocks — NOI Linux')));
+  await launchApp('Code::Blocks');
+  check('Code::Blocks 打开（真实标题格式）', [...document.querySelectorAll('.win-title')].some(t => /\.cpp - Code::Blocks 20\.03$/.test(t.textContent)));
+  check('IDE 有 Code::Blocks 菜单栏', (() => {
+    const mb = document.querySelector('.s-menubar');
+    if (!mb) return false;
+    const names = [...mb.querySelectorAll('.mb-item')].map(x => x.textContent);
+    return names[0] === 'File' && names.includes('Build') && names.includes('DoxyBlocks') && names[names.length - 1] === 'Help';
+  })());
   check('IDE 题目下拉有 4 题', document.querySelectorAll('.ide-bar select option').length === 4);
   check('IDE 显示源文件真实路径', /GZ-001\/.*\.cpp/.test(document.querySelector('.ide-path').textContent));
   const pid = document.querySelector('.ide-bar select option').value;
@@ -151,7 +193,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check('IDE 代码自动保存', (JSON.parse(window.localStorage.getItem('csp_sim:codes'))[pid] || '').includes('main'));
 
   // ── 终端 ──
-  icons.find(i => i.textContent.includes('终端')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
+  await launchApp('终端');
   await sleep(30);
   const termInput = () => document.querySelector('.term-input-row input');
   const termText = () => document.querySelector('.term').textContent;
@@ -183,19 +225,59 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check('sudo 被拒绝（非管理员）', /sudoers/.test(termText()));
 
   // ── Arbiter_local ──
-  icons.find(i => i.textContent.includes('Arbiter_local')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
-  await sleep(30);
+  await launchApp('Arbiter_local');
   check('Arbiter 打开', !!document.querySelector('.arb-table'));
   check('Arbiter 左侧列出 4 题', document.querySelectorAll('.arb-item').length === 4);
   check('Arbiter 列出全部测试点', document.querySelectorAll('.arb-table tbody tr').length >= 3);
   check('Arbiter 显示评分栏', !!document.querySelector('.arb-foot .arb-score'));
 
-  // ── 任务栏 ──
-  check('底部面板显示窗口按钮', document.querySelectorAll('#sTaskWins .s-taskbtn').length >= 5);
+  // ── Dock 运行指示（dash-to-dock 橙点） ──
+  document.getElementById('sActBtn').dispatchEvent(new window.Event('click', { bubbles: true }));
+  const vimBtn = [...document.querySelectorAll('#sGridBody .ub-grid-app')].find(b => /Vim/.test(b.textContent));
+  check('网格里找到 Vim', !!vimBtn);
+  if (vimBtn) vimBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+  await sleep(40);
+  check('Dock 显示运行中应用（橙点）', document.querySelectorAll('.ub-dock-item.running').length >= 1);
+  check('顶栏左侧切换为应用名', !/^活动$/.test(document.getElementById('sActLbl').textContent));
 
-  // ── 交卷 ──
-  icons.find(i => i.textContent.includes('提交试卷')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
-  await sleep(20);
+  // ── 程序回收系统（浏览器内提交源代码，官方流程） ──
+  await launchApp('程序回收系统');
+  await sleep(150);
+  check('程序回收系统登录页打开', !!document.querySelector('#rcLoginBtn'));
+  check('登录页有准考证号与密码', !!document.querySelector('#rcId') && !!document.querySelector('#rcPwd'));
+  document.querySelector('#rcPwd').value = 'demo1234';
+  click(document.querySelector('#rcLoginBtn'));
+  await sleep(120);
+  check('登录后进入考生须知', !!document.querySelector('.rc-notice'));
+  check('侧栏四个导航项', document.querySelectorAll('.rc-nav a').length === 4);
+  check('侧栏显示考生姓名', /测试/.test(document.querySelector('.rc-user').textContent));
+  check('侧栏时钟在走（HH:MM:SS）', /^\d{2}:\d{2}:\d{2}$/.test(document.querySelector('#rcClock').textContent));
+  click([...document.querySelectorAll('.rc-nav a')].find(a => a.dataset.tab === 'answer'));
+  await sleep(120);
+  check('答题页显示考试剩余', /考试剩余：/.test(document.querySelector('.rc-hint').textContent));
+  check('答题表 4 行 5 列', document.querySelectorAll('.rc-table tbody tr').length === 4 &&
+    document.querySelectorAll('.rc-table thead th').length === 5);
+  const subBtn = document.querySelector('[data-sub]');
+  check('答题表有查看与提交按钮', !!document.querySelector('[data-view]') && !!subBtn);
+  const subPid = subBtn.dataset.sub;
+  click(subBtn);
+  await sleep(120);
+  const rcSubs = JSON.parse(window.localStorage.getItem('csp_sim:rcsubmits') || '{}');
+  check('提交记录含时间与字节数', !!(rcSubs[subPid] && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(rcSubs[subPid].time) && rcSubs[subPid].size > 0));
+  check('提交后表格显示内容长度', /B$/.test(document.querySelector('.rc-table tbody tr .rc-size').textContent));
+  click([...document.querySelectorAll('.rc-nav a')].find(a => a.dataset.tab === 'download'));
+  await sleep(100);
+  check('试题下载页列出题目', document.querySelectorAll('.rc-table tbody tr').length === 4);
+  click(document.querySelector('[data-dl]'));
+  await sleep(60);
+  check('下载后按钮变已下载', document.querySelector('[data-dl]').textContent === '已下载');
+  click(document.querySelector('#rcLogout'));
+  await sleep(100);
+  check('退出登录显示离场提示', /有序离场/.test(document.querySelector('.rc-bye').textContent));
+
+  // ── 交卷（顶栏系统菜单）──
+  window.__app('finish');
+  await sleep(30);
   check('交卷窗口打开', document.querySelector('.submit-table') !== null);
   check('交卷窗口提示提交路径', /GZ-001/.test(document.querySelector('.submit-path').textContent));
   click([...document.querySelectorAll('.submit-pane .btn')].pop());
