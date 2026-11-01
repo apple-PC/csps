@@ -2201,7 +2201,7 @@ const Student = (() => {
       p0.style.width = '50ch';
       const chPx = p0.offsetWidth / 50;
       if (!(chPx > 3)){ p0.style.width = ''; return; }
-      W = Math.max(26, Math.floor((box.clientWidth - 6) / (2 * chPx)));
+      W = Math.max(20, Math.floor((box.clientWidth - 6) / (2 * chPx)));
       const lh = parseFloat(getComputedStyle(box).lineHeight) || 17;
       /* 用面板容器的高度算行数（它 overflow:hidden，高度由 flex 定，不会被内容撑开） */
       const panelH = panels[0].parentNode.offsetHeight || (box.clientHeight - fkeys.offsetHeight);
@@ -2314,7 +2314,7 @@ const Student = (() => {
       layout();
       draw();
       const cont = panels[0].parentNode;
-      for (let i = 0; i < 5 && cont.scrollWidth > cont.clientWidth && W > 26; i++){ W--; draw(); }
+      for (let i = 0; i < 5 && cont.scrollWidth > cont.clientWidth && W > 20; i++){ W--; draw(); }
       for (let i = 0; i < 5 && panels[0].scrollHeight > cont.clientHeight && ROWS > 6; i++){ ROWS--; draw(); }
     }
     draw();                       // 先用兜底列数铺一屏，别让窗口空着
