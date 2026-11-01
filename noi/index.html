@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSP-S 复赛模拟器</title>
+<!-- 考试端位于 /csps/noi/，资源都在仓库根目录，用 base 统一解析 -->
+<base href="../">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══════════════ 全局加载动画 ═══════════════ -->
+<div id="globalLoading" class="g-loading hidden">
+  <div class="g-spin"></div>
+  <div class="g-loading-text" id="globalLoadingText">加载中…</div>
+  <div class="g-loading-file" id="globalLoadingFile"></div>
+  <div class="g-bar"><div class="g-bar-fill" id="globalLoadingBar"></div></div>
+  <div class="g-pct" id="globalLoadingPct"></div>
+</div>
+
+<!-- ═══════════════ 显示器休眠（DPMS off）：动一下鼠标或按键唤醒 ═══════════════ -->
+<div id="dpms" class="dpms">
+  <div class="dpms-hint" id="dpmsHint">移动鼠标或按任意键唤醒</div>
+</div>
+
+<!-- ═══════════════ GDM 登录（Ubuntu 20.04 账户选择） ═══════════════ -->
+<div id="gdm" class="gdm hidden">
+  <div class="gdm-clock" id="gdmClock">
+    <div class="gdm-time" id="gdmTime">--:--</div>
+    <div class="gdm-date" id="gdmDate"></div>
+  </div>
+
+  <div class="gdm-stage">
+    <div class="gdm-users" id="gdmUsers"></div>
+
+    <div class="gdm-auth hidden" id="gdmAuth">
+      <div class="gdm-auth-user" id="gdmAuthUser"></div>
+      <div class="gdm-field" id="gdmField">
+        <input type="password" id="gdmPwd" placeholder="密码" autocomplete="off" spellcheck="false">
+        <button class="gdm-submit" id="gdmSubmit" title="登录">&#8594;</button>
+      </div>
+      <div class="gdm-msg" id="gdmMsg"></div>
+      <button class="gdm-back" id="gdmBack">切换用户</button>
+    </div>
+  </div>
+
+  <div class="gdm-bottom">
+    <span class="gdm-hint" id="gdmHint">演示环境 · 学生密码 csp2026 · 管理员密码 noip2026</span>
+    <span class="gdm-ver">Ubuntu 20.04.1 LTS</span>
+    <button class="gdm-power" id="gdmPower" title="关机"><svg viewBox="0 0 16 16"><path d="M8 2.2v5.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/><path d="M4.6 4.2a4.9 4.9 0 1 0 6.8 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/></svg></button>
+  </div>
+</div>
+
+<!-- ═══════════════ 管理员端 ═══════════════ -->
+<div id="adminApp" class="screen hidden">
+  <aside class="adm-side">
+    <div class="adm-brand">CSP-S 模拟器<br><span>管理员控制台</span></div>
+    <nav class="adm-nav">
+      <button class="adm-navbtn active" data-view="settings">考试设置</button>
+      <button class="adm-navbtn" data-view="problems">题目管理</button>
+      <button class="adm-navbtn" data-view="control">考试控制</button>
+      <button class="adm-navbtn" data-view="subs">提交记录</button>
+    </nav>
+    <div class="adm-folder">
+      <div class="adm-folder-title">考试数据文件夹</div>
+      <div id="folderStatus" class="adm-folder-status">未连接</div>
+      <button id="btnConnectFolder" class="btn btn-sm">选择文件夹…</button>
+      <div class="adm-folder-hint">设置 / 题库 / 状态实时写盘</div>
+    </div>
+    <button id="btnAdminExit" class="adm-exit">← 返回开始界面</button>
+  </aside>
+  <main class="adm-main">
+    <section id="view-settings" class="adm-view">
+      <h2>考试设置</h2>
+      <div class="form-grid">
+        <label>考试名称<input type="text" id="setExamName"></label>
+        <label>考试时长（分钟）<input type="number" id="setDuration" min="10" max="600"></label>
+        <label>计时开始方式
+          <select id="setStartMode">
+            <option value="auto">学生进入考试环境即开始计时</option>
+            <option value="manual">管理员手动开始（考试控制页）</option>
+            <option value="scheduled">定时开始</option>
+          </select>
+        </label>
+        <label id="rowScheduled" class="hidden">定时开始时间<input type="datetime-local" id="setScheduledAt"></label>
+        <label class="chk"><input type="checkbox" id="setAllowJudge"> 允许学生在 IDE 中本地评测（CSP-S 评测面板）</label>
+        <label class="chk"><input type="checkbox" id="setAllowCopy"> 允许 IDE 内复制 / 粘贴</label>
+        <label class="chk"><input type="checkbox" id="setWatermark"> 桌面显示准考证水印</label>
+      </div>
+      <label class="lbl-block">考试须知（学生桌面可查看）<textarea id="setNotice" rows="5"></textarea></label>
+      <div class="save-indicator" id="saveIndicator">● 所有更改已实时保存</div>
+
+      <div class="publish-card">
+        <h3 class="publish-h">📦 发布考试数据到仓库</h3>
+        <p class="dim">把当前「考试设置 + 题库」写入 GitHub 仓库 <code>exam/data.json</code>。学生打开在线链接即自动载入，无需再连接本地文件夹。</p>
+        <label class="lbl-block">GitHub Token（仅存本机，绝不进代码）
+          <input type="password" id="setGhToken" placeholder="ghp_… 用完可在 GitHub 注销" autocomplete="off">
+        </label>
+        <div class="publish-actions">
+          <button class="btn btn-primary" id="btnPublish">发布到仓库</button>
+          <button class="btn" id="btnPull">从仓库拉取</button>
+          <span class="dim" id="publishStatus"></span>
+        </div>
+        <p class="dim small">写入需要你的 token（仓库为 public，数据本就公开，仅「写」需要权限）。也可用「导出考试包」下载 JSON 后自行提交到仓库。</p>
+      </div>
+    </section>
+
+    <section id="view-problems" class="adm-view hidden">
+      <h2>题目管理</h2>
+      <div class="sets-row" id="setsRow"></div>
+      <div class="prob-toolbar">
+        <label class="btn btn-sm">＋ 导入题目<input type="file" id="importFiles" multiple class="visually-hidden"></label>
+        <button class="btn btn-sm" id="btnExportPack">导出考试包</button>
+        <button class="btn btn-sm" id="btnResetBank">恢复内置题库</button>
+        <span class="dim" id="probSummary"></span>
+      </div>
+      <div id="probList" class="prob-list"></div>
+      <p class="dim">导入说明：选择多个文件，按文件名自动归组 —— 题面文件 <code>题名.pdf / .html / .txt / .md</code>，测试点 <code>题名1.in / 题名1.out（或 .ans）</code>；也支持导入本系统导出的 <code>.json</code> 题目文件。</p>
+    </section>
+
+    <section id="view-control" class="adm-view hidden">
+      <h2>考试控制</h2>
+      <div class="ctrl-card" id="ctrlCard"></div>
+      <div class="ctrl-actions">
+        <button class="btn btn-primary" id="btnStartExam">▶ 开始考试</button>
+        <button class="btn btn-warn" id="btnEndExam">■ 提前结束</button>
+        <button class="btn btn-danger" id="btnResetExam">重置考试数据</button>
+      </div>
+      <h3 class="mt">当前配置摘要</h3>
+      <div id="ctrlSummary" class="summary"></div>
+    </section>
+
+    <section id="view-subs" class="adm-view hidden">
+      <h2>提交记录</h2>
+      <div class="prob-toolbar"><button class="btn btn-sm" id="btnClearSubs">清空记录</button><span class="dim" id="subSummary"></span></div>
+      <div id="subList"></div>
+    </section>
+  </main>
+</div>
+
+<!-- ═══════════════ 学生考试桌面（NOI Linux 2.0 / GNOME Flashback） ═══════════════ -->
+<div id="studentApp" class="screen hidden">
+  <div id="sWatermark" class="s-watermark hidden"></div>
+
+  <!-- ═══ 顶部面板：Ubuntu 20.04 GNOME（活动/应用菜单 · 时钟 · 状态区） ═══ -->
+  <div id="sTop" class="ub-top">
+    <button class="ub-act" id="sActBtn">
+      <span class="ub-act-ico" id="sActIco"></span>
+      <span class="ub-act-lbl" id="sActLbl">活动</span>
+    </button>
+    <div class="ub-clock" id="sClock">--</div>
+    <div class="ub-tray">
+      <span class="ub-ime" id="sIme" title="输入法：中文（智能拼音）">zh<b>▾</b></span>
+      <span class="ub-ico" id="sNetIco" title="有线网络：已连接（无互联网访问）"></span>
+      <span class="ub-ico" id="sVolIco" title="音量 60%"></span>
+      <button class="ub-ico ub-power" id="sSysBtn" title="系统菜单"></button>
+      <span class="ub-caret">▾</span>
+    </div>
+  </div>
+
+  <!-- ═══ 左侧 Dock（dash-to-dock，固定不隐藏，运行指示为橙点） ═══ -->
+  <div id="sDock" class="ub-dock">
+    <div class="ub-dock-apps" id="sDockApps"></div>
+    <button class="ub-dock-grid" id="sShowApps" title="显示应用 (Super+A)"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></button>
+  </div>
+
+  <div id="sDesktop" class="s-desktop"></div>
+
+  <!-- ═══ 应用网格（Super+A） ═══ -->
+  <div id="sGrid" class="ub-grid hidden">
+    <div class="ub-grid-inner">
+      <div class="ub-grid-search"><span class="ub-grid-mag"></span><input id="sGridInput" placeholder="输入名称以搜索…" autocomplete="off" spellcheck="false"></div>
+      <div class="ub-grid-body" id="sGridBody"></div>
+      <!-- GNOME 3.36 网格底部：「常用 / 全部」两页切换 -->
+      <div class="ub-grid-tabs">
+        <button class="ub-grid-tab" id="sGridFreq" data-page="freq">常用</button>
+        <button class="ub-grid-tab on" id="sGridAll" data-page="all">全部</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹出菜单 / 右键菜单 -->
+  <div id="sPop" class="gp-pop hidden"></div>
+  <div id="sCtx" class="gp-ctx hidden"></div>
+
+  <div id="sWaitOverlay" class="s-overlay hidden">
+    <div class="s-overlay-card">
+      <h2 id="waitTitle">考试尚未开始</h2>
+      <p id="waitText" class="dim">请等待监考老师发出开考指令…</p>
+      <div class="wait-count" id="waitCount"></div>
+    </div>
+  </div>
+
+  <div id="sEndOverlay" class="s-overlay hidden">
+    <div class="s-overlay-card">
+      <h2 id="endTitle">考试已结束</h2>
+      <p id="endText" class="dim"></p>
+      <div id="endReceipt" class="end-receipt hidden"></div>
+      <button class="btn" id="btnEndBack">返回开始界面</button>
+    </div>
+  </div>
+</div>
+
+<script src="util.js"></script>
+<script src="store.js"></script>
+<script src="problems.js"></script>
+<script src="reviews.js"></script>
+<script src="admin.js"></script>
+<script src="desktop.js"></script>
+<script src="student.js"></script>
+<script src="greeter.js"></script>
+</body>
+</html>

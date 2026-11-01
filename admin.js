@@ -21,7 +21,6 @@ const Admin = (() => {
   /* ---------- 视图切换 ---------- */
   function show(){
     app.classList.remove('hidden');
-    $('#startScreen').classList.add('hidden');
     // 初始化默认配置并立即落盘：保证学生端任何时候都能读到考试数据
     Store.saveSettings(Store.getSettings());
     getProblems();
@@ -33,7 +32,6 @@ const Admin = (() => {
   }
   function hide(){
     app.classList.add('hidden');
-    $('#startScreen').classList.remove('hidden');
     if (Admin._timer){ clearInterval(Admin._timer); Admin._timer = null; }
   }
   function switchView(name){

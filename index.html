@@ -3,224 +3,45 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CSP-S 复赛模拟器</title>
+<title>CSP-S 2026 · NOI Linux 考试环境</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="home-body">
 
-<!-- ═══════════════ 全局加载动画 ═══════════════ -->
-<div id="globalLoading" class="g-loading hidden">
-  <div class="g-spin"></div>
-  <div class="g-loading-text" id="globalLoadingText">加载中…</div>
-  <div class="g-loading-file" id="globalLoadingFile"></div>
-  <div class="g-bar"><div class="g-bar-fill" id="globalLoadingBar"></div></div>
-  <div class="g-pct" id="globalLoadingPct"></div>
+<div class="hm">
+  <div class="hm-logo">NOI</div>
+  <h1>CSP-S 2026</h1>
+  <p class="hm-sub">NOI Linux 2.0 考试环境仿真</p>
+
+  <div class="hm-entries">
+    <a class="hm-card hm-exam" id="hmExam" href="noi/">
+      <span class="hm-ico">
+        <svg viewBox="0 0 48 48"><rect x="3" y="6" width="42" height="28" rx="2.4" fill="#3f3f3f"/><rect x="5.2" y="8.2" width="37.6" height="23.6" rx="1.2" fill="#1c1c1c"/><path d="M9.5 16h9M9.5 20.5h14M9.5 25h6" stroke="#e95420" stroke-width="1.9" stroke-linecap="round"/><path d="M18 34h12l2 6.4H16z" fill="#5a5a5a"/><rect x="11" y="39.6" width="26" height="2.6" rx="1.3" fill="#787878"/></svg>
+      </span>
+      <span class="hm-txt"><b>考试端</b><i>NOI Linux 2.0 · 进入考场</i></span>
+      <span class="hm-go">›</span>
+    </a>
+
+    <a class="hm-card hm-study" id="hmStudy" href="study/">
+      <span class="hm-ico">
+        <svg viewBox="0 0 48 48"><path d="M6 9.6c6-2.4 12-2.4 18 .8v26.8c-6-3.2-12-3.2-18-.8z" fill="#5a8fd6"/><path d="M42 9.6c-6-2.4-12-2.4-18 .8v26.8c6-3.2 12-3.2 18-.8z" fill="#7aa9e6"/><path d="M24 10.4v26.8" stroke="#2f5f9e" stroke-width="1.4"/><path d="M10 16.6c3.4-1 6.6-.9 9.6.5M10 21.6c3.4-1 6.6-.9 9.6.5M10 26.6c3.4-1 6.6-.9 9.6.5" stroke="#dfeaf8" stroke-width="1.3" stroke-linecap="round"/><path d="M28.4 16.6c3-1.4 6.2-1.5 9.6-.5M28.4 21.6c3-1.4 6.2-1.5 9.6-.5M28.4 26.6c3-1.4 6.2-1.5 9.6-.5" stroke="#e8f1fb" stroke-width="1.3" stroke-linecap="round"/></svg>
+      </span>
+      <span class="hm-txt"><b>复习中心</b><i>真题精讲 · 51 章算法课 · 模板速查</i></span>
+      <span class="hm-go">›</span>
+    </a>
+  </div>
+
+  <p class="hm-foot">考试端运行于 NOI Linux 2.0 桌面环境 · 账户与密码由监考老师提供</p>
 </div>
 
-<!-- ═══════════════ 开始界面 ═══════════════ -->
-<div id="startScreen" class="screen">
-  <div class="boot-stars"></div>
-  <div class="boot-card">
-    <div class="boot-logo">CSP-S</div>
-    <h1>CSP-S 复赛模拟器</h1>
-    <p class="boot-sub">NOI Linux 考试环境仿真</p>
-    <div class="boot-choices">
-      <button class="boot-btn" id="btnEnterStudent">
-        <span class="boot-ico">🎓</span>
-        <span class="boot-txt"><b>学生端</b><i>进入考试环境作答</i></span>
-      </button>
-      <button class="boot-btn" id="btnEnterAdmin">
-        <span class="boot-ico">🛠️</span>
-        <span class="boot-txt"><b>管理员端</b><i>考试设置 · 题库 · 考试控制</i></span>
-      </button>
-      <button class="boot-btn" id="btnEnterReview" onclick="location.href = location.protocol === 'file:' ? 'study/index.html' : 'study/'">
-        <span class="boot-ico">📚</span>
-        <span class="boot-txt"><b>复习中心</b><i>真题精讲 · 51 章算法课 · 模板速查</i></span>
-      </button>
-    </div>
-    <p class="boot-foot">所有管理员设置实时保存在考试数据文件夹中</p>
-  </div>
-</div>
-
-<!-- ═══════════════ 管理员端 ═══════════════ -->
-<div id="adminApp" class="screen hidden">
-  <aside class="adm-side">
-    <div class="adm-brand">CSP-S 模拟器<br><span>管理员控制台</span></div>
-    <nav class="adm-nav">
-      <button class="adm-navbtn active" data-view="settings">考试设置</button>
-      <button class="adm-navbtn" data-view="problems">题目管理</button>
-      <button class="adm-navbtn" data-view="control">考试控制</button>
-      <button class="adm-navbtn" data-view="subs">提交记录</button>
-    </nav>
-    <div class="adm-folder">
-      <div class="adm-folder-title">考试数据文件夹</div>
-      <div id="folderStatus" class="adm-folder-status">未连接</div>
-      <button id="btnConnectFolder" class="btn btn-sm">选择文件夹…</button>
-      <div class="adm-folder-hint">设置 / 题库 / 状态实时写盘</div>
-    </div>
-    <button id="btnAdminExit" class="adm-exit">← 返回开始界面</button>
-  </aside>
-  <main class="adm-main">
-    <section id="view-settings" class="adm-view">
-      <h2>考试设置</h2>
-      <div class="form-grid">
-        <label>考试名称<input type="text" id="setExamName"></label>
-        <label>考试时长（分钟）<input type="number" id="setDuration" min="10" max="600"></label>
-        <label>计时开始方式
-          <select id="setStartMode">
-            <option value="auto">学生进入考试环境即开始计时</option>
-            <option value="manual">管理员手动开始（考试控制页）</option>
-            <option value="scheduled">定时开始</option>
-          </select>
-        </label>
-        <label id="rowScheduled" class="hidden">定时开始时间<input type="datetime-local" id="setScheduledAt"></label>
-        <label class="chk"><input type="checkbox" id="setAllowJudge"> 允许学生在 IDE 中本地评测（CSP-S 评测面板）</label>
-        <label class="chk"><input type="checkbox" id="setAllowCopy"> 允许 IDE 内复制 / 粘贴</label>
-        <label class="chk"><input type="checkbox" id="setWatermark"> 桌面显示准考证水印</label>
-      </div>
-      <label class="lbl-block">考试须知（学生桌面可查看）<textarea id="setNotice" rows="5"></textarea></label>
-      <div class="save-indicator" id="saveIndicator">● 所有更改已实时保存</div>
-
-      <div class="publish-card">
-        <h3 class="publish-h">📦 发布考试数据到仓库</h3>
-        <p class="dim">把当前「考试设置 + 题库」写入 GitHub 仓库 <code>exam/data.json</code>。学生打开在线链接即自动载入，无需再连接本地文件夹。</p>
-        <label class="lbl-block">GitHub Token（仅存本机，绝不进代码）
-          <input type="password" id="setGhToken" placeholder="ghp_… 用完可在 GitHub 注销" autocomplete="off">
-        </label>
-        <div class="publish-actions">
-          <button class="btn btn-primary" id="btnPublish">发布到仓库</button>
-          <button class="btn" id="btnPull">从仓库拉取</button>
-          <span class="dim" id="publishStatus"></span>
-        </div>
-        <p class="dim small">写入需要你的 token（仓库为 public，数据本就公开，仅「写」需要权限）。也可用「导出考试包」下载 JSON 后自行提交到仓库。</p>
-      </div>
-    </section>
-
-    <section id="view-problems" class="adm-view hidden">
-      <h2>题目管理</h2>
-      <div class="sets-row" id="setsRow"></div>
-      <div class="prob-toolbar">
-        <label class="btn btn-sm">＋ 导入题目<input type="file" id="importFiles" multiple class="visually-hidden"></label>
-        <button class="btn btn-sm" id="btnExportPack">导出考试包</button>
-        <button class="btn btn-sm" id="btnResetBank">恢复内置题库</button>
-        <span class="dim" id="probSummary"></span>
-      </div>
-      <div id="probList" class="prob-list"></div>
-      <p class="dim">导入说明：选择多个文件，按文件名自动归组 —— 题面文件 <code>题名.pdf / .html / .txt / .md</code>，测试点 <code>题名1.in / 题名1.out（或 .ans）</code>；也支持导入本系统导出的 <code>.json</code> 题目文件。</p>
-    </section>
-
-    <section id="view-control" class="adm-view hidden">
-      <h2>考试控制</h2>
-      <div class="ctrl-card" id="ctrlCard"></div>
-      <div class="ctrl-actions">
-        <button class="btn btn-primary" id="btnStartExam">▶ 开始考试</button>
-        <button class="btn btn-warn" id="btnEndExam">■ 提前结束</button>
-        <button class="btn btn-danger" id="btnResetExam">重置考试数据</button>
-      </div>
-      <h3 class="mt">当前配置摘要</h3>
-      <div id="ctrlSummary" class="summary"></div>
-    </section>
-
-    <section id="view-subs" class="adm-view hidden">
-      <h2>提交记录</h2>
-      <div class="prob-toolbar"><button class="btn btn-sm" id="btnClearSubs">清空记录</button><span class="dim" id="subSummary"></span></div>
-      <div id="subList"></div>
-    </section>
-  </main>
-</div>
-
-<!-- ═══════════════ 学生登录 ═══════════════ -->
-<div id="studentLogin" class="screen hidden">
-  <div class="login-card">
-    <div class="login-head">
-      <div class="login-title" id="loginExamName">CSP-S 复赛模拟考试</div>
-      <div class="login-sub" id="loginStatus"></div>
-    </div>
-    <div id="loginNoData" class="hidden">
-      <p class="dim">未检测到本机考试配置。请选择管理员设置的「考试数据文件夹」，或导入考试包文件。</p>
-      <div class="login-btns">
-        <label class="btn btn-primary">选择考试文件夹…<input type="file" id="loginPickFolder" class="visually-hidden"></label>
-        <label class="btn">导入考试包…<input type="file" id="loginImportPack" accept=".json" class="visually-hidden"></label>
-      </div>
-    </div>
-    <form id="loginForm" class="hidden">
-      <label>姓名<input type="text" id="loginName" autocomplete="off" placeholder="真实姓名"></label>
-      <label>准考证号<input type="text" id="loginId" autocomplete="off" placeholder="如 GZ-2026-001"></label>
-      <div id="loginFolderRow" class="hidden login-btns">
-        <button type="button" class="btn btn-sm" id="btnRelinkFolder">重新连接考试文件夹</button>
-      </div>
-      <button type="submit" class="btn btn-primary btn-lg" id="btnLoginEnter">进 入 考 试</button>
-      <p class="dim center">进入后即进入仿真考试环境，请遵守考试纪律</p>
-    </form>
-    <button id="btnLoginExit" class="adm-exit" style="margin-top:16px">← 返回开始界面</button>
-  </div>
-</div>
-
-<!-- ═══════════════ 学生考试桌面（NOI Linux 2.0 / GNOME Flashback） ═══════════════ -->
-<div id="studentApp" class="screen hidden">
-  <div id="sWatermark" class="s-watermark hidden"></div>
-
-  <!-- ═══ 顶部面板：Ubuntu 20.04 GNOME（活动/应用菜单 · 时钟 · 状态区） ═══ -->
-  <div id="sTop" class="ub-top">
-    <button class="ub-act" id="sActBtn">
-      <span class="ub-act-ico" id="sActIco"></span>
-      <span class="ub-act-lbl" id="sActLbl">活动</span>
-    </button>
-    <div class="ub-clock" id="sClock">--</div>
-    <div class="ub-tray">
-      <span class="ub-remain" id="sRemain">--:--:--</span>
-      <span class="ub-ime" id="sIme" title="输入法：中文（智能拼音）">zh<b>▾</b></span>
-      <span class="ub-ico" id="sNetIco" title="有线网络：已连接（无互联网访问）"></span>
-      <span class="ub-ico" id="sVolIco" title="音量 60%"></span>
-      <button class="ub-ico ub-power" id="sSysBtn" title="系统菜单"></button>
-      <span class="ub-caret">▾</span>
-    </div>
-  </div>
-
-  <!-- ═══ 左侧 Dock（dash-to-dock，固定不隐藏，运行指示为橙点） ═══ -->
-  <div id="sDock" class="ub-dock">
-    <div class="ub-dock-apps" id="sDockApps"></div>
-    <button class="ub-dock-grid" id="sShowApps" title="显示应用 (Super+A)"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></button>
-  </div>
-
-  <div id="sDesktop" class="s-desktop"></div>
-
-  <!-- ═══ 应用网格（Super+A） ═══ -->
-  <div id="sGrid" class="ub-grid hidden">
-    <div class="ub-grid-inner">
-      <div class="ub-grid-search"><span class="ub-grid-mag"></span><input id="sGridInput" placeholder="输入名称以搜索…" autocomplete="off" spellcheck="false"></div>
-      <div class="ub-grid-body" id="sGridBody"></div>
-    </div>
-  </div>
-
-  <!-- 弹出菜单 / 右键菜单 -->
-  <div id="sPop" class="gp-pop hidden"></div>
-  <div id="sCtx" class="gp-ctx hidden"></div>
-
-  <div id="sWaitOverlay" class="s-overlay hidden">
-    <div class="s-overlay-card">
-      <h2 id="waitTitle">考试尚未开始</h2>
-      <p id="waitText" class="dim">请等待监考老师发出开考指令…</p>
-      <div class="wait-count" id="waitCount"></div>
-    </div>
-  </div>
-
-  <div id="sEndOverlay" class="s-overlay hidden">
-    <div class="s-overlay-card">
-      <h2 id="endTitle">考试已结束</h2>
-      <p id="endText" class="dim"></p>
-      <div id="endReceipt" class="end-receipt hidden"></div>
-      <button class="btn" id="btnEndBack">返回开始界面</button>
-    </div>
-  </div>
-</div>
-
-<script src="util.js"></script>
-<script src="store.js"></script>
-<script src="problems.js"></script>
-<script src="reviews.js"></script>
-<script src="admin.js"></script>
-<script src="desktop.js"></script>
-<script src="student.js"></script>
+<script>
+/* file:// 直接打开时目录索引不会自动跳转，补一次 */
+(function(){
+  if (location.protocol === 'file:'){
+    document.getElementById('hmExam').href = 'noi/index.html';
+    document.getElementById('hmStudy').href = 'study/index.html';
+  }
+})();
+</script>
 </body>
 </html>

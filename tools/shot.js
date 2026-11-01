@@ -10,36 +10,56 @@ const path = require('path');
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const ROOT = path.resolve(__dirname, '..');
 const PORT = 9333 + Math.floor(Math.random() * 200);
-const URL = process.env.SHOT_URL || 'http://127.0.0.1:8899/index.html';
+const URL = process.env.SHOT_URL || 'http://127.0.0.1:8899/noi/index.html';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-const LOGIN = `
+/* 唤醒显示器 → GDM 选账户 → 密码 → 桌面 */
+const WAKE = `
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  // 等开始界面渲染（题库/隐藏测试点可能还在下载）
-  for (let i = 0; i < 120; i++){
-    const b = document.getElementById('btnEnterAdmin');
+  await sleep(420);
+  window.dispatchEvent(new MouseEvent('mousemove', { clientX: 12, clientY: 12 }));
+  await sleep(80);
+  window.dispatchEvent(new MouseEvent('mousemove', { clientX: 180, clientY: 130 }));
+  await sleep(950);
+`;
+
+const GDM = WAKE + `
+  await sleep(300);
+`;
+
+const GDM_AUTH = WAKE + `
+  document.querySelector('.gdm-user[data-account="csp-s2026"]').click();
+  await sleep(420);
+`;
+
+const LOGIN = GDM + `
+  document.querySelector('.gdm-user[data-account="csp-s2026"]').click();
+  await sleep(260);
+  document.getElementById('gdmPwd').value = 'csp2026';
+  document.getElementById('gdmSubmit').click();
+  // 等桌面就绪（隐藏测试点下载完、图标渲染出来）
+  for (let i = 0; i < 90; i++){
     const ld = document.getElementById('globalLoading');
-    if (b && (!ld || ld.classList.contains('hidden'))) break;
+    if (document.querySelectorAll('.s-icon').length && ld && ld.classList.contains('hidden')) break;
     await sleep(150);
   }
-  await sleep(200);
-  document.getElementById('btnEnterAdmin').click();
-  await sleep(700);
-  document.getElementById('btnAdminExit').click();
-  await sleep(200);
-  document.getElementById('btnEnterStudent').click();
-  await sleep(200);
-  document.getElementById('loginName').value = '王小明';
-  document.getElementById('loginId').value = 'GZ-2026-001';
-  document.getElementById('loginForm').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-  // 等桌面就绪（隐藏测试点下载完、图标渲染出来）
-  for (let i = 0; i < 80; i++){
+  await sleep(350);
+`;
+
+const ADMIN = GDM + `
+  document.querySelector('.gdm-user[data-account="NOIP"]').click();
+  await sleep(260);
+  document.getElementById('gdmPwd').value = 'noip2026';
+  document.getElementById('gdmSubmit').click();
+  for (let i = 0; i < 90; i++){
     const ld = document.getElementById('globalLoading');
     if (document.querySelectorAll('.s-icon').length && ld && ld.classList.contains('hidden')) break;
     await sleep(150);
   }
   await sleep(300);
+  window.__app('admin');
+  await sleep(500);
 `;
 
 const STUDY = `
@@ -62,6 +82,51 @@ const APP = name => `
 `;
 
 const SCENES = {
+  // 显示器休眠（开机后、未唤醒）
+  dpms: `
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    await sleep(3200);
+  `,
+
+  // GDM 账户选择
+  gdm: GDM,
+
+  // GDM 已选中账户、等密码
+  gdmAuth: GDM_AUTH,
+
+  // 管理员控制台
+  admin: ADMIN,
+
+  // polkit 认证框（学生账户点「软件」）
+  polkit: LOGIN + `
+    window.__app('software');
+    await sleep(500);
+  `,
+
+  // 软件中心（认证通过后）
+  software: LOGIN + `
+    window.__app('software');
+    await sleep(400);
+    document.querySelectorAll('.pk-field input')[0].value = 'noip2026';
+    document.querySelector('[data-k="ok"]').click();
+    await sleep(700);
+  `,
+
+  // 设置（认证通过后）
+  settings: LOGIN + `
+    window.__app('settings');
+    await sleep(400);
+    document.querySelectorAll('.pk-field input')[0].value = 'noip2026';
+    document.querySelector('[data-k="ok"]').click();
+    await sleep(800);
+  `,
+
+  // LibreOffice Calc
+  calc: LOGIN + `
+    Desktop.launch('low');
+    await sleep(600);
+  `,
+
   desk: LOGIN,
 
   // 复习中心：模板速查板块
@@ -193,8 +258,8 @@ const SCENES = {
     await sleep(2200);
   `,
 
-  vim: LOGIN + `
-    Desktop.launch('vim');
+  emacs: LOGIN + `
+    Desktop.launch('emacs');
     await sleep(600);
   `,
 

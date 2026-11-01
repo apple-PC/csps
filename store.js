@@ -22,6 +22,7 @@ const Store = (() => {
     studentState: 'csp_sim:studentState',
     ghToken: 'csp_sim:ghtoken',       // 管理员粘贴的 GitHub token，仅存本机，绝不进代码
     rcSubmits: 'csp_sim:rcsubmits',   // 程序回收系统的提交记录 { [pid]: {time, size} }
+    examId: 'csp_sim:examid',          // 考生在程序回收系统里输入的准考证号
   };
 
   function lsGet(key, fallback){
@@ -230,6 +231,8 @@ const Store = (() => {
     getState(){ return lsGet(K.state, { status: 'notstarted' }); },
     saveState(st){ lsSet(K.state, st); fs.mirrorDebounced(); },
     getStudent(){ return lsGet(K.student, null); },
+    getExamId(){ return lsGet(K.examId, ''); },
+    saveExamId(v){ lsSet(K.examId, v || ''); },
     saveStudent(s){ lsSet(K.student, s); },
     getCodes(){ return lsGet(K.codes, {}); },
     saveCode(pid, code){ const c = lsGet(K.codes, {}); c[pid] = code; lsSet(K.codes, c); },

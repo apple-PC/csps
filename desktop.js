@@ -23,7 +23,9 @@ const Desktop = (() => {
     text: '<svg viewBox="0 0 48 48"><path d="M11 4h18l8 8v32a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="#fbfbfb"/><path d="M29 4l8 8h-8z" fill="#dcdcdc"/><path d="M15 20h16M15 26h16M15 32h10" stroke="#b4b4b4" stroke-width="2.2" stroke-linecap="round"/><rect x="11" y="4" width="26" height="44" rx="2" fill="none" stroke="#c8c8c8" stroke-width="1"/></svg>',
     code: '<svg viewBox="0 0 48 48"><rect x="3.5" y="3.5" width="19" height="19" rx="3" fill="#e94b3c"/><rect x="25.5" y="3.5" width="19" height="19" rx="3" fill="#f5c344"/><rect x="3.5" y="25.5" width="19" height="19" rx="3" fill="#3d8ec9"/><rect x="25.5" y="25.5" width="19" height="19" rx="3" fill="#5aa84e"/></svg>',
     term: '<svg viewBox="0 0 48 48"><rect x="3" y="6" width="42" height="36" rx="4.5" fill="#2c001e"/><path d="M11 18.5l5.5 4.5-5.5 4.5" stroke="#ffffff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M21.5 28h12" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/></svg>',
-    firefox: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="#e8442a"/><path d="M24 4.5a19.5 19.5 0 1 1-13.8 5.7A15 15 0 0 1 24 8.5z" fill="#ff8a1f" opacity=".62"/><circle cx="24.5" cy="25" r="9.4" fill="#5d2a8a"/><path d="M25 14.8c5.9 0 10.7 4.8 10.7 10.7 0 3.3-1.5 6.3-3.9 8.2 4-1.2 7-5.1 7-10 0-7.4-6-13.2-13.4-13.1-4.4.1-8.4 2.3-10.8 5.5 2.6-2.2 6.4-2.7 10.4-1.3z" fill="#ffb347" opacity=".95"/></svg>',
+    /* Firefox 79：橙红火球 + 左下紫蓝球体。考点页有 <base>，
+       SVG 里的 url(#grad) 会按 base 解析而失效，所以这里全用实色分层堆出立体感 */
+    firefox: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="#d81f11"/><path d="M24 4.6a19.4 19.4 0 1 1-13.4 5.5 15 15 0 0 1 13.4-5.5z" fill="#ff7d10"/><path d="M24 8.2c8.7 0 15.7 7 15.7 15.7 0 4.3-1.7 8.2-4.5 11.1-1.5-6.6-6.4-11.6-12.6-12.8 4.6-2.8 6.9-8.4 1.4-14z" fill="#ffa02a" opacity=".9"/><path d="M12.6 12.4a15.2 15.2 0 0 1 9.6-4.1c-3.6 1.9-6 5.1-6.6 8.9-.9 5.2 2.4 10 7.4 11.4" fill="none" stroke="#ffca6e" stroke-width="2.1" stroke-linecap="round" opacity=".65"/><circle cx="23.2" cy="27.6" r="8.2" fill="#4d2a91"/><circle cx="22.2" cy="26" r="5.6" fill="#8a68dd"/><circle cx="21.2" cy="24.6" r="2.8" fill="#e2d4ff" opacity=".8"/></svg>',
     submit: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="19" fill="#2aa05a"/><path d="M24 33.5V15M17 22l7-7 7 7" stroke="#fff" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     browse: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="19" fill="#e8662c"/><circle cx="24" cy="24" r="12.5" fill="none" stroke="#ffd9c4" stroke-width="1.6"/><path d="M24 4.5c7 6 7 33 0 39M4.5 24h39" stroke="#ffd9c4" stroke-width="1.6" fill="none"/><circle cx="24" cy="24" r="6" fill="#ffd9c4" opacity=".92"/></svg>',
     judge: '<svg viewBox="0 0 48 48"><rect x="6" y="4.5" width="36" height="39" rx="4" fill="#f7f7f7" stroke="#cfcfcf" stroke-width="1"/><path d="M13 14h22M13 21h22M13 28h11" stroke="#c9c9c9" stroke-width="2.6" stroke-linecap="round"/><path d="M23 33.5l4.5 4.5 9-10" stroke="#2aa05a" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -48,6 +50,18 @@ const Desktop = (() => {
     grid: '<svg viewBox="0 0 24 24"><g fill="#e8e8e8"><circle cx="6" cy="6" r="1.8"/><circle cx="12" cy="6" r="1.8"/><circle cx="18" cy="6" r="1.8"/><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/><circle cx="6" cy="18" r="1.8"/><circle cx="12" cy="18" r="1.8"/><circle cx="18" cy="18" r="1.8"/></g></svg>',
     /* 回收站：灰白桶身 + 绿色回收标志，与 Nautilus 的 trash 图标一致 */
     trash: '<svg viewBox="0 0 48 48"><path d="M12.6 14h22.8l-2.3 26.2a3.2 3.2 0 0 1-3.2 2.9H18.1a3.2 3.2 0 0 1-3.2-2.9z" fill="#dedede" stroke="#b6b6b6" stroke-width="1.2"/><rect x="9.5" y="9.2" width="29" height="5.2" rx="2.6" fill="#c9c9c9" stroke="#b0b0b0" stroke-width=".9"/><path d="M19.4 9.1a4.6 4.6 0 0 1 9.2 0" fill="none" stroke="#b0b0b0" stroke-width="2"/><path d="M21 21.8l3.6 3.1-1.5 4.3h-2.6l-1.5-4.3z" fill="#5aa84e"/><path d="M27 21.8l-3.6 3.1 1.5 4.3h2.6l1.5-4.3z" fill="#5aa84e"/><path d="M24 21.8v7.4" stroke="#5aa84e" stroke-width="1.6"/></svg>',
+    /* ── 官方 NOI Linux 2.0「显示应用程序」网格里的应用图标 ── */
+    monitor: '<svg viewBox="0 0 48 48"><rect x="4" y="7" width="40" height="34" rx="4" fill="#3d3d3d"/><rect x="8.5" y="11.5" width="31" height="2" rx="1" fill="#5e5e5e"/><path d="M10 31l6.5-9.5 5 6L26 19l5 12 4.5-6 3.5 6" fill="none" stroke="#8fd3f4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    lang: '<svg viewBox="0 0 48 48"><rect x="5" y="6" width="38" height="36" rx="4.5" fill="#fbfbfb" stroke="#d4d2ce"/><text x="10.5" y="33" font-size="23" font-weight="600" fill="#2b2b2b" font-family="Helvetica,Arial,sans-serif">A</text><rect x="24.5" y="11" width="14.5" height="26" rx="2" fill="#3b8fd4"/><text x="27" y="32" font-size="17" fill="#ffffff" font-family="Helvetica,Arial,sans-serif">\u6587</text></svg>',
+    char: '<svg viewBox="0 0 48 48"><rect x="5" y="6" width="38" height="36" rx="4.5" fill="#ffffff" stroke="#d4d2ce"/><text x="13" y="34" font-size="26" fill="#3b3a37" font-family="Georgia,serif">\u00e0</text></svg>',
+    fontv: '<svg viewBox="0 0 48 48"><rect x="5" y="6" width="38" height="36" rx="4.5" fill="#ffffff" stroke="#d4d2ce"/><text x="9" y="23" font-size="15" fill="#3b3a37" font-family="Georgia,serif">aC</text><text x="9" y="37" font-size="15" fill="#7a7873" font-family="Georgia,serif">ab</text></svg>',
+    termpanel: '<svg viewBox="0 0 48 48"><rect x="4" y="7" width="40" height="34" rx="4" fill="#3d3d3d"/><path d="M11.5 16.5l5 5-5 5" stroke="#e8e8e8" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 27h9" stroke="#e8e8e8" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    joe: '<svg viewBox="0 0 48 48"><rect x="6" y="4.5" width="36" height="39" rx="3" fill="#ffffff" stroke="#d0cec9"/><path d="M13 13h22M13 19h22M13 25h15" stroke="#c8c6c1" stroke-width="2" stroke-linecap="round"/><path d="M30.5 24.5l6.5 6.5-8.5 8.5-6.5-6.5z" fill="#3b7fd4"/><path d="M22 33l-1.5 5.5 5.5-1.5z" fill="#2c5f9e"/></svg>',
+    kazam: '<svg viewBox="0 0 48 48"><rect x="4" y="13" width="40" height="24" rx="4" fill="#7d4ba8"/><path d="M4 17a4 4 0 0 1 4-4h32a4 4 0 0 1 4 4v3H4z" fill="#8f5cbb"/><circle cx="15.5" cy="26" r="6.2" fill="#e8e0f2"/><circle cx="15.5" cy="26" r="3" fill="#5b2d80"/><rect x="26" y="22" width="13" height="3.2" rx="1.6" fill="#d9c9ea"/><rect x="26" y="28.5" width="9" height="3.2" rx="1.6" fill="#d9c9ea"/></svg>',
+    calc: '<svg viewBox="0 0 48 48"><path d="M9.5 4h21L39 12.5V43a2 2 0 0 1-2 2H9.5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="#ffffff" stroke="#cfcecb"/><path d="M30.5 4L39 12.5h-8.5z" fill="#dedcd9"/><rect x="12.5" y="17.5" width="23" height="20" fill="#8fc31f"/><rect x="12.5" y="12.5" width="23" height="5" fill="#6d9c14"/><path d="M20.5 17.5v20M28.5 17.5v20M12.5 24h23M12.5 30h23" stroke="#ffffff" stroke-width="1.7"/></svg>',
+    lodraw: '<svg viewBox="0 0 48 48"><path d="M9.5 4h21L39 12.5V43a2 2 0 0 1-2 2H9.5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="#ffffff" stroke="#cfcecb"/><path d="M30.5 4L39 12.5h-8.5z" fill="#dedcd9"/><circle cx="20" cy="23" r="6.2" fill="#f7a24a" opacity=".9"/><rect x="20" y="24" width="13" height="12" fill="#f5c26b" opacity=".9"/><path d="M15 34l7-9 5 5 4-4 5 8z" fill="#e95420" opacity=".85"/></svg>',
+    loimpress: '<svg viewBox="0 0 48 48"><path d="M9.5 4h21L39 12.5V43a2 2 0 0 1-2 2H9.5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="#ffffff" stroke="#cfcecb"/><path d="M30.5 4L39 12.5h-8.5z" fill="#dedcd9"/><rect x="12.5" y="16" width="23" height="15.5" rx="1" fill="#f5a623"/><rect x="17" y="20" width="14" height="2.6" rx="1.3" fill="#ffffff"/><rect x="17" y="25" width="9" height="2.6" rx="1.3" fill="#fff0d0"/><path d="M24 31.5v4" stroke="#b97e18" stroke-width="2"/><rect x="18" y="35.5" width="12" height="2" rx="1" fill="#b97e18"/></svg>',
+    lowriter: '<svg viewBox="0 0 48 48"><path d="M9.5 4h21L39 12.5V43a2 2 0 0 1-2 2H9.5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="#ffffff" stroke="#cfcecb"/><path d="M30.5 4L39 12.5h-8.5z" fill="#dedcd9"/><rect x="13" y="16" width="22" height="3" rx="1.5" fill="#2b579a"/><path d="M13 23h22M13 28h22M13 33h22M13 38h14" stroke="#b8c4d6" stroke-width="2" stroke-linecap="round"/></svg>',
   };
   function ico(name, cls){
     return '<span class="ico' + (cls ? ' ' + cls : '') + '">' + (ICONS[name] || ICONS.app) + '</span>';
@@ -398,6 +412,7 @@ const Desktop = (() => {
     if (!a) return null;
     if (a.disabled){ toast(a.disabled, 'err'); return null; }
     lastLaunch = id; lastLaunchAt = Date.now();
+    bumpUsage(id);
     let r = null;
     try { r = a.run(); } catch (e){ toast('启动失败：' + (e.message || e), 'err'); }
     syncDock();
@@ -466,6 +481,9 @@ const Desktop = (() => {
     closePop();
     renderGrid('');
     g.classList.remove('hidden');
+    /* 真机打开「显示应用程序」后左侧 Dock 会收起，只留顶栏 */
+    const root = document.getElementById('studentApp');
+    if (root) root.classList.add('grid-open');
     setActTitle(null);
     const inp = document.getElementById('sGridInput');
     if (inp){ inp.value = ''; setTimeout(() => { try { inp.focus(); } catch (e){} }, 0); }
@@ -473,8 +491,36 @@ const Desktop = (() => {
   function closeAppGrid(){
     const g = document.getElementById('sGrid');
     if (g) g.classList.add('hidden');
+    const root = document.getElementById('studentApp');
+    if (root) root.classList.remove('grid-open');
   }
   function gridOpen(){ const g = document.getElementById('sGrid'); return g && !g.classList.contains('hidden'); }
+
+  /* 网格分「常用 / 全部」两页。常用按启动次数排序；全新账户还没开过东西时
+     退回官方镜像预置的常用项，免得进去是一片空白 */
+  const USAGE_KEY = 'csp_sim:appuse';
+  const FREQ_DEFAULT = ['files', 'term', 'firefox', 'software', 'cb'];
+  const FREQ_LIMIT = 15;
+  let gridMode = 'all';
+  function usageMap(){
+    try { return JSON.parse(localStorage.getItem(USAGE_KEY) || '{}') || {}; } catch (e){ return {}; }
+  }
+  function bumpUsage(id){
+    if (!id) return;
+    const u = usageMap();
+    u[id] = (u[id] || 0) + 1;
+    try { localStorage.setItem(USAGE_KEY, JSON.stringify(u)); } catch (e) {}
+  }
+  function setGridMode(mode){
+    gridMode = (mode === 'freq') ? 'freq' : 'all';
+    ['sGridFreq', 'sGridAll'].forEach(id => {
+      const b = document.getElementById(id);
+      if (!b) return;
+      b.classList.toggle('on', b.dataset.page === gridMode);
+    });
+    const inp = document.getElementById('sGridInput');
+    renderGrid(inp ? inp.value : '');
+  }
 
   // GNOME 应用网格：不分组，按名称排序
   function renderGrid(q){
@@ -482,6 +528,17 @@ const Desktop = (() => {
     if (!body) return;
     q = String(q || '').trim().toLowerCase();
     let list = apps.filter(a => !a.hidden);
+    if (gridMode === 'freq' && !q){
+      const u = usageMap();
+      const scored = list.filter(a => u[a.id] > 0).sort((a, b) => u[b.id] - u[a.id]);
+      if (scored.length >= 3){
+        list = scored.slice(0, FREQ_LIMIT);
+      } else {
+        list = FREQ_DEFAULT.map(id => list.find(a => a.id === id)).filter(Boolean);
+        scored.forEach(a => { if (!list.includes(a)) list.push(a); });
+      }
+      list = list.slice(0, FREQ_LIMIT);
+    }
     if (q){
       list = list.filter(a =>
         a.label.toLowerCase().includes(q) ||
@@ -489,7 +546,12 @@ const Desktop = (() => {
         (a.id || '').toLowerCase().includes(q));
     }
     list.sort((a, b) => String(a.label).localeCompare(String(b.label), 'zh-Hans-CN'));
-    if (!list.length){ body.innerHTML = '<div class="ub-grid-empty">没有匹配的应用</div>'; return; }
+    if (!list.length){
+      body.innerHTML = '<div class="ub-grid-empty">' +
+        (gridMode === 'freq' && !q ? '还没有常用应用，去「全部」里找找' : '没有匹配的应用') +
+        '</div>';
+      return;
+    }
     body.innerHTML = '';
     list.forEach(a => {
       const b = el('button', 'ub-grid-app');
@@ -520,12 +582,35 @@ const Desktop = (() => {
     if (showApps) showApps.onclick = e => { e.stopPropagation(); gridOpen() ? closeAppGrid() : openAppGrid(); };
 
     const netIco = document.getElementById('sNetIco');
-    if (netIco) netIco.innerHTML = ICONS.net;
+    if (netIco){
+      netIco.innerHTML = ICONS.net;
+      /* 点网络图标 = GNOME 的快速设置；要真正改配置就得过 polkit */
+      netIco.style.cursor = 'pointer';
+      netIco.onclick = () => openMenuAt(netIco, '', [
+        { head: '有线网络' },
+        { label: '有线连接 1　已连接', check: true, run(){} },
+        { label: '互联网　不可用（考场内网）', dim: true },
+        { sep: true },
+        { label: '有线设置…', ico: 'net', run(){ if (window.__app) window.__app('network'); } },
+        { label: '网络设置', ico: 'settings', run(){ if (window.__app) window.__app('settings'); } },
+      ]);
+    }
     const volIco = document.getElementById('sVolIco');
     if (volIco) volIco.innerHTML = ICONS.vol;
 
     const gi = document.getElementById('sGridInput');
     if (gi) gi.addEventListener('input', () => renderGrid(gi.value));
+    ['sGridFreq', 'sGridAll'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) b.onclick = e => { e.stopPropagation(); setGridMode(b.dataset.page); };
+    });
+    /* Dock 收起后没有九宫格可点了，点网格空白处 = 退出，跟 GNOME 一致 */
+    const gridEl = document.getElementById('sGrid');
+    if (gridEl){
+      gridEl.addEventListener('mousedown', e => {
+        if (e.target === gridEl || e.target.classList.contains('ub-grid-inner')) closeAppGrid();
+      });
+    }
 
     const desk = deskEl();
     if (desk){
@@ -581,20 +666,83 @@ const Desktop = (() => {
   }
   function openSysMenu(anchor){
     const stu = window.__stu || {};
-    openMenuAt(anchor, '', [
-      { head: '系统' },
-      { label: '首选项', ico: 'settings', run(){ if (window.__app) window.__app('sysinfo'); } },
-      { label: '系统管理', ico: 'settings', run(){ if (window.__app) window.__app('sysinfo'); } },
+    const who = stu.account || stu.name || 'candidate';
+    const admin = (typeof Student !== 'undefined' && Student.isAdmin) ? Student.isAdmin() : false;
+
+    const items = [
+      { head: who + (admin ? '（管理员）' : '') },
+      { label: '有线网络　已连接', ico: 'net', run(){ if (window.__app) window.__app('network'); } },
+      { label: '音量　60%', ico: 'vol', dim: true },
+      { label: '显示应用程序', ico: 'grid', run(){ openAppGrid(); } },
       { sep: true },
-      { label: '考试信息', ico: 'browse', run(){ if (window.__app) window.__app('sysinfo'); } },
+      { label: '设置', ico: 'settings', run(){ if (window.__app) window.__app('settings'); } },
       { label: '程序回收系统', ico: 'browse', run(){ if (window.__app) window.__app('recovery'); } },
-      { label: '交卷并结束考试', ico: 'submit', run(){ if (window.__app) window.__app('finish'); } },
-      { sep: true },
-      { label: '锁定屏幕', dim: true },
-      { label: '注销 ' + (stu.name || 'student'), dim: true },
-      { label: '关机', dim: true },
-    ]);
+      { label: '考试须知', ico: 'text', run(){ if (window.__app) window.__app('notice'); } },
+      { label: '交卷并退出登录', ico: 'submit', run(){ if (window.__app) window.__app('finish'); } },
+    ];
+    if (admin) items.push({ label: '考试管理', ico: 'settings', run(){ if (window.__app) window.__app('admin'); } });
+    items.push({ sep: true });
+    items.push({ label: '锁定屏幕', ico: 'power', run(){ if (window.__logout) window.__logout(); } });
+    items.push({ label: '关机', ico: 'power', run(){ if (window.__powerOff) window.__powerOff(); } });
+
+    openMenuAt(anchor, '', items);
   }
+
+  /* ================= polkit 认证 =================
+   * 真实系统里「安装应用」「更改网络设置」这类特权操作会弹出 polkit 对话框，
+   * 要求输入管理员密码。NOIP 本身就是管理员账户，登录后不再重复认证。 */
+  function auth(opts){
+    const o = opts || {};
+    const isAdmin = (typeof Student !== 'undefined' && Student.isAdmin) ? Student.isAdmin() : false;
+    if (isAdmin) return Promise.resolve(true);
+
+    return new Promise(resolve => {
+      const back = el('div', 'pk-back');
+      back.innerHTML =
+        '<div class="pk-dlg" role="dialog" aria-modal="true">' +
+        '<div class="pk-head">认证</div>' +
+        '<div class="pk-body">' +
+        '<div class="pk-ico"><svg viewBox="0 0 48 48"><path d="M24 5l14 6v11c0 10-6 17-14 21-8-4-14-11-14-21V11z" fill="#f2c14b"/><path d="M24 9l10 4.3v9c0 8-4.3 13.7-10 17-5.7-3.3-10-9-10-17v-9z" fill="#fdf0c8"/><rect x="18.5" y="20" width="11" height="9" rx="1.6" fill="#8a6a1c"/><path d="M21 20v-2.4a3 3 0 0 1 6 0V20" stroke="#8a6a1c" stroke-width="1.7" fill="none"/></svg></div>' +
+        '<div class="pk-msg">' + esc(o.message || '需要认证才能执行此操作') + '</div>' +
+        '<div class="pk-sub">输入管理员账户（NOIP）的密码进行认证。</div>' +
+        '<label class="pk-field"><span>密码</span><input type="password" autocomplete="off" spellcheck="false"></label>' +
+        '<label class="pk-field"><span>身份</span><input type="text" value="NOIP" readonly tabindex="-1"></label>' +
+        '<div class="pk-err"></div>' +
+        '</div>' +
+        '<div class="pk-foot"><button class="pk-btn" data-k="cancel">取消</button><button class="pk-btn pk-primary" data-k="ok">认证</button></div>' +
+        '</div>';
+      document.body.appendChild(back);
+
+      const inp = back.querySelector('.pk-field input');
+      const errEl = back.querySelector('.pk-err');
+      setTimeout(() => inp && inp.focus(), 60);
+
+      function done(ok){
+        back.classList.add('pk-out');
+        setTimeout(() => back.remove(), 160);
+        resolve(ok);
+      }
+      function submit(){
+        const pwd = inp.value || '';
+        const right = (typeof Greeter !== 'undefined' && Greeter.adminPwd) || 'noip2026';
+        if (pwd === right){ done(true); return; }
+        errEl.textContent = pwd ? '密码错误，请重试' : '请输入密码';
+        inp.value = '';
+        inp.focus();
+        back.querySelector('.pk-dlg').classList.remove('shake');
+        void back.offsetWidth;
+        back.querySelector('.pk-dlg').classList.add('shake');
+      }
+      back.querySelector('[data-k="ok"]').onclick = submit;
+      back.querySelector('[data-k="cancel"]').onclick = () => done(false);
+      back.addEventListener('keydown', e => {
+        if (e.key === 'Enter'){ e.preventDefault(); submit(); }
+        else if (e.key === 'Escape'){ e.preventDefault(); done(false); }
+      });
+      back.addEventListener('mousedown', e => { if (e.target === back) done(false); });
+    });
+  }
+
   function openWallMenu(x, y){
     const cur = wallpaper();
     showCtx(x, y, WALLS.map(w => ({
@@ -615,7 +763,8 @@ const Desktop = (() => {
     addApp, registerApps, launch, apps, syncDock,
     setWallpaper, wallpaper, WALLS, wallById,
     openMenuAt, showCtx, openAppsMenu, openAppGrid, closeAppGrid, renderGrid,
-    openPlacesMenu, openSysMenu, openWallMenu, setActTitle,
+    setGridMode, gridMode: () => gridMode,
+    openPlacesMenu, openSysMenu, openWallMenu, setActTitle, auth,
     fs, HOME,
     get wins(){ return wins; },
   };

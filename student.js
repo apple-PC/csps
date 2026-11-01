@@ -70,122 +70,63 @@ const Student = (() => {
   const closeWin = r => Desktop.closeWin(r);
   const closeAllWins = () => Desktop.closeAllWins();
 
-  /* ================= 登录 ================= */
-  async function show(){
-    $('#startScreen').classList.add('hidden');
-    $('#studentLogin').classList.remove('hidden');
+  /* ================= 登录（账户由 GDM 提供） ================= */
+  let account = null;                       // 当前系统账户 { id, role, group }
+
+  async function loginAs(acc){
+    /* 换账户 = 新会话：上一个账户残留的窗口一个都不留 */
+    closeAllWins();
+    account = acc || { id: 'csp-s2026', role: 'student', group: 's' };
+    Store.saveStudent({ account: account.id, name: account.id, id: account.id });
+
     const hasLocal = localStorage.getItem(Store.K.settings) && localStorage.getItem(Store.K.problems);
-    if (!hasLocal) { try { await Store.initRemote(); } catch (e) {} }
-    const s = Store.getSettings();
-    const hasData = localStorage.getItem(Store.K.settings) && localStorage.getItem(Store.K.problems);
-    $('#loginExamName').textContent = s.examName || 'CSP-S 复赛模拟考试';
-    $('#loginNoData').classList.toggle('hidden', !!hasData);
-    $('#loginForm').classList.toggle('hidden', !hasData);
-    if (!hasData){ $('#loginStatus').textContent = '等待考试数据…'; return; }
-    const st = Store.getState();
-    const statusText = { notstarted: '考试尚未开始', running: '考试进行中', ended: '考试已结束' }[st.status] || '';
-    let extra = '';
-    if (st.status === 'running' && remainingSec() != null) extra = ' · 剩余 ' + fmtClock(remainingSec());
-    if (s.startMode === 'scheduled' && s.scheduledAt && st.status === 'notstarted')
-      extra = ' · 定时 ' + s.scheduledAt.replace('T', ' ') + ' 开考';
-    if (s.startMode === 'manual' && st.status === 'notstarted') extra = ' · 请等待监考老师开始';
-    $('#loginStatus').textContent = statusText + extra;
-    const prev = Store.getStudent();
-    if (prev){ $('#loginName').value = prev.name || ''; $('#loginId').value = prev.id || ''; }
-    if (!Store.fs.supported) $('#loginFolderRow').classList.add('hidden');
-    if (!hasData) trySilentFolderLoad();
-  }
-  async function trySilentFolderLoad(){
-    try{
-      const r = await Store.fs.restore();
-      if (r !== 'granted') return;
-      const data = await Store.fs.readExamData();
-      if (!data) return;
-      if (data.settings) Store.saveSettings(Object.assign(Store.getSettings(), data.settings));
-      if (data.problems && data.problems.length) Store.saveProblems(data.problems);
-      if (data.state) Store.saveState(data.state);
-      toast('已从考试文件夹同步配置', 'ok');
-      show();
-    }catch(e){ /* 静默失败 */ }
-  }
-  $('#loginForm').addEventListener('submit', e => {
-    e.preventDefault();
-    const name = $('#loginName').value.trim();
-    const sid = $('#loginId').value.trim();
-    if (!name || !sid){ toast('请填写姓名和准考证号', 'err'); return; }
-    Store.saveStudent({ name, id: sid });
+    if (!hasLocal){ try { await Store.initRemote(); } catch (e) {} }
+
+    /* 拿不到外部考试数据也不能卡在登录：用内置题库落一份默认配置 */
+    if (!localStorage.getItem(Store.K.settings)) Store.saveSettings(Store.getSettings());
+    if (!localStorage.getItem(Store.K.problems) && window.BUILTIN_PROBLEMS){
+      Store.saveProblems(window.BUILTIN_PROBLEMS.map(p => ({
+        id: p.id, title: p.title, source: 'builtin', tl: p.tl, enabled: true, builtin: true,
+      })));
+    }
     tryFullscreen();
-    enterDesktop();
-  });
+    await enterDesktop();
+  }
+
   function tryFullscreen(){
     const elx = document.documentElement;
     if (elx.requestFullscreen) elx.requestFullscreen().catch(() => {});
   }
-  $('#btnLoginExit').onclick = () => {
-    $('#studentLogin').classList.add('hidden');
-    $('#startScreen').classList.remove('hidden');
-  };
-  $('#btnEndBack').onclick = () => {
+
+  function isAdmin(){ return !!account && account.role === 'admin'; }
+
+  /* 注销：回 GDM 登录界面。交卷后同样走这里，随时可以重新登录继续作答 */
+  function logout(){
+    closeAllWins();
+    if (timerHandle){ clearInterval(timerHandle); timerHandle = null; }
     appEl().classList.add('hidden');
     $('#sEndOverlay').classList.add('hidden');
+    $('#sWaitOverlay').classList.add('hidden');
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    showStartAgain();
-  };
-  function showStartAgain(){
-    $('#startScreen').classList.remove('hidden');
-    if (timerHandle){ clearInterval(timerHandle); timerHandle = null; }
+    submitted = false;
+    if (window.Greeter) Greeter.lock();
   }
+  window.__logout = logout;
 
-  $('#loginImportPack').addEventListener('change', async e => {
-    const f = e.target.files[0];
-    e.target.value = '';
-    if (!f) return;
-    try{
-      const data = JSON.parse(await f.text());
-      if (!data || !Array.isArray(data.problems)) throw new Error('不是有效的考试包文件');
-      if (data.settings) Store.saveSettings(Object.assign(Store.getSettings(), data.settings));
-      if (data.state) Store.saveState(data.state);
-      Store.saveProblems(data.problems);
-      toast('考试数据导入成功', 'ok');
-      show();
-    }catch(err){ toast('导入失败：' + (err.message || err), 'err'); }
-  });
-  $('#loginPickFolder').addEventListener('change', () => {});
-  $('#loginPickFolder').addEventListener('click', async e => {
-    e.preventDefault();
-    if (!Store.fs.supported){ toast('当前浏览器不支持文件夹访问，请使用 Chrome / Edge 或导入考试包', 'err'); return; }
-    try{
-      const h = await window.showDirectoryPicker({ id: 'csp-exam', mode: 'read' });
-      const read = async path => (await (await h.getFileHandle(path)).getFile()).text();
-      const settings = JSON.parse(await read('settings.json'));
-      const problems = JSON.parse(await read('problems.json'));
-      let state = null;
-      try{ state = JSON.parse(await read('state.json')); }catch(_){}
-      Store.saveSettings(Object.assign(Store.getSettings(), settings));
-      if (problems && problems.length) Store.saveProblems(problems);
-      if (state) Store.saveState(state);
-      toast('已从文件夹「' + h.name + '」读取考试数据', 'ok');
-      show();
-    }catch(err){
-      if (err && err.name === 'AbortError') return;
-      toast('读取考试文件夹失败：' + (err.message || err), 'err');
-    }
-  });
+  $('#btnEndBack').onclick = logout;
 
   /* ================= 进入桌面 ================= */
   async function enterDesktop(){
     const st = Store.getState();
     const s = Store.getSettings();
-    if (st.status === 'ended'){ showEnded('考试已结束', '本场考试已结束。'); return; }
-    if (st.status === 'notstarted'){
-      if (s.startMode === 'auto'){
-        Store.saveState({ status: 'running', startedAt: Date.now() });
-      } else if (s.startMode === 'scheduled' && s.scheduledAt){
-        const startTs = new Date(s.scheduledAt).getTime();
-        if (Date.now() >= startTs){
-          Store.saveState({ status: 'running', startedAt: startTs });
-        } else { showWaiting(startTs); return; }
-      } else { showWaiting(null); return; }
+    /* 正式考试的机器不限时：机器一直可用，交过卷也能重新登录继续。
+       唯一会挡人的是管理员设的「定时开考」还没到点。 */
+    if (s.startMode === 'scheduled' && s.scheduledAt && st.status !== 'running'){
+      const startTs = new Date(s.scheduledAt).getTime();
+      if (Date.now() < startTs){ showWaiting(startTs); return; }
+    }
+    if (st.status !== 'running'){
+      Store.saveState({ status: 'running', startedAt: st.startedAt || Date.now() });
     }
     try { await loadHiddenTests(); } catch (e) {}
     showLoading('正在初始化考试桌面…', { percent: 100, detail: '启动 GNOME Flashback · 挂载考试目录' });
@@ -285,7 +226,6 @@ const Student = (() => {
   }
   function showWaiting(startTs){
     appEl().classList.remove('hidden');
-    $('#studentLogin').classList.add('hidden');
     $('#sWaitOverlay').classList.remove('hidden');
     const tick = () => {
       const st = Store.getState();
@@ -317,17 +257,10 @@ const Student = (() => {
   }
 
   function bootDesktop(){
-    submitted = Store.getStudentState().submitted || false;
-    if (submitted){ showEnded('已交卷', '你已在之前提交了试卷。'); return; }
+    /* 不再读 studentState.submitted：那会把考生永久锁在「已交卷」页面上 */
+    submitted = false;
     appEl().classList.remove('hidden');
-    $('#studentLogin').classList.add('hidden');
     $('#sWaitOverlay').classList.add('hidden');
-    const s = Store.getSettings();
-    const tag = $('#sExamTag');
-    if (tag){
-      tag.textContent = s.examName || 'NOI Linux 2.0';
-      tag.title = 'NOI Linux 2.0 · ' + (s.examName || 'CSP-S 模拟考');
-    }
 
     const sid = mountFs();
     Desktop.mount();
@@ -374,22 +307,23 @@ const Student = (() => {
     const st = Store.getState();
     const problems = enabledProblems();
     const stu = Store.getStudent() || {};
-    let info = '考试名称：' + s.examName + '\n考试时长：' + s.durationMin + ' 分钟\n';
-    if (stu.name) info += '考生：' + stu.name + '（' + stu.id + '）\n';
-    if (st.startedAt) info += '开考时间：' + fmtTime(st.startedAt) + '\n剩余时间：' + fmtClock(remainingSec() || 0) + '\n';
+    let info = '考试名称：' + s.examName + '\n';
+    if (stu.account) info += '系统账户：' + stu.account + '\n';
+    if (st.startedAt) info += '开考时间：' + fmtTime(st.startedAt) + '\n';
     info += '\n本题卷共 ' + problems.length + ' 题：\n' +
       problems.map((p, i) => '  ' + String(i + 1).padStart(2) + '. ' + p.id + '  ' + p.title).join('\n') +
       '\n\n' + (s.desktopIcons === 'exam'
         ? '每题桌面上的 <题名>.zip 内含题面与样例数据。'
         : '题面与样例数据在本目录下各题的 <题名>.zip 内。') +
-      '\n源程序请保存在 ~/Desktop/' + (stu.id || 'answers') + '/<题名>/<题名>.cpp。\n' +
+      '\n源程序请保存在 ~/Desktop/teacher/<题名>/<题名>.cpp。\n' +
       '在 Code::Blocks 中作答，代码会自动保存；交卷前请确认各题代码已保存。\n\n—— 考试须知 ——\n' + (s.notice || '');
     return info;
   }
   function mountFs(){
-    const stu = Store.getStudent() || {};
-    const sid = stu.id || 'answers';
     const s = Store.getSettings();
+    /* 官方 NOI Linux 2.0 的桌面目录就是 teacher（演示机原始状态），
+       考生文件放里面，桌面上只有这一个文件夹加回收站 */
+    const sid = 'teacher';
     const fs = Desktop.fs;
     /* 官方 NOI Linux 2.0 的桌面上只有考生自己的目录（演示机叫 teacher），
      * 题面、样例、须知都收在这个目录里，而不是摊在桌面上。
@@ -417,7 +351,7 @@ const Student = (() => {
       const m = abs.match(/\/([^/]+)\/(?:[^/]+\/)?\1\.cpp$/);
       if (m) Store.saveCode(m[1], content);
     };
-    window.__stu = stu;
+    window.__stu = Object.assign({}, Store.getStudent() || {}, { role: account ? account.role : 'student' });
     window.__probs = enabledProblems();
     return sid;
   }
@@ -494,41 +428,68 @@ const Student = (() => {
     openFiles('~/.local/share/Trash/files');
   }
 
-  /* 应用清单照 ISO 里的 casper/filesystem.manifest 来：
-   * 预装版本 codeblocks 20.03 / geany 1.36 / lazarus 2.0.6 + fpc 3.0.4 / gedit 3.36.2 /
-   * vim 8.1 / nano 4.8 / emacs 26.3 / gdb 9.1 / ddd 3.3.12 / libreoffice 6.4.4 / gparted 1.0。
-   * 注意：NOI Linux 2.0 里没有 VS Code（那是 2021 年才有的东西），网格里也不该出现。 */
+  /* 应用清单严格对齐官方 NOI Linux 2.0 的「显示应用程序」网格
+   * —— 以操作演示视频里的实际网格为准（比 ISO 的 manifest 更准，
+   *    因为 manifest 里有包装了但没生成菜单项的情况）。
+   * 网格按名称排序后为：文件 / 系统监视器 / 语言支持 / 终端 / 字符 / 字体 /
+   *   Arbiter_local / Byobu Terminal / Code::Blocks IDE / Data Display Debugger /
+   *   Emacs (GUI) / Emacs (Terminal) / Firefox 网络浏览器 / Geany /
+   *   Joe's Own Editor ×4 / Kazam / LibreOffice Calc·Draw·Impress·Writer。
+   * 注意：NOI Linux 2.0 里没有 VS Code（2021 年才发布），网格里也不该出现。 */
   function registerApps(){
-    Desktop.registerApps([
-      { id: 'cb', group: '编程', label: 'Code::Blocks', ico: 'cb', desc: 'C/C++ IDE 20.03', run(){ openIDE('Code::Blocks'); } },
-      { id: 'geany', group: '编程', label: 'Geany', ico: 'geany', desc: '轻量 IDE 1.36', run(){ openIDE('Geany'); } },
-      { id: 'gedit', group: '编程', label: 'Gedit', ico: 'gedit', desc: '文本编辑器 3.36', run(){ openIDE('Gedit'); } },
-      { id: 'vim', group: '编程', label: 'Vim', ico: 'vim', desc: '命令模式编辑器 8.1', run(){ openTuiEditor('vim'); } },
-      { id: 'nano', group: '编程', label: 'nano', ico: 'nano', desc: '简单文本编辑器 4.8', run(){ openTuiEditor('nano'); } },
-      { id: 'emacs', group: '编程', label: 'Emacs', ico: 'emacs', desc: '可扩展编辑器 26.3', run(){ openTuiEditor('emacs'); } },
-      { id: 'gdb', group: '编程', label: 'GDB', ico: 'dbg', desc: 'GNU 调试器 9.1', run(){ openGDB(); } },
-      { id: 'ddd', group: '编程', label: 'DDD', ico: 'ddd', desc: 'GDB 图形前端 3.3.12', run(){ openGDB('ddd'); } },
-      { id: 'arbiter', group: '编程', label: 'Arbiter_local', ico: 'judge', desc: '本地评测系统', run(){ openArbiter(); } },
-      { id: 'lazarus', group: '编程', label: 'Lazarus', ico: 'lazarus', desc: 'Pascal IDE 2.0.6（FPC 3.0.4）', run(){ openIDE('Lazarus'); } },
-      // NOI Linux 2.0 的 favorite-apps 只剩 Firefox 与 Nautilus，Dock 上常驻这两个
-      { id: 'firefox', group: '互联网', label: 'Firefox', ico: 'firefox', desc: '考场断网 79.0', pin: true, run(){ openFirefox(); } },
-      { id: 'files', group: '系统工具', label: '文件', ico: 'folder', desc: '浏览考试目录', pin: true, run(){ openFiles(); } },
-      { id: 'term', group: '系统工具', label: '终端', ico: 'term', desc: 'Ctrl+Alt+T', run(){ openTerminal(); } },
-      { id: 'sysinfo', group: '系统工具', label: '系统信息', ico: 'settings', desc: '环境与考试状态', run(){ openSysInfo(); } },
-      // 真机预装、但这套网页模拟里没有对应实现的应用：保留图标但置灰，别让学生以为能打开
-      { id: 'low', group: '办公', label: 'LibreOffice Writer', ico: 'low', desc: '文字处理 6.4.4（模拟环境未提供）', disabled: '模拟环境未提供 LibreOffice', run(){} },
-      // 桌面上不再摆启动器，交卷与须知改从「显示应用程序」进入（也可在顶栏系统菜单找到）
-      { id: 'notice', group: '考试', label: '考试须知', ico: 'text', desc: '考场规则与题卷信息', run(){ openNotice(); } },
-      { id: 'recovery', group: '考试', label: '程序回收系统', ico: 'browse', desc: '提交源代码（考场内网）', run(){ openRecoverySystem(); } },
-    ]);
+    const apps = [
+      { id: 'files',    label: '文件',        ico: 'folder',  group: '系统工具', desc: 'Nautilus 3.36', pin: true, run(){ openFiles(); } },
+      { id: 'monitor',  label: '系统监视器',  ico: 'monitor', group: '系统工具', desc: '资源占用', run(){ openSysInfo(); } },
+      { id: 'lang',     label: '语言支持',    ico: 'lang',    group: '系统工具', desc: '中文（简体）', run(){ openLangSupport(); } },
+      { id: 'term',     label: '终端',        ico: 'term',    group: '系统工具', desc: 'GNOME Terminal 3.36', run(){ openTerminal(); } },
+      { id: 'gucharmap',label: '字符',        ico: 'char',    group: '系统工具', desc: '字符映射表', run(){ openCharmap(); } },
+      { id: 'fonts',    label: '字体',        ico: 'fontv',   group: '系统工具', desc: '字体查看器', run(){ openFontViewer(); } },
+
+      { id: 'arbiter',  label: 'Arbiter_local', ico: 'judge', group: '编程', desc: '本地评测系统', run(){ openArbiter(); } },
+      { id: 'byobu',    label: 'Byobu Terminal', ico: 'termpanel', group: '编程', desc: '终端复用器', run(){ openTerminal(); } },
+      { id: 'cb',       label: 'Code::Blocks IDE', ico: 'cb', group: '编程', desc: 'C/C++ IDE 20.03', run(){ openIDE('Code::Blocks'); } },
+      { id: 'ddd',      label: 'Data Display Debugger', ico: 'ddd', group: '编程', desc: 'GDB 图形前端 3.3.12', run(){ openGDB('ddd'); } },
+      { id: 'emacs',    label: 'Emacs (GUI)', ico: 'emacs',  group: '编程', desc: '编辑器 26.3', run(){ openTuiEditor('emacs'); } },
+      { id: 'emacst',   label: 'Emacs (Terminal)', ico: 'emacs', group: '编程', desc: '编辑器 26.3', run(){ openTuiEditor('emacs'); } },
+      { id: 'geany',    label: 'Geany',       ico: 'geany',  group: '编程', desc: '轻量 IDE 1.36', run(){ openIDE('Geany'); } },
+      { id: 'joe',      label: "Joe's Own Editor", ico: 'joe', group: '编程', desc: 'joe', run(){ openTuiEditor('joe'); } },
+      { id: 'jmacs',    label: "Joe's Own Editor", ico: 'joe', group: '编程', desc: 'jmacs', run(){ openTuiEditor('joe'); } },
+      { id: 'jpico',    label: "Joe's Own Editor", ico: 'joe', group: '编程', desc: 'jpico', run(){ openTuiEditor('joe'); } },
+      { id: 'jstar',    label: "Joe's Own Editor", ico: 'joe', group: '编程', desc: 'jstar', run(){ openTuiEditor('joe'); } },
+
+      { id: 'firefox',  label: 'Firefox 网络浏览器', ico: 'firefox', group: '互联网', desc: '79.0（考场内网）', pin: true, run(){ openFirefox(); } },
+
+      { id: 'kazam',    label: 'Kazam', ico: 'kazam', group: '影音', desc: '屏幕录制 1.4.5', run(){ openKazam(); } },
+      { id: 'low',      label: 'LibreOffice Calc',    ico: 'calc',    group: '办公', desc: '电子表格 6.4.4', run(){ openLibreOffice('Calc'); } },
+      { id: 'lodraw',   label: 'LibreOffice Draw',    ico: 'lodraw',  group: '办公', desc: '绘图 6.4.4',    run(){ openLibreOffice('Draw'); } },
+      { id: 'loimpress',label: 'LibreOffice Impress', ico: 'loimpress', group: '办公', desc: '演示文稿 6.4.4', run(){ openLibreOffice('Impress'); } },
+      { id: 'lowriter', label: 'LibreOffice Writer',  ico: 'lowriter', group: '办公', desc: '文字处理 6.4.4', run(){ openLibreOffice('Writer'); } },
+
+      /* Ubuntu 20.04 自带的「软件」；打开即要求管理员认证，考场里装不了东西 */
+      { id: 'software', label: '软件', ico: 'app', group: '系统工具', desc: 'Ubuntu 软件中心（需管理员）', run(){ openSoftwareCenter(); } },
+    ];
+
+    /* 考试相关入口不进应用网格（真机网格里没有它们），统一放在顶栏系统菜单；
+       管理员账户额外多一个「考试管理」 */
+    if (isAdmin()){
+      apps.push({ id: 'admin-center', label: '考试管理', ico: 'settings', group: '系统工具', desc: '考试设置 · 题库 · 控制', run(){ Admin.show(); } });
+    }
+
+    Desktop.registerApps(apps);
   }
 
   window.__app = function (id){
     if (id === 'recovery') return openRecoverySystem();
     if (id === 'submit' || id === 'finish') return openSubmit();
+    if (id === 'notice') return openNotice();
     if (id === 'sysinfo') return openSysInfo();
+    if (id === 'network') return openNetworkSettings();
+    if (id === 'software') return openSoftwareCenter();
+    if (id === 'settings') return openSettings();
+    if (id === 'admin'){ Admin.show(); return; }
     return Desktop.launch(id);
   };
+  window.__powerOff = function(){ if (window.Greeter) Greeter.powerOff(); };
 
   function renderWatermark(){
     const s = Store.getSettings();
@@ -537,7 +498,7 @@ const Student = (() => {
     if (!wm) return;
     if (!s.watermark){ wm.classList.add('hidden'); return; }
     wm.classList.remove('hidden');
-    const text = (stu.id || '') + ' ' + (stu.name || '');
+    const text = (stu.account || '') + ' ' + (stu.name || '');
     let out = '';
     for (let r = 0; r < 12; r++){
       let line = '';
@@ -740,7 +701,7 @@ const Student = (() => {
         tl: p.tl || 1000,
       });
       dot.textContent = '已载入 ' + p.id + '.cpp';
-      pathHint.textContent = '~/Desktop/' + (stu.id || 'answers') + '/' + p.id + '/' + p.id + '.cpp' +
+      pathHint.textContent = '~/Desktop/teacher/' + p.id + '/' + p.id + '.cpp' +
         (code ? ' · ' + fmtSize(code.length) : ' · 新文件');
       const tt = win.head.querySelector('.win-title');
       if (tt) tt.textContent = ideWinTitle(label, p.id + '.cpp');
@@ -770,7 +731,7 @@ const Student = (() => {
     if (!pid) return;
     Store.saveCode(pid, d.code);
     const stu = Store.getStudent() || {};
-    const node = Desktop.fs.nodes.get('~/Desktop/' + (stu.id || 'answers') + '/' + pid + '/' + pid + '.cpp');
+    const node = Desktop.fs.nodes.get('~/Desktop/teacher/' + pid + '/' + pid + '.cpp');
     if (node && node.content !== d.code) node.content = d.code;
     const dot = ideWin.win.body.querySelector('.save-dot');
     if (dot) dot.textContent = pid + '.cpp 已自动保存 · ' + fmtSize(d.code.length);
@@ -810,12 +771,12 @@ const Student = (() => {
     function sync(){
       // Ubuntu 默认 PS1：user@host 绿色加粗，路径蓝色，$ 白色
       promptEl.innerHTML = '';
-      const u = document.createElement('span'); u.textContent = 'student@noi';
+      const u = document.createElement('span'); u.textContent = (account ? account.id : 'student') + '@noi';
       const c1 = document.createTextNode(':');
       const pth = document.createElement('span'); pth.className = 'p-path'; pth.textContent = fs.pretty(fs.cwd);
       const sym = document.createElement('span'); sym.className = 'p-sym'; sym.textContent = '$ ';
       promptEl.appendChild(u); promptEl.appendChild(c1); promptEl.appendChild(pth); promptEl.appendChild(sym);
-      const t = 'student@noi: ' + fs.pretty(fs.cwd);
+      const t = (account ? account.id : 'student') + '@noi: ' + fs.pretty(fs.cwd);
       win.title = t;
       const tt = win.head.querySelector('.win-title');
       if (tt) tt.textContent = t;
@@ -1027,7 +988,7 @@ const Student = (() => {
     async function exec(raw){
       const line = raw.trim();
       if (!line) return;
-      w('student@noi:' + fs.pretty(fs.cwd) + '$ ' + raw, 'cmd');
+      w((account ? account.id : 'student') + '@noi:' + fs.pretty(fs.cwd) + '$ ' + raw, 'cmd');
       const tokens = line.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
       let stdinFile = null, stdoutFile = null;
       const args = [];
@@ -1066,7 +1027,7 @@ const Student = (() => {
         case 'exit': case 'logout': return closeWin(win);
         case 'whoami': {
           const stu = Store.getStudent() || {};
-          return w(stu.id ? stu.id + ' (' + stu.name + ')' : 'student');
+          return w(account ? account.id : 'student');
         }
         case 'date': return w(new Date().toString());
         case 'uname': return w(rest.includes('-a')
@@ -1102,7 +1063,7 @@ const Student = (() => {
         if (busy) return;
         const line = inp.value;
         inp.value = '';
-        if (!line.trim()) { w('student@noi:' + fs.pretty(fs.cwd) + '$ ', 'cmd'); return; }
+        if (!line.trim()) { w((account ? account.id : 'student') + '@noi:' + fs.pretty(fs.cwd) + '$ ', 'cmd'); return; }
         hist.push(line); hi = hist.length;
         busy = true;
         try { await exec(line); }
@@ -1130,7 +1091,7 @@ const Student = (() => {
     if (!problems.length){ toast('没有可用题目', 'err'); return; }
     const stu = Store.getStudent() || {};
     let pid = (ideWin && ideWin.problemId) || problems[0].id;
-    const path = '~/Desktop/' + (stu.id || 'answers') + '/' + pid + '/' + pid + '.cpp';
+    const path = '~/Desktop/teacher/' + pid + '/' + pid + '.cpp';
     const win = createWindow({ id: 'tui:' + kind, title: kind.toUpperCase() + ' — ' + pid + '.cpp', ico: 'term', w: 820, h: 560 });
     if (win._built) return win;
     win._built = true;
@@ -1159,6 +1120,9 @@ const Student = (() => {
       } else if (kind === 'nano'){
         modeEl.textContent = 'nano';
         bar.textContent = '^O 写入文件    ^X 退出    ^K 剪切行    ^C 取消';
+      } else if (kind === 'joe'){
+        modeEl.textContent = 'joe';
+        bar.textContent = '^KX 保存并退出    ^KF 保存    ^C 中止    （Joe 的 WordStar 风格快捷键）';
       } else {
         modeEl.textContent = 'Emacs';
         bar.textContent = 'C-x C-s 保存    C-x C-c 退出    （本模拟器仅实现这两组快捷键）';
@@ -1211,6 +1175,13 @@ const Student = (() => {
       ta.addEventListener('keydown', e => {
         if (e.ctrlKey && (e.key === 'o' || e.key === 'O')){ e.preventDefault(); save(); }
         else if (e.ctrlKey && (e.key === 'x' || e.key === 'X')){ e.preventDefault(); quit(); }
+      });
+    } else if (kind === 'joe'){
+      let k = false;
+      ta.addEventListener('keydown', e => {
+        if (e.ctrlKey && (e.key === 'k' || e.key === 'K')){ k = true; setTimeout(() => { k = false; }, 1200); e.preventDefault(); return; }
+        if (k && e.ctrlKey && (e.key === 'x' || e.key === 'X')){ k = false; e.preventDefault(); save(); quit(); return; }
+        if (k && e.ctrlKey && (e.key === 'f' || e.key === 'F')){ k = false; e.preventDefault(); save(); }
       });
     } else {
       let cx = false;
@@ -1397,7 +1368,7 @@ const Student = (() => {
       const p = problems.find(x => x.id === cur);
       title.textContent = p.id + ' — ' + p.title;
       const stu = Store.getStudent() || {};
-      const src = '~/Desktop/' + (stu.id || 'answers') + '/' + p.id + '/' + p.id + '.cpp';
+      const src = '~/Desktop/teacher/' + p.id + '/' + p.id + '.cpp';
       sub.textContent = '源文件：' + src;
       info.innerHTML = '<span>时间限制：' + (p.tl || 1000) + ' ms</span>' +
         '<span>测试点：' + (p.tests || []).length + ' 个（含 ' + (p.tests || []).filter(t => t.sample).length + ' 个样例）</span>' +
@@ -1648,16 +1619,21 @@ const Student = (() => {
         '</div></div></div></div>';
     }
     function rcBindLogin(){
-      const stu = Store.getStudent() || {};
       const idEl = page.querySelector('#rcId');
       const pwEl = page.querySelector('#rcPwd');
       const errEl = page.querySelector('#rcErr');
-      if (idEl && stu.id) idEl.value = stu.id;
+      /* 准考证号由考生自己输入（考点下发的纸质准考证），账户名不参与 */
+      const saved = Store.getExamId();
+      if (idEl && saved) idEl.value = saved;
       const submit = () => {
-        const idv = (idEl.value || '').trim();
+        const idv = (idEl.value || '').trim().toUpperCase();
         const pwv = (pwEl.value || '').trim();
         if (!idv || !pwv){ errEl.textContent = '请输入准考证号和密码'; return; }
-        if (stu.id && idv !== stu.id){ errEl.textContent = '准考证号不存在或密码错误'; return; }
+        if (!/^[A-Z0-9][A-Z0-9-]{5,}$/.test(idv)){
+          errEl.textContent = '准考证号格式不正确，请核对后重新输入';
+          return;
+        }
+        Store.saveExamId(idv);
         rcState.logged = true; rcState.tab = 'notice';
         rcRender();
         toast('已登录程序回收系统', 'ok');
@@ -1730,7 +1706,7 @@ const Student = (() => {
         '<div class="rc-body">' +
         '<aside class="rc-side">' +
         '<div class="rc-clock"><span class="rc-i" style="display:inline-block;width:13px;height:13px;vertical-align:-2px;margin-right:7px">' + RC_ICONS.clock + '</span><b id="rcClock">' + rcNow() + '</b></div>' +
-        '<div class="rc-user"><span class="rc-i" style="display:inline-block;width:13px;height:13px;vertical-align:-2px;margin-right:7px">' + RC_ICONS.user + '</span>' + esc(stu.name || '选手') + '</div>' +
+        '<div class="rc-user"><span class="rc-i" style="display:inline-block;width:13px;height:13px;vertical-align:-2px;margin-right:7px">' + RC_ICONS.user + '</span>' + esc(Store.getExamId() || stu.account || '考生') + '</div>' +
         '<nav class="rc-nav">' +
         RC_TABS.map(t => '<a data-tab="' + t.id + '" class="' + (rcState.tab === t.id ? 'on' : '') + '">' +
           '<span class="rc-i">' + RC_ICONS[t.icon] + '</span>' + esc(t.label) + '</a>').join('') +
@@ -1806,9 +1782,297 @@ const Student = (() => {
     return win;
   }
 
-  /* ================= 系统信息 ================= */
+  /* ================= 语言支持 ================= */
+  function openLangSupport(){
+    const win = createWindow({ id: 'lang', title: '语言支持', ico: 'lang', w: 600, h: 470 });
+    if (win._built) return win;
+    win._built = true;
+
+    const head = el('div', 'app-hint', '语言安装与区域格式。系统语言为「汉语（简体）」。');
+    win.body.appendChild(head);
+    const rows = [
+      ['汉语（简体）', 'zh_CN.UTF-8', true],
+      ['英语（美国）', 'en_US.UTF-8', true],
+      ['汉语（繁体）', 'zh_TW.UTF-8', false],
+      ['日语', 'ja_JP.UTF-8', false],
+    ];
+    const tbl = el('table', 'lo-table');
+    tbl.innerHTML = '<thead><tr><th>语言</th><th>区域设置</th><th style="width:74px">状态</th><th style="width:110px"></th></tr></thead><tbody>' +
+      rows.map(r => '<tr><td>' + esc(r[0]) + '</td><td class="mono">' + esc(r[1]) + '</td>' +
+        '<td>' + (r[2] ? '已安装' : '未安装') + '</td>' +
+        '<td>' + (r[2] ? '' : '<button class="btn btn-sm" data-inst="' + esc(r[1]) + '">安装</button>') + '</td></tr>').join('') +
+      '</tbody>';
+    win.body.appendChild(tbl);
+    win.body.appendChild(el('div', 'app-foot', '安装语言包属于系统级更改，需要管理员认证。'));
+
+    tbl.querySelectorAll('[data-inst]').forEach(b => {
+      b.onclick = async () => {
+        const ok = await Desktop.auth({ message: '安装语言包需要认证' });
+        if (!ok) return;
+        toast('模拟环境不下装语言包（' + b.dataset.inst + '）', 'ok');
+      };
+    });
+    return win;
+  }
+
+  /* ================= 字符映射表（gucharmap） ================= */
+  function openCharmap(){
+    const win = createWindow({ id: 'charmap', title: '字符映射表', ico: 'char', w: 660, h: 500 });
+    if (win._built) return win;
+    win._built = true;
+
+    const pick = el('div', 'charmap-pick');
+    const chars = ('！＂＃＄％＆＇（）＊＋，－．／０１２３４５６７８９：；＜＝＞？＠' +
+      'ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ［＼］＾＿｀' +
+      'ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ｛｜｝～' +
+      'αβγδεζηθικλμνξοπρστυφχψω←↑→↓↔⇒⇔∑∏√∞≈≠≤≥±×÷' +
+      '∈∉⊂⊃∪∩∀∃∅∠⊥∥⊙').split('');
+    chars.forEach(ch => {
+      const b = el('button', 'charmap-cell', esc(ch));
+      b.onclick = () => {
+        box.textContent = ch;
+        code.textContent = 'U+' + ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0');
+      };
+      pick.appendChild(b);
+    });
+    win.body.appendChild(pick);
+
+    const bottom = el('div', 'charmap-bar');
+    const box = el('span', 'charmap-out', '—');
+    const code = el('span', 'charmap-code', 'U+');
+    const copy = el('button', 'btn btn-sm', '复制');
+    copy.onclick = () => {
+      try{ navigator.clipboard.writeText(box.textContent); toast('已复制「' + box.textContent + '」', 'ok'); }
+      catch(e){ toast('当前浏览器不允许写剪贴板', 'err'); }
+    };
+    bottom.appendChild(el('span', 'dim', '字符：')); bottom.appendChild(box);
+    bottom.appendChild(code); bottom.appendChild(copy);
+    win.body.appendChild(bottom);
+    return win;
+  }
+
+  /* ================= 字体查看器 ================= */
+  function openFontViewer(){
+    const win = createWindow({ id: 'fonts', title: '字体', ico: 'fontv', w: 660, h: 500 });
+    if (win._built) return win;
+    win._built = true;
+    const fonts = [
+      ['DejaVu Sans', 'DejaVu Sans', 15],
+      ['DejaVu Sans Mono', 'DejaVu Sans Mono', 15],
+      ['Noto Sans CJK SC', 'Noto Sans CJK SC', 15],
+      ['Ubuntu', 'Ubuntu', 15],
+      ['Ubuntu Mono', 'Ubuntu Mono', 15],
+      ['Sarasa Mono SC', 'Sarasa Mono SC', 15],
+    ];
+    const wrap = el('div', 'fontv-list');
+    fonts.forEach(([name, family, size]) => {
+      const card = el('div', 'fontv-card');
+      const sample = el('div', 'fontv-sample', '汉字测试 ABC abc 0123');
+      sample.style.fontFamily = '"' + family + '"';
+      sample.style.fontSize = size + 'px';
+      card.appendChild(el('div', 'fontv-name', esc(name)));
+      card.appendChild(sample);
+      wrap.appendChild(card);
+    });
+    win.body.appendChild(wrap);
+    return win;
+  }
+
+  /* ================= Kazam（屏幕录制） ================= */
+  function openKazam(){
+    const win = createWindow({ id: 'kazam', title: 'Kazam', ico: 'kazam', w: 560, h: 360 });
+    if (win._built) return win;
+    win._built = true;
+    const wrap = el('div', 'kazam-wrap');
+    [['屏幕录制', '录制整个屏幕'], ['窗口录制', '选择一个窗口录制'], ['区域录制', '框选屏幕区域录制']]
+      .forEach(([t, d]) => {
+        const b = el('button', 'kazam-btn',
+          '<b>' + esc(t) + '</b><i>' + esc(d) + '</i>');
+        b.onclick = () => toast('模拟环境不提供真实录屏（考场机也不允许录屏）', 'err');
+        wrap.appendChild(b);
+      });
+    win.body.appendChild(wrap);
+    win.body.appendChild(el('div', 'app-foot', '考场环境中录制屏幕属于违规行为。'));
+    return win;
+  }
+
+  /* ================= LibreOffice（Calc / Draw / Impress / Writer） ================= */
+  function openLibreOffice(kind){
+    const icoMap = { Calc: 'calc', Draw: 'lodraw', Impress: 'loimpress', Writer: 'lowriter' };
+    const win = createWindow({ id: 'lo:' + kind, title: 'LibreOffice ' + kind, ico: icoMap[kind] || 'low', w: 900, h: 620 });
+    if (win._built) return win;
+    win._built = true;
+
+    const menu = el('div', 'lo-menu');
+    ['文件', '编辑', '视图', '插入', '格式', '样式', '表格', '工具', '窗口', '帮助']
+      .forEach(m => menu.appendChild(el('span', 'lo-menu-item', m)));
+    win.body.appendChild(menu);
+
+    const bar = el('div', 'lo-toolbar');
+    for (let i = 0; i < 12; i++) bar.appendChild(el('span', 'lo-tool-sep'));
+    win.body.appendChild(bar);
+
+    const doc = el('div', 'lo-doc');
+    if (kind === 'Calc'){
+      const t = el('table', 'lo-sheet');
+      let html = '<tbody>';
+      for (let r = 0; r < 18; r++){
+        html += '<tr><th>' + (r + 1) + '</th>';
+        for (let c = 0; c < 8; c++) html += '<td></td>';
+        html += '</tr>';
+      }
+      html += '</tbody>';
+      t.innerHTML = html;
+      doc.appendChild(t);
+    } else if (kind === 'Writer'){
+      doc.innerHTML = '<div class="lo-page"><p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p></div>';
+    } else if (kind === 'Impress'){
+      doc.innerHTML = '<div class="lo-slides"><div class="lo-slide on"></div><div class="lo-slide"></div><div class="lo-slide"></div></div>' +
+        '<div class="lo-stage"><span>单击此处添加标题</span></div>';
+    } else {
+      doc.innerHTML = '<div class="lo-stage"><span>绘图区域</span></div>';
+    }
+    win.body.appendChild(doc);
+    win.body.appendChild(el('div', 'app-foot', '模拟环境仅提供界面外观，不实现 ' + kind + ' 的排版与计算功能。'));
+    return win;
+  }
+
+  /* ================= 网络（改动需要管理员认证） ================= */
+  async function openNetworkSettings(){
+    const ok = await Desktop.auth({ message: '更改网络设置需要认证' });
+    if (!ok) return;
+    const win = createWindow({ id: 'netcfg', title: '网络', ico: 'net', w: 640, h: 500 });
+    if (win._built){ Desktop.focusWin(win); return win; }
+    win._built = true;
+
+    const page = el('div', 'ctl-page');
+    page.innerHTML =
+      '<div class="ctl-h">有线</div>' +
+      '<div class="ctl-row ctl-toggle"><span>有线连接 1</span>' +
+      '<span class="ctl-switch on"><i></i></span></div>' +
+      '<div class="ctl-card">' +
+      '<div class="ctl-kv"><span>接口</span><b>eno1</b></div>' +
+      '<div class="ctl-kv"><span>IPv4 地址</span><b>10.10.20.' + (60 + Math.floor(Math.random() * 60)) + '</b></div>' +
+      '<div class="ctl-kv"><span>子网掩码</span><b>255.255.255.0</b></div>' +
+      '<div class="ctl-kv"><span>默认网关</span><b>10.10.20.1</b></div>' +
+      '<div class="ctl-kv"><span>DNS</span><b>10.10.20.1</b></div>' +
+      '<div class="ctl-kv"><span>互联网访问</span><b>不可用（考场内网）</b></div>' +
+      '</div>' +
+      '<p class="ctl-note">考场网络由考点统一配置。程序回收系统的地址 ' + RECOVERY_URL +
+      ' 属于考点内网，无需连接互联网即可访问。</p>';
+    win.body.appendChild(page);
+    win.body.appendChild(el('div', 'app-foot', '网络配置在考场内不允许考生自行修改。'));
+    return win;
+  }
+
+  /* ================= 软件（安装应用需要管理员认证） ================= */
+  async function openSoftwareCenter(){
+    const ok = await Desktop.auth({ message: '安装或删除软件需要认证' });
+    if (!ok) return;
+    const win = createWindow({ id: 'software', title: 'Ubuntu 软件', ico: 'app', w: 860, h: 620 });
+    if (win._built){ Desktop.focusWin(win); return win; }
+    win._built = true;
+
+    const head = el('div', 'sw-head');
+    head.innerHTML = '<div class="sw-title">Ubuntu 软件</div>' +
+      '<input class="sw-search" placeholder="搜索软件" autocomplete="off" spellcheck="false">';
+    win.body.appendChild(head);
+
+    const cats = ['已安装', '全部', '音频和视频', '开发工具', '教育', '游戏', '图形和设计', '办公'];
+    const nav = el('nav', 'sw-nav');
+    cats.forEach((c, i) => nav.appendChild(el('a', i === 0 ? 'on' : '', c)));
+    win.body.appendChild(nav);
+
+    const body = el('div', 'sw-body');
+    const pkgs = [
+      ['g++ 9.3.0', 'GNU C++ 编译器', '已安装'],
+      ['codeblocks 20.03', 'C/C++ 集成开发环境', '已安装'],
+      ['geany 1.36', '轻量集成开发环境', '已安装'],
+      ['gdb 9.1', 'GNU 调试器', '已安装'],
+      ['ddd 3.3.12', 'GDB 图形前端', '已安装'],
+      ['fpc 3.0.4', 'Free Pascal 编译器', '已安装'],
+      ['vim 8.1', 'Vi IMproved 文本编辑器', '已安装'],
+      ['git 2.25', '版本控制系统', '未安装'],
+      ['htop 2.2', '交互式进程查看器', '未安装'],
+      ['cmake 3.16', '跨平台构建工具', '未安装'],
+    ];
+    body.innerHTML = '<table class="lo-table"><thead><tr><th>软件包</th><th>说明</th><th style="width:96px">状态</th></tr></thead><tbody>' +
+      pkgs.map(pk => '<tr><td class="mono">' + esc(pk[0]) + '</td><td>' + esc(pk[1]) + '</td>' +
+        '<td>' + (pk[2] === '已安装'
+          ? '<span class="dim">已安装</span>'
+          : '<button class="btn btn-sm" data-pkg="' + esc(pk[0]) + '">安装</button>') + '</td></tr>').join('') +
+      '</tbody></table>';
+    win.body.appendChild(body);
+    win.body.appendChild(el('div', 'app-foot', '考场机不联网，也无法在考试期间安装新软件；此处仅展示系统软件源。'));
+
+    body.querySelectorAll('[data-pkg]').forEach(b => {
+      b.onclick = () => toast('考场环境不允许安装软件（' + b.dataset.pkg + '）', 'err');
+    });
+    return win;
+  }
+
+  /* ================= 设置（gnome-control-center） ================= */
+  async function openSettings(){
+    const ok = await Desktop.auth({ message: '打开系统设置需要认证' });
+    if (!ok) return;
+    const win = createWindow({ id: 'settings', title: '设置', ico: 'settings', w: 780, h: 560 });
+    if (win._built){ Desktop.focusWin(win); return win; }
+    win._built = true;
+
+    const panels = ['Wi-Fi', '网络', '蓝牙', '背景', '电源', '声音', '区域与语言', '用户', '关于'];
+    const wrap = el('div', 'ctl-wrap');
+    const nav = el('nav', 'ctl-nav');
+    const main = el('div', 'ctl-main');
+
+    function render(name){
+      nav.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.textContent === name));
+      if (name === '网络'){
+        main.innerHTML =
+          '<div class="ctl-h">网络</div>' +
+          '<div class="ctl-row"><span>有线</span><b>已连接</b></div>' +
+          '<div class="ctl-row"><span>Wi-Fi</span><b>不可用</b></div>' +
+          '<p class="ctl-note">考场机使用有线内网，不提供无线与互联网访问。修改网络配置需要管理员认证。</p>' +
+          '<button class="btn btn-sm" id="ctlNetBtn">打开网络设置…</button>';
+        main.querySelector('#ctlNetBtn').onclick = () => openNetworkSettings();
+        return;
+      }
+      if (name === '关于'){
+        main.innerHTML =
+          '<div class="ctl-h">关于</div>' +
+          '<div class="ctl-kv"><span>设备名称</span><b>noi-linux</b></div>' +
+          '<div class="ctl-kv"><span>操作系统</span><b>NOI Linux 2.0</b></div>' +
+          '<div class="ctl-kv"><span>版本</span><b>Ubuntu 20.04.1 LTS（Focal Fossa）</b></div>' +
+          '<div class="ctl-kv"><span>窗口系统</span><b>X11</b></div>' +
+          '<div class="ctl-kv"><span>GNOME</span><b>3.36.3</b></div>' +
+          '<div class="ctl-kv"><span>当前账户</span><b>' + esc(account ? account.id : '—') + '</b></div>';
+        return;
+      }
+      if (name === '用户'){
+        main.innerHTML =
+          '<div class="ctl-h">用户</div>' +
+          '<div class="ctl-row"><span>当前账户</span><b>' + esc(account ? account.id : '—') +
+          (isAdmin() ? '（管理员）' : '（标准用户）') + '</b></div>' +
+          '<p class="ctl-note">考点统一管理账户。新增用户、修改密码需要管理员认证。</p>';
+        return;
+      }
+      main.innerHTML = '<div class="ctl-h">' + esc(name) + '</div>' +
+        '<p class="ctl-note">该项在考场环境中由管理员统一配置，考生无需调整。</p>';
+    }
+
+    panels.forEach((p, i) => {
+      const a = el('a', i === 0 ? 'on' : '', p);
+      a.onclick = () => render(p);
+      nav.appendChild(a);
+    });
+    render(panels[0]);
+    wrap.appendChild(nav); wrap.appendChild(main);
+    win.body.appendChild(wrap);
+    return win;
+  }
+
+  /* ================= 系统监视器（gnome-system-monitor） ================= */
   function openSysInfo(){
-    const win = createWindow({ id: 'sysinfo', title: '系统信息', ico: 'settings', w: 620, h: 480 });
+    const win = createWindow({ id: 'sysinfo', title: '系统监视器', ico: 'monitor', w: 620, h: 480 });
     if (win._built) return win;
     win._built = true;
     const s = Store.getSettings();
@@ -1824,10 +2088,9 @@ const Student = (() => {
       ['内存', '4.0 GiB'],
       ['网络', '有线连接 · 无互联网访问'],
       ['—', ''],
-      ['考生', (stu.name || '—') + '　' + (stu.id || '')],
+      ['当前账户', (account ? account.id : '—') + (isAdmin() ? '（管理员）' : '')],
       ['考试名称', s.examName || '—'],
       ['考试状态', { notstarted: '未开始', running: '进行中', ended: '已结束' }[st.status] || '—'],
-      ['剩余时间', remainingSec() == null ? '—' : fmtClock(remainingSec())],
       ['已启用题目', enabledProblems().length + ' 题'],
     ];
     const tbl = el('table', 'sysinfo-table');
@@ -1880,13 +2143,13 @@ const Student = (() => {
     });
     tbl.appendChild(tb);
     pane.appendChild(el('h4', '', '确认作答情况'));
-    pane.appendChild(el('div', 'submit-path', '提交位置：~/Desktop/' + (stu.id || 'answers') + '/&lt;题名&gt;/&lt;题名&gt;.cpp'));
+    pane.appendChild(el('div', 'submit-path', '提交位置：~/Desktop/teacher/&lt;题名&gt;/&lt;题名&gt;.cpp'));
     pane.appendChild(tbl);
     pane.appendChild(el('div', 'submit-warn',
-      '交卷后将锁定考试环境，不能再作答。未保存的代码不会提交。请先在 Code::Blocks 中检查各题代码是否完整。'));
+      '交卷会记录当前各题源代码，未保存的代码不会提交。交卷后仍可重新登录继续作答。请先在 Code::Blocks 中检查各题代码是否完整。'));
     const btn = el('button', 'btn btn-primary', '确认交卷');
     btn.onclick = () => {
-      if (!confirm('确认交卷？交卷后无法继续作答。')) return;
+      if (!confirm('确认交卷？交卷后仍可重新登录继续作答。')) return;
       doSubmit('学生主动交卷');
       closeWin(win);
     };
@@ -1911,18 +2174,8 @@ const Student = (() => {
     }
     const st = Store.getState();
     if (st.status === 'ended'){ doSubmit('考试结束（管理员结束）'); return; }
-    const left = remainingSec();
-    const remainEl = $('#sRemain');
-    if (left == null){
-      if (remainEl) remainEl.textContent = '--:--:--';
-    } else {
-      if (remainEl){
-        remainEl.textContent = '剩余 ' + fmtClock(left);
-        remainEl.classList.toggle('warn', left <= 600 && left > 300);
-        remainEl.classList.toggle('crit', left <= 300);
-      }
-      if (left <= 0){ doSubmit('考试时间结束，自动交卷'); return; }
-    }
+    /* 正式考试的机器不限时，顶栏不显示倒计时（真实 NOI Linux 顶栏只有时钟）；
+       考试剩余时间由「程序回收系统」按场次计算并显示 */
     const clk = $('#sClock');
     if (clk) clk.textContent = gnomeClock(new Date());
   }
@@ -1944,15 +2197,14 @@ const Student = (() => {
     problems.forEach(p => {
       const code = codes[p.id] || '';
       if (!code) return;
-      list.push({ time: Date.now(), name: stu.name || '', sid: stu.id || '', problemId: p.id, code });
+      list.push({ time: Date.now(), name: stu.account || '', sid: Store.getExamId() || '', problemId: p.id, code });
     });
     if (list.length) Store.addSubmissions(list);
-    Store.saveState(Object.assign(Store.getState(), { status: 'ended', endedAt: Date.now() }));
     Store.saveStudentState({ submitted: true, submittedAt: Date.now(), reason });
     (async () => {
       let saved = 0;
       for (const s of list){
-        try{ if (await Store.fs.saveSubmission(stu.name, s.problemId, s.code)) saved++; }catch(e){}
+        try{ if (await Store.fs.saveSubmission(stu.account || 'candidate', s.problemId, s.code)) saved++; }catch(e){}
       }
       showEnded('交卷成功',
         '提交了 ' + list.length + ' 道题的源代码' + (Store.fs.granted ? '，并已写入考试文件夹（' + saved + ' 个文件）' : '。') +
@@ -1973,9 +2225,9 @@ const Student = (() => {
     } else rc.classList.add('hidden');
   }
 
-  return { show };
+  return { loginAs, logout, isAdmin, currentAccount: () => account };
 })();
 
-/* ================= 入口 ================= */
-$('#btnEnterAdmin').onclick = () => Admin.show();
-$('#btnEnterStudent').onclick = () => Student.show();
+/* 暴露到 window：desktop.js 的 polkit 校验与测试脚本要按名访问
+   （顶层 const 只进全局词法环境，不会自动挂到 window 上） */
+window.Student = Student;

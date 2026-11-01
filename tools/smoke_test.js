@@ -11,9 +11,9 @@ const vc = new VirtualConsole();
 vc.on('jsdomError', e => { if (!/Could not load img|not implemented/i.test(String(e))) errors.push('jsdomError: ' + e.message); });
 vc.on('error', (...a) => errors.push('console.error: ' + a.join(' ')));
 
-const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+const html = fs.readFileSync(path.join(ROOT, 'noi/index.html'), 'utf8');
 const dom = new JSDOM(html, {
-  url: 'https://cspsim.test/index.html', // jsdom 对 file:// 视为 opaque origin，localStorage 不可用
+  url: 'https://cspsim.test/noi/index.html', // jsdom 对 file:// 视为 opaque origin，localStorage 不可用
   runScripts: 'outside-only',
   pretendToBeVisual: true,
   virtualConsole: vc,
@@ -24,7 +24,7 @@ const { document } = window;
 // 手动按 index.html 的顺序执行脚本
 // 注意：浏览器中多个 <script> 共享全局词法作用域，这里拼接为一次 eval 等价模拟
 {
-  const code = ['util.js', 'store.js', 'problems.js', 'reviews.js', 'review-data.js', 'review-algo.js', 'review-algo-deep.js', 'admin.js', 'desktop.js', 'student.js']
+  const code = ['util.js', 'store.js', 'problems.js', 'reviews.js', 'review-data.js', 'review-algo.js', 'review-algo-deep.js', 'admin.js', 'desktop.js', 'student.js', 'greeter.js']
     .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n;\n') +
     '\n;window.showLoading = showLoading; window.hideLoading = hideLoading;';
   try{ window.eval(code); }
@@ -45,13 +45,53 @@ function check(name, cond){
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-(async () => {
-  console.log('— 开始界面 —');
-  check('开始界面可见', visible('startScreen'));
-  check('入口按钮存在', !!$('#btnEnterAdmin') && !!$('#btnEnterStudent'));
+/* GDM 登录：点账户 → 输密码 → 等淡出动画（430ms）+ 进入桌面 */
+async function gdmLogin(account, pwd){
+  const u = document.querySelector('.gdm-user[data-account="' + account + '"]');
+  if (!u) throw new Error('GDM 里找不到账户：' + account);
+  u.dispatchEvent(new window.Event('click', { bubbles: true }));
+  await sleep(20);
+  $('#gdmPwd').value = pwd;
+  $('#gdmSubmit').dispatchEvent(new window.Event('click', { bubbles: true }));
+  await sleep(1300);
+}
 
-  console.log('— 管理员端 —');
-  click($('#btnEnterAdmin'));
+(async () => {
+  console.log('— 显示器休眠 → GDM 账户选择 —');
+  check('初始是显示器休眠黑屏', !!$('#dpms') && !$('#dpms').classList.contains('awake'));
+  check('GDM 登录界面初始隐藏', $('#gdm').classList.contains('hidden'));
+
+  window.Greeter.show();
+  check('GDM 登录界面可显示', !$('#gdm').classList.contains('hidden'));
+  check('GDM 有时钟（HH:MM）', /^\d{2}:\d{2}$/.test($('#gdmTime').textContent));
+  check('GDM 显示日期', /\d+月\d+日 星期[日一二三四五六]/.test($('#gdmDate').textContent));
+  const userBtns = [...document.querySelectorAll('.gdm-user')];
+  check('GDM 列出三个账户', userBtns.length === 3);
+  const names = userBtns.map(b => b.dataset.account);
+  check('账户为 csp-j2026 / csp-s2026 / NOIP',
+    names.includes('csp-j2026') && names.includes('csp-s2026') && names.includes('NOIP'));
+  check('NOIP 标注为管理员', /管理员/.test(document.querySelector('.gdm-user[data-account="NOIP"]').textContent));
+  check('底部显示 Ubuntu 20.04.1 LTS', /Ubuntu 20\.04\.1 LTS/.test($('.gdm-ver') ? $('.gdm-ver').textContent : ''));
+
+  // 密码错误必须被拒
+  document.querySelector('.gdm-user[data-account="csp-s2026"]').dispatchEvent(new window.Event('click', { bubbles: true }));
+  await sleep(20);
+  check('选中账户后出现密码框', !$('#gdmAuth').classList.contains('hidden'));
+  $('#gdmPwd').value = 'wrong';
+  $('#gdmSubmit').dispatchEvent(new window.Event('click', { bubbles: true }));
+  await sleep(40);
+  check('密码错误有提示', /密码错误/.test($('#gdmMsg').textContent));
+  check('密码错误不放行', visible('studentApp') === false);
+  $('#gdmBack').dispatchEvent(new window.Event('click', { bubbles: true }));
+
+  console.log('— 管理员账户 NOIP —');
+  await gdmLogin('NOIP', 'noip2026');
+  check('NOIP 登录后进入桌面', visible('studentApp'));
+  check('管理员身份生效', window.Student.isAdmin() === true);
+
+  console.log('— 考试管理（管理员控制台） —');
+  window.__app('admin');
+  await sleep(30);
   check('管理员端打开', visible('adminApp'));
   check('修复回归：打开面板即初始化配置落盘', !!window.localStorage.getItem('csp_sim:settings') && !!window.localStorage.getItem('csp_sim:problems'));
   check('设置视图可见', visible('view-settings'));
@@ -70,25 +110,30 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   document.querySelectorAll('#setsRow .btn')[0].click();
   check('套卷一应用后启用 4 题', JSON.parse(window.localStorage.getItem('csp_sim:problems')).filter(p => p.enabled).length === 4);
 
-  // 考试控制：手动开始
+  // 考试控制：正式考试的机器不限时，登录即在「进行中」
   click(document.querySelector('.adm-navbtn[data-view="control"]'));
-  check('控制卡显示未开始', $('#ctrlCard').textContent.includes('未开始'));
+  check('控制卡显示进行中（机器不限时，登录即开始）', $('#ctrlCard').textContent.includes('进行中'));
   click($('#btnStartExam'));
   const st = JSON.parse(window.localStorage.getItem('csp_sim:state'));
   check('考试状态 running', st.status === 'running' && st.startedAt > 0);
 
   click($('#btnAdminExit'));
-  check('返回开始界面', visible('startScreen'));
+  check('退出管理面板回到桌面', visible('adminApp') === false && visible('studentApp'));
 
-  console.log('— 学生端 / NOI Linux 桌面 —');
-  click($('#btnEnterStudent'));
-  check('登录页打开', visible('studentLogin'));
-  check('检测到考试配置', $('#loginNoData').classList.contains('hidden'));
-  $('#loginName').value = '测试生';
-  $('#loginId').value = 'GZ-001';
-  $('#loginForm').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+  // 管理员桌面应当多出「考试管理」入口
+  window.Desktop.openAppGrid();
+  check('管理员网格里有「考试管理」', /考试管理/.test($('#sGridBody').textContent));
+  window.Desktop.closeAppGrid();
+
+  console.log('— 注销 → 学生账户 csp-s2026 —');
+  window.__logout();
   await sleep(60);
-  check('进入考试桌面', visible('studentApp'));
+  check('注销后回到 GDM', visible('studentApp') === false && !$('#gdm').classList.contains('hidden'));
+
+  await gdmLogin('csp-s2026', 'csp2026');
+  check('学生登录后进入考试桌面', visible('studentApp'));
+  check('学生不是管理员', window.Student.isAdmin() === false);
+  check('系统账户为 csp-s2026', window.Student.currentAccount().id === 'csp-s2026');
 
   // ── Ubuntu 20.04 GNOME：顶栏 + 左侧 Dock（无底部面板） ──
   check('有顶部面板', !!document.getElementById('sTop'));
@@ -104,8 +149,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check('桌面图标用 SVG 而非 emoji', document.querySelectorAll('.s-icon .ico svg').length > 0);
 
   const icons = [...document.querySelectorAll('.s-icon')];
-  check('桌面只有考生目录与回收站两个图标（照官方演示）', icons.length === 2);
-  check('桌面有准考证号目录', icons.some(i => i.textContent.includes('GZ-001')));
+  check('桌面只有 teacher 目录与回收站两个图标（照官方演示）', icons.length === 2);
+  check('桌面有 teacher 目录', icons.some(i => i.textContent.includes('teacher')));
   check('桌面有回收站', icons.some(i => i.textContent.includes('回收站')));
 
   /* 桌面上不再摆启动器：应用一律从「显示应用程序」网格启动，与真实 NOI Linux 的操作一致 */
@@ -134,29 +179,54 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const grid = document.getElementById('sGrid');
   check('应用网格打开', !grid.classList.contains('hidden'));
   const gridTxt = document.getElementById('sGridBody').textContent;
-  check('网格含 Code::Blocks / Geany', /Code::Blocks/.test(gridTxt) && /Geany/.test(gridTxt));
-  check('网格含 Vim / GDB / Arbiter_local', /Vim/.test(gridTxt) && /GDB/.test(gridTxt) && /Arbiter_local/.test(gridTxt));
-  check('网格含 Firefox', /Firefox/.test(gridTxt));
+  check('网格含 Code::Blocks IDE / Geany', /Code::Blocks/.test(gridTxt) && /Geany/.test(gridTxt));
+  check('网格含 Arbiter_local / Byobu Terminal', /Arbiter_local/.test(gridTxt) && /Byobu/.test(gridTxt));
+  check('网格含 Data Display Debugger / Emacs', /Data Display Debugger/.test(gridTxt) && /Emacs/.test(gridTxt));
+  check('网格含 Firefox 网络浏览器', /Firefox/.test(gridTxt));
+  check('网格含 LibreOffice 四件套', ['Calc','Draw','Impress','Writer'].every(k => new RegExp('LibreOffice ' + k).test(gridTxt)));
+  check('网格含系统监视器 / 语言支持 / 字符 / 字体', ['系统监视器','语言支持','字符','字体'].every(k => gridTxt.includes(k)));
+  check('网格里没有 VS Code（真机不存在）', !/VS Code/.test(gridTxt));
+  check('网格里没有 Vim（真机菜单里没有）', !/Vim/.test(gridTxt));
   check('网格图标为 SVG', document.querySelectorAll('#sGridBody .ub-grid-app svg').length >= 10);
   check('网格按名称排序', (() => {
     const names = [...document.querySelectorAll('#sGridBody .ub-grid-app span')].map(x => x.textContent.trim());
     return names.length > 1 && names.join('|') === [...names].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN')).join('|');
   })());
   const gi = document.getElementById('sGridInput');
-  gi.value = 'vim';
+  gi.value = 'Kazam';
   gi.dispatchEvent(new window.Event('input', { bubbles: true }));
   check('应用网格可搜索', document.querySelectorAll('#sGridBody .ub-grid-app').length === 1);
   gi.value = '';
   gi.dispatchEvent(new window.Event('input', { bubbles: true }));
+
+  // ── 网格底部「常用 / 全部」分页 + 打开网格时 Dock 收起（真机 GNOME 3.36 行为） ──
+  const appRoot = document.getElementById('studentApp');
+  check('打开网格时 Dock 收起', appRoot.classList.contains('grid-open'));
+  check('网格底部有「常用 / 全部」两个标签',
+    document.getElementById('sGridFreq').textContent.trim() === '常用' &&
+    document.getElementById('sGridAll').textContent.trim() === '全部');
+  check('默认停在「全部」页', document.getElementById('sGridAll').classList.contains('on') &&
+    !document.getElementById('sGridFreq').classList.contains('on'));
+  const allCount = document.querySelectorAll('#sGridBody .ub-grid-app').length;
+  document.getElementById('sGridFreq').dispatchEvent(new window.Event('click', { bubbles: true }));
+  check('点「常用」可切换分页', window.Desktop.gridMode() === 'freq' &&
+    document.getElementById('sGridFreq').classList.contains('on'));
+  const freqTxt = document.getElementById('sGridBody').textContent;
+  check('常用页有预置常用应用（终端/文件）', /终端/.test(freqTxt) && /文件/.test(freqTxt));
+  check('常用页是筛过的，不是整张网格',
+    document.querySelectorAll('#sGridBody .ub-grid-app').length < allCount);
+  document.getElementById('sGridAll').dispatchEvent(new window.Event('click', { bubbles: true }));
+  check('切回「全部」页', window.Desktop.gridMode() === 'all');
   window.Desktop.closeAppGrid();
   check('应用网格可关闭', grid.classList.contains('hidden'));
+  check('关闭网格后 Dock 恢复', !document.getElementById('studentApp').classList.contains('grid-open'));
 
   // ── 文件管理器：真实目录结构（桌面上只有这一个考生目录） ──
-  icons.find(i => i.textContent.includes('GZ-001')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
+  icons.find(i => i.textContent.includes('teacher')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
   await sleep(20);
   check('文件管理器打开', !!document.querySelector('.fman-list'));
   check('文件管理器列出 4 个题目目录', [...document.querySelectorAll('.fman-row .fman-type')].filter(x => x.textContent === '文件夹').length === 4);
-  check('状态栏显示准考证号路径', /GZ-001/.test(document.querySelector('.fman-status').textContent));
+  check('状态栏显示 teacher 路径', /teacher/.test(document.querySelector('.fman-status').textContent));
   const homeRows = [...document.querySelectorAll('.fman-row')];
   check('考生目录内有压缩包', homeRows.some(r => r.textContent.includes('.zip')));
   check('考生目录内有考试须知', homeRows.some(r => r.textContent.includes('考试须知')));
@@ -186,7 +256,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     return names[0] === 'File' && names.includes('Build') && names.includes('DoxyBlocks') && names[names.length - 1] === 'Help';
   })());
   check('IDE 题目下拉有 4 题', document.querySelectorAll('.ide-bar select option').length === 4);
-  check('IDE 显示源文件真实路径', /GZ-001\/.*\.cpp/.test(document.querySelector('.ide-path').textContent));
+  check('IDE 显示源文件真实路径', /teacher\/.*\.cpp/.test(document.querySelector('.ide-path').textContent));
   const pid = document.querySelector('.ide-bar select option').value;
   window.postMessage({ type: 'ide:code', code: 'int main(){return 0;}' }, '*');
   await sleep(30);
@@ -198,7 +268,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const termInput = () => document.querySelector('.term-input-row input');
   const termText = () => document.querySelector('.term').textContent;
   check('终端打开', !!termInput());
-  check('终端提示符含当前路径', /student@noi:~\/Desktop\/GZ-001/.test(document.querySelector('.term-input-row .prompt').textContent));
+  check('终端提示符含当前路径', /csp-s2026@noi:~\/Desktop\/teacher/.test(document.querySelector('.term-input-row .prompt').textContent));
   async function sh(cmd){
     termInput().value = cmd;
     termInput().dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -233,24 +303,61 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   // ── Dock 运行指示（dash-to-dock 橙点） ──
   document.getElementById('sActBtn').dispatchEvent(new window.Event('click', { bubbles: true }));
-  const vimBtn = [...document.querySelectorAll('#sGridBody .ub-grid-app')].find(b => /Vim/.test(b.textContent));
-  check('网格里找到 Vim', !!vimBtn);
-  if (vimBtn) vimBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+  const emacsBtn = [...document.querySelectorAll('#sGridBody .ub-grid-app')].find(b => /Emacs \(GUI\)/.test(b.textContent));
+  check('网格里找到 Emacs (GUI)', !!emacsBtn);
+  if (emacsBtn) emacsBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
   await sleep(40);
   check('Dock 显示运行中应用（橙点）', document.querySelectorAll('.ub-dock-item.running').length >= 1);
   check('顶栏左侧切换为应用名', !/^活动$/.test(document.getElementById('sActLbl').textContent));
 
+  // ── polkit：学生安装应用 / 改网络都要管理员密码 ──
+  console.log('— polkit 管理员认证 —');
+  window.__app('software');
+  await sleep(60);
+  check('学生点「软件」先弹认证框', !!document.querySelector('.pk-dlg'));
+  check('认证框写明需要安装软件认证', /安装/.test(document.querySelector('.pk-msg').textContent));
+  document.querySelectorAll('.pk-field input')[0].value = 'bad';
+  click(document.querySelector('[data-k="ok"]'));
+  await sleep(60);
+  check('认证密码错误有提示', /密码错误/.test(document.querySelector('.pk-err').textContent));
+  check('认证未通过不打开软件窗口', !document.querySelector('.sw-title'));
+  click(document.querySelector('[data-k="cancel"]'));
+  await sleep(220);
+  check('取消认证后对话框关闭', !document.querySelector('.pk-dlg'));
+
+  window.__app('network');
+  await sleep(60);
+  check('改网络设置也要认证', !!document.querySelector('.pk-dlg'));
+  check('认证框写明需要改网络认证', /网络/.test(document.querySelector('.pk-msg').textContent));
+  document.querySelectorAll('.pk-field input')[0].value = 'noip2026';
+  click(document.querySelector('[data-k="ok"]'));
+  await sleep(260);
+  check('管理员密码通过后打开网络面板', !!document.querySelector('.ctl-page'));
+
+  window.__logout();
+  await sleep(40);
+  await gdmLogin('NOIP', 'noip2026');
+  window.__app('network');
+  await sleep(80);
+  check('NOIP 登录后免认证（直接出面板）',
+    !document.querySelector('.pk-dlg') && !!document.querySelector('.ctl-page'));
+  window.__logout();
+  await sleep(40);
+  await gdmLogin('csp-s2026', 'csp2026');
+  check('回到学生账户继续', window.Student.currentAccount().id === 'csp-s2026');
+
   // ── 程序回收系统（浏览器内提交源代码，官方流程） ──
-  await launchApp('程序回收系统');
+  window.__app('recovery');
   await sleep(150);
   check('程序回收系统登录页打开', !!document.querySelector('#rcLoginBtn'));
   check('登录页有准考证号与密码', !!document.querySelector('#rcId') && !!document.querySelector('#rcPwd'));
+  $('#rcId').value = 'GZ-2026-001';
   document.querySelector('#rcPwd').value = 'demo1234';
   click(document.querySelector('#rcLoginBtn'));
   await sleep(120);
   check('登录后进入考生须知', !!document.querySelector('.rc-notice'));
   check('侧栏四个导航项', document.querySelectorAll('.rc-nav a').length === 4);
-  check('侧栏显示考生姓名', /测试/.test(document.querySelector('.rc-user').textContent));
+  check('侧栏显示准考证号', /GZ-2026-001/.test(document.querySelector('.rc-user').textContent));
   check('侧栏时钟在走（HH:MM:SS）', /^\d{2}:\d{2}:\d{2}$/.test(document.querySelector('#rcClock').textContent));
   click([...document.querySelectorAll('.rc-nav a')].find(a => a.dataset.tab === 'answer'));
   await sleep(120);
@@ -279,33 +386,41 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   window.__app('finish');
   await sleep(30);
   check('交卷窗口打开', document.querySelector('.submit-table') !== null);
-  check('交卷窗口提示提交路径', /GZ-001/.test(document.querySelector('.submit-path').textContent));
+  check('交卷窗口提示提交路径', /teacher/.test(document.querySelector('.submit-path').textContent));
   click([...document.querySelectorAll('.submit-pane .btn')].pop());
   await sleep(120);
   check('交卷后显示结束层', visible('sEndOverlay'));
   check('回执含已交题目', $('#endReceipt').textContent.includes(pid));
   const subs = JSON.parse(window.localStorage.getItem('csp_sim:submissions'));
   check('提交记录落库', subs.length === 1 && subs[0].problemId === pid);
-  check('状态已结束', JSON.parse(window.localStorage.getItem('csp_sim:state')).status === 'ended');
+  check('交卷不把全局状态改成已结束（机器不限时）',
+    JSON.parse(window.localStorage.getItem('csp_sim:state')).status === 'running');
 
   click($('#btnEndBack'));
-  check('返回开始界面', visible('startScreen'));
+  await sleep(60);
+  check('交卷后回到 GDM 登录界面', !$('#gdm').classList.contains('hidden') && visible('studentApp') === false);
 
-  console.log('— 超时自动交卷场景 —');
-  window.localStorage.removeItem('csp_sim:submissions');
-  window.localStorage.removeItem('csp_sim:studentState');
-  window.localStorage.setItem('csp_sim:state', JSON.stringify({
-    status: 'running', startedAt: Date.now() - 241 * 60 * 1000, // 已超时
-  }));
-  click($('#btnEnterStudent'));
-  $('#loginName').value = '测试生2';
-  $('#loginId').value = 'GZ-002';
-  $('#loginForm').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
-  await sleep(1500); // 等 tick 触发
-  check('超时后自动交卷锁定', visible('sEndOverlay'));
+  console.log('— 交卷后可以重新进来继续作答 —');
+  await gdmLogin('csp-s2026', 'csp2026');
+  check('重新登录直接进入桌面', visible('studentApp'));
+  check('没有「已交卷」拦截层', $('#sEndOverlay').classList.contains('hidden'));
+  check('之前写的代码还在', (window.localStorage.getItem('csp_sim:codes') || '').includes('int main'));
 
-  console.log('— 复习中心（独立页 study/）—');
-  check('开始界面有复习入口', !!$('#btnEnterReview') && /study/.test($('#btnEnterReview').getAttribute('onclick') || ''));
+  // 锁定屏幕 → 回 GDM；关机 → 黑屏
+  window.__logout();
+  await sleep(40);
+  check('锁定屏幕回到 GDM', !$('#gdm').classList.contains('hidden'));
+  window.Greeter.powerOff();
+  await sleep(40);
+  check('关机回到黑屏', !$('#dpms').classList.contains('gone') && !$('#dpms').classList.contains('awake'));
+
+  console.log('— 主页与复习中心 —');
+  const homeHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  check('主页只有考试端与复习中心两个入口',
+    (homeHtml.match(/class="hm-card/g) || []).length === 2);
+  check('主页考试端指向 noi/', /id="hmExam"[^>]*href="noi\/"/.test(homeHtml));
+  check('主页复习中心指向 study/', /id="hmStudy"[^>]*href="study\/"/.test(homeHtml));
+  check('主页不再有管理端入口', !/btnEnterAdmin/.test(homeHtml));
   check('入口不再内嵌复习面板', !document.getElementById('reviewApp'));
   await testStudy();
 
