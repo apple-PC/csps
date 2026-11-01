@@ -442,6 +442,10 @@ const Student = (() => {
       { id: 'monitor',  label: '系统监视器',  ico: 'monitor', group: '系统工具', desc: '资源占用', run(){ openSysInfo(); } },
       { id: 'lang',     label: '语言支持',    ico: 'lang',    group: '系统工具', desc: '中文（简体）', run(){ openLangSupport(); } },
       { id: 'term',     label: '终端',        ico: 'term',    group: '系统工具', desc: 'GNOME Terminal 3.36', run(){ openTerminal(); } },
+      { id: 'calculator', label: '计算器',    ico: 'calculator', group: '系统工具', desc: 'GNOME 计算器 3.36', run(){ openCalculator(); } },
+      { id: 'gedit',    label: '文本编辑器',  ico: 'gedit',   group: '系统工具', desc: 'gedit 3.36', run(){ openTextEditor(); } },
+      { id: 'archive',  label: '归档管理器',  ico: 'archive', group: '系统工具', desc: 'file-roller 3.36', run(){ openArchive(); } },
+      { id: 'evince',   label: '文档查看器',  ico: 'evince',  group: '系统工具', desc: 'Evince 3.36', run(){ openDocumentViewer(); } },
       { id: 'gucharmap',label: '字符',        ico: 'char',    group: '系统工具', desc: '字符映射表', run(){ openCharmap(); } },
       { id: 'fonts',    label: '字体',        ico: 'fontv',   group: '系统工具', desc: '字体查看器', run(){ openFontViewer(); } },
 
@@ -452,10 +456,18 @@ const Student = (() => {
       { id: 'emacs',    label: 'Emacs (GUI)', ico: 'emacs',  group: '编程', desc: '编辑器 26.3', run(){ openTuiEditor('emacs'); } },
       { id: 'emacst',   label: 'Emacs (Terminal)', ico: 'emacs', group: '编程', desc: '编辑器 26.3', run(){ openTuiEditor('emacs'); } },
       { id: 'geany',    label: 'Geany',       ico: 'geany',  group: '编程', desc: '轻量 IDE 1.36', run(){ openIDE('Geany'); } },
-      { id: 'joe',      label: "Joe's Own Editor", ico: 'joe', group: '编程', desc: 'joe', run(){ openTuiEditor('joe'); } },
-      { id: 'jmacs',    label: "Joe's Own Editor", ico: 'joe', group: '编程', desc: 'jmacs', run(){ openTuiEditor('joe'); } },
-      { id: 'jpico',    label: "Joe's Own Editor", ico: 'joe', group: '编程', desc: 'jpico', run(){ openTuiEditor('joe'); } },
-      { id: 'jstar',    label: "Joe's Own Editor", ico: 'joe', group: '编程', desc: 'jstar', run(){ openTuiEditor('joe'); } },
+      /* —— 下面这几个也在真机网格里（ISO 的 /usr/share/applications 原文） —— */
+      { id: 'vscode',   label: 'Visual Studio Code', ico: 'vscode', group: '编程', desc: '代码编辑器 1.44', run(){ openCodeEditor('vscode'); } },
+      { id: 'sublime',  label: 'Sublime Text', ico: 'sublime', group: '编程', desc: '代码编辑器 3.2', run(){ openCodeEditor('sublime'); } },
+      { id: 'vim',      label: 'Vim', ico: 'vim', group: '编程', desc: 'vi 改进版 8.1', run(){ openTuiEditor('vim'); } },
+      { id: 'mc',       label: 'Midnight Commander', ico: 'mc', group: '编程', desc: '双栏文件管理器 4.8', run(){ openTuiEditor('mc'); } },
+      /* 四个 joe 变体的名字与图标照 /usr/share/applications 原文：
+         Name 分别是 Joe's Own Editor / - EMACS Emulation / - NANO/PICO Emulation /
+         - WordStar Emulation，Icon 全都是 accessories-text-editor（不是 joe.xpm） */
+      { id: 'joe',      label: "Joe's Own Editor", ico: 'texteditor', group: '编程', desc: 'joe', run(){ openTuiEditor('joe'); } },
+      { id: 'jmacs',    label: "Joe's Own Editor - EMACS Emulation", ico: 'texteditor', group: '编程', desc: 'jmacs', run(){ openTuiEditor('joe'); } },
+      { id: 'jpico',    label: "Joe's Own Editor - NANO/PICO Emulation", ico: 'texteditor', group: '编程', desc: 'jpico', run(){ openTuiEditor('joe'); } },
+      { id: 'jstar',    label: "Joe's Own Editor - WordStar Emulation", ico: 'texteditor', group: '编程', desc: 'jstar', run(){ openTuiEditor('joe'); } },
 
       { id: 'firefox',  label: 'Firefox 网络浏览器', ico: 'firefox', group: '互联网', desc: '79.0（考场内网）', pin: true, run(){ openFirefox(); } },
 
@@ -466,7 +478,7 @@ const Student = (() => {
       { id: 'lowriter', label: 'LibreOffice Writer',  ico: 'lowriter', group: '办公', desc: '文字处理 6.4.4', run(){ openLibreOffice('Writer'); } },
 
       /* Ubuntu 20.04 自带的「软件」；打开即要求管理员认证，考场里装不了东西 */
-      { id: 'software', label: '软件', ico: 'app', group: '系统工具', desc: 'Ubuntu 软件中心（需管理员）', run(){ openSoftwareCenter(); } },
+      { id: 'software', label: '软件', ico: 'software', group: '系统工具', desc: 'Ubuntu 软件中心（需管理员）', run(){ openSoftwareCenter(); } },
     ];
 
     /* 考试相关入口不进应用网格（真机网格里没有它们），统一放在顶栏系统菜单；
@@ -508,50 +520,489 @@ const Student = (() => {
     wm.textContent = out;
   }
 
-  /* ================= 题目压缩包 ================= */
+  /* ================= 归档管理器（file-roller 3.36） ================= */
+  /* 真机双击 .zip 就是这个窗口：headerbar 左边「打开」、中间压缩包名、右边主菜单，
+     内容是按 名称/大小/类型/修改时间 四列的列表（不是图标视图）。 */
   function openZip(p){
-    const win = createWindow({ id: 'zip:' + p.id, title: p.id + '.zip — 压缩包查看器', ico: 'zip', w: 640, h: 440 });
-    const list = el('div', 'zip-list');
-    const stmtRow = el('div', 'zip-row', Desktop.ico('text') + '<span class="zname">' + esc(p.id) + '.pdf</span><span class="zmeta">题面</span>');
-    stmtRow.ondblclick = () => openStatement(p);
-    stmtRow.onclick = () => { [...list.children].forEach(c => c.style.background = ''); stmtRow.style.background = '#dbe7f7'; };
-    list.appendChild(stmtRow);
+    const problems = enabledProblems();
+    p = p || problems[0];
+    if (!p){ toast('没有可用题目', 'err'); return; }
+    const win = createWindow({
+      id: 'zip:' + p.id, title: p.id + '.zip', ico: 'archive', w: 820, h: 540, headBar: true,
+    });
+    if (win._built){ Desktop.focusWin(win); return win; }
+    win._built = true;
+
+    const bOpen = el('button', 'ar-btn', '打开');
+    const ttl = el('div', 'ar-title', esc(p.id) + '.zip');
+    const bMenu = el('button', 'nu-tb', NU_MENU); bMenu.title = '主菜单';
+    win.headApp.appendChild(bOpen);
+    win.headApp.appendChild(ttl);
+    win.headApp.appendChild(bMenu);
+
+    const list = el('div', 'ar-list');
+    list.innerHTML =
+      '<div class="ar-head">' +
+      '<span class="ar-c-name">名称</span><span class="ar-c-size">大小</span>' +
+      '<span class="ar-c-type">类型</span><span class="ar-c-time">修改时间</span></div>';
 
     const samples = p.tests.map((t, i) => ({ t, i })).filter(x => x.t.sample);
-    const dirRow = el('div', 'zip-row', Desktop.ico('folder') + '<span class="zname zdir">' + esc(p.id) + '/</span><span class="zmeta">' + samples.length + ' 组样例数据</span>');
-    list.appendChild(dirRow);
+    const now = new Date();
+    const stamp = now.getFullYear() + '-' + pad2(now.getMonth() + 1) + '-' + pad2(now.getDate()) +
+      ' ' + pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+
+    function row(ico, name, size, type, dbl, indent){
+      const r = el('div', 'ar-row' + (indent ? ' ar-indent' : ''));
+      r.innerHTML =
+        '<span class="ar-c-name">' + fsIcoHTML(ico) + '<b>' + esc(name) + '</b></span>' +
+        '<span class="ar-c-size">' + esc(size) + '</span>' +
+        '<span class="ar-c-type">' + esc(type) + '</span>' +
+        '<span class="ar-c-time">' + stamp + '</span>';
+      if (dbl) r.ondblclick = dbl;
+      list.appendChild(r);
+      return r;
+    }
+    row('pdf', p.id + '.pdf', '—', 'PDF 文档', () => openStatement(p));
+    row('folder', p.id + '/', '—', '文件夹', null);
     samples.forEach(({ t, i }) => {
-      [['.in', t.input, '输入'], ['.out', t.expected, '输出']].forEach(([ext, content, kind]) => {
-        const r = el('div', 'zip-row', Desktop.ico('text') + '<span class="zname">' + esc(p.id) + (i + 1) + ext + '</span><span class="zmeta">样例' + (i + 1) + ' ' + kind + '</span>');
-        r.style.paddingLeft = '34px';
-        r.ondblclick = () => openText(p.id + (i + 1) + ext, content);
-        list.appendChild(r);
+      [['.in', t.input, '输入数据'], ['.ans', t.expected, '答案']].forEach(([ext, content, kind]) => {
+        const name = p.id + (i + 1) + ext;
+        row('text', name, fmtSize(content.length), kind + '（纯文本）',
+          () => openText(name, content), true);
       });
     });
+
     win.body.appendChild(list);
+    bOpen.onclick = () => toast('压缩包已解压到 ' + Desktop.fs.pretty('~/Desktop/teacher/' + p.id));
+    bMenu.onclick = () => toast('主菜单：提取 / 全部提取 / 重新载入');
+    return win;
   }
+  /* 网格里的「归档管理器」：直接开当前题的压缩包 */
+  function openArchive(){
+    const p = (ideWin && enabledProblems().find(x => x.id === ideWin.problemId)) || enabledProblems()[0];
+    return openZip(p);
+  }
+
   function openText(name, content){
     const win = createWindow({ title: name, ico: 'text', w: 580, h: 400 });
     const pre = el('div', 'txt-view');
     pre.textContent = content;
     win.body.appendChild(pre);
   }
+
+  /* ================= 文档查看器（Evince 3.36） ================= */
   function openStatement(p){
-    const win = createWindow({ id: 'stmt:' + p.id, title: p.id + '.pdf — PDF 阅读器', ico: 'text', w: 920, h: 660 });
-    const bar = el('div', 'pdf-bar', '<span class="pdf-name">' + esc(p.id) + '.pdf</span><span>·</span><span>第 1/1 页</span><span style="margin-left:auto">CSP-S 模拟考题面</span>');
-    const bodyEl = el('div', 'pdf-body');
+    p = p || enabledProblems()[0];
+    if (!p){ toast('没有可用题目', 'err'); return; }
+    const win = createWindow({
+      id: 'stmt:' + p.id, title: p.id + '.pdf', ico: 'evince', w: 900, h: 700, headBar: true,
+    });
+    if (win._built){ Desktop.focusWin(win); return win; }
+    win._built = true;
+
+    /* headerbar：翻页 + 文件名（Evince 把文档名放在标题栏里） + 缩放 + 菜单 */
+    const bPrev = el('button', 'nu-tb', NU_BACK); bPrev.title = '上一页'; bPrev.disabled = true;
+    const bNext = el('button', 'nu-tb', NU_FWD); bNext.title = '下一页'; bNext.disabled = true;
+    const name = el('div', 'pdf-name', esc(p.id) + '.pdf');
+    win.headApp.appendChild(bPrev);
+    win.headApp.appendChild(name);
+    win.headApp.appendChild(bNext);
+    const bZoomOut = el('button', 'nu-tb', '<svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4.6 7h4.8M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>');
+    const bZoomIn = el('button', 'nu-tb', '<svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4.6 7h4.8M7 4.6v4.8M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>');
+    const bMenu = el('button', 'nu-tb', NU_MENU);
+    win.headApp.appendChild(bZoomOut); win.headApp.appendChild(bZoomIn); win.headApp.appendChild(bMenu);
+
+    const bodyEl = el('div', 'ev-body');
+    const sheet = el('div', 'ev-page');
     const st = p.statement || { type: 'text', data: '' };
     if (st.type === 'pdf'){
       const f = el('iframe');
       f.src = st.data;
-      bodyEl.appendChild(f);
+      sheet.appendChild(f);
+      sheet.classList.add('ev-frame');
     } else if (st.type === 'html'){
-      bodyEl.innerHTML = '<div class="prob-doc">' + st.data + '</div>';
+      sheet.innerHTML = '<div class="prob-doc">' + st.data + '</div>';
     } else {
-      bodyEl.innerHTML = '<div class="prob-doc"><h2>' + esc(p.title) + '</h2><pre style="white-space:pre-wrap;font:13px/1.7 Consolas,monospace">' + esc(st.data) + '</pre></div>';
+      sheet.innerHTML = '<div class="prob-doc"><h2>' + esc(p.title) + '</h2>' +
+        '<pre style="white-space:pre-wrap;font:13px/1.7 Consolas,monospace">' + esc(st.data) + '</pre></div>';
     }
-    win.body.appendChild(bar);
+    bodyEl.appendChild(sheet);
     win.body.appendChild(bodyEl);
+
+    let zoom = 1;
+    const applyZoom = () => { sheet.style.transform = zoom === 1 ? '' : 'scale(' + zoom + ')'; };
+    /* 步进必须抹掉浮点误差，否则从 1.1 缩回来会停在 1.0000000000000002 */
+    const step = (d) => { zoom = Math.round((zoom + d) * 10) / 10; zoom = Math.max(0.6, Math.min(1.6, zoom)); applyZoom(); };
+    bZoomIn.onclick = () => step(0.1);
+    bZoomOut.onclick = () => step(-0.1);
+    bMenu.onclick = () => toast('Evince 菜单：缩放 / 双页 / 旋转 / 导出');
+    return win;
+  }
+  function openDocumentViewer(){
+    const p = (ideWin && enabledProblems().find(x => x.id === ideWin.problemId)) || enabledProblems()[0];
+    return openStatement(p);
+  }
+
+  /* ================= GNOME 计算器 3.36 ================= */
+  /* 基本模式键盘与原机一致：% CE C ⌫ / ¹⁄x x² √x ÷ / 7 8 9 × / 4 5 6 − / 1 2 3 + / ± 0 . = */
+  const CALC_PAD = [
+    ['%', 'CE', 'C', '⌫'],
+    ['¹⁄x', 'x²', '√x', '÷'],
+    ['7', '8', '9', '×'],
+    ['4', '5', '6', '−'],
+    ['1', '2', '3', '+'],
+    ['±', '0', '.', '='],
+  ];
+  const CALC_OPS = '÷×−+';
+
+  function calcFmt(n){
+    if (typeof n === 'string') return n;
+    if (!isFinite(n)) return '错误';
+    if (Number.isInteger(n) && Math.abs(n) < 1e15) return String(n);
+    return String(Number(n.toPrecision(12)));
+  }
+
+  function openCalculator(){
+    const win = createWindow({ id: 'calculator', title: '计算器', ico: 'calculator', w: 376, h: 552 });
+    if (win._built){ Desktop.focusWin(win); return win; }
+    win._built = true;
+
+    const box = el('div', 'calc');
+    box.innerHTML =
+      '<div class="calc-disp"><div class="calc-expr"></div><div class="calc-val">0</div></div>' +
+      '<div class="calc-pad"></div>';
+    win.body.appendChild(box);
+    const exprEl = box.querySelector('.calc-expr');
+    const valEl = box.querySelector('.calc-val');
+    const pad = box.querySelector('.calc-pad');
+
+    let acc = null, op = null, cur = '0', fresh = true, done = false;
+
+    const apply = (a, b, o) =>
+      o === '+' ? a + b : o === '−' ? a - b : o === '×' ? a * b : (b === 0 ? NaN : a / b);
+
+    function paint(){
+      valEl.textContent = cur === '' || cur === '-' ? '0' : cur;
+      exprEl.textContent = acc == null ? '' : calcFmt(acc) + ' ' + op;
+    }
+    function digit(d){
+      if (done || fresh){ cur = d === '.' ? '0.' : d; fresh = false; done = false; }
+      else {
+        if (d === '.' && cur.indexOf('.') >= 0) return;
+        cur = (cur === '0' && d !== '.') ? d : cur + d;
+      }
+      paint();
+    }
+    function setOp(o){
+      const v = Number(cur);
+      acc = (acc != null && !fresh) ? apply(acc, v, op) : v;
+      op = o; fresh = true; done = false;
+      paint();
+    }
+    function equals(){
+      if (acc == null || op == null){ done = true; return; }
+      const v = Number(cur);
+      const r = apply(acc, v, op);
+      exprEl.textContent = calcFmt(acc) + ' ' + op + ' ' + calcFmt(v) + ' =';
+      cur = calcFmt(r); acc = null; op = null; fresh = true; done = true;
+      valEl.textContent = cur;
+    }
+    function press(k){
+      if (/^[0-9.]$/.test(k)) return digit(k);
+      if (k === 'C'){ acc = null; op = null; cur = '0'; fresh = true; done = false; exprEl.textContent = ''; return paint(); }
+      if (k === 'CE'){ cur = '0'; fresh = true; return paint(); }
+      if (k === '⌫'){
+        if (fresh || done) return;
+        cur = cur.slice(0, -1) || '0';
+        return paint();
+      }
+      if (k === '±'){
+        if (cur === '0') return;
+        cur = cur.charAt(0) === '-' ? cur.slice(1) : '-' + cur;
+        return paint();
+      }
+      if (CALC_OPS.indexOf(k) >= 0) return setOp(k);
+      if (k === '=') return equals();
+      const v = Number(cur);
+      if (k === '%'){ cur = calcFmt(v / 100); fresh = true; return paint(); }
+      if (k === '¹⁄x'){ cur = calcFmt(1 / v); fresh = true; return paint(); }
+      if (k === 'x²'){ cur = calcFmt(v * v); fresh = true; return paint(); }
+      if (k === '√x'){ cur = calcFmt(Math.sqrt(v)); fresh = true; return paint(); }
+    }
+
+    CALC_PAD.forEach(rows => rows.forEach(k => {
+      const b = el('button', 'calc-key', esc(k));
+      if (CALC_OPS.indexOf(k) >= 0 || k === '=' || k === '%') b.classList.add('op');
+      if (k === '=') b.classList.add('eq');
+      b.onclick = () => press(k);
+      pad.appendChild(b);
+    }));
+
+    /* 键盘也能用（真机同样支持） */
+    win.body.tabIndex = 0;
+    win.el.addEventListener('keydown', e => {
+      const map = { '*': '×', 'x': '×', '/': '÷', '-': '−', '+': '+', 'Enter': '=', '=': '=',
+                    'Escape': 'C', 'Backspace': '⌫', '%': '%' };
+      if (/^[0-9.]$/.test(e.key)){ press(e.key); e.preventDefault(); }
+      else if (map[e.key]){ press(map[e.key]); e.preventDefault(); }
+    });
+    setTimeout(() => { try { win.body.focus(); } catch (err) {} }, 30);
+    return win;
+  }
+
+  /* ================= 文本编辑器（gedit 3.36） ================= */
+  const GEDIT_NEW = '<svg viewBox="0 0 16 16"><path d="M9.2 2H4.4A1.4 1.4 0 0 0 3 3.4v9.2A1.4 1.4 0 0 0 4.4 14h7.2a1.4 1.4 0 0 0 1.4-1.4V5.6z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.2 2v3.6H13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+  const GEDIT_OPEN = '<svg viewBox="0 0 16 16"><path d="M1.8 4.2A1.2 1.2 0 0 1 3 3h3.2l1.4 1.5h5.4A1.2 1.2 0 0 1 14.2 6v6.1a1.2 1.2 0 0 1-1.2 1.2H3a1.2 1.2 0 0 1-1.2-1.2z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+  const GEDIT_FIND = '<svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.4 10.4L14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+
+  let geditSeq = 0;
+  function openTextEditor(file){
+    geditSeq++;
+    const name = (file && file.name) || ('未命名文档 ' + geditSeq);
+    const win = createWindow({
+      id: 'gedit:' + name, title: name + ' — 文本编辑器', ico: 'gedit', w: 780, h: 560, headBar: true,
+    });
+    if (win._built){ Desktop.focusWin(win); return win; }
+    win._built = true;
+
+    const bNew = el('button', 'nu-tb', GEDIT_NEW); bNew.title = '新建文档';
+    const bOpen = el('button', 'nu-tb', GEDIT_OPEN); bOpen.title = '打开';
+    const ttl = el('div', 'ged-title', esc(name));
+    const bFind = el('button', 'nu-tb', GEDIT_FIND); bFind.title = '查找';
+    const bMenu = el('button', 'nu-tb', NU_MENU); bMenu.title = '主菜单';
+    win.headApp.appendChild(bNew);
+    win.headApp.appendChild(bOpen);
+    win.headApp.appendChild(ttl);
+    win.headApp.appendChild(bFind);
+    win.headApp.appendChild(bMenu);
+
+    const area = el('textarea', 'ged-area');
+    area.spellcheck = false;
+    area.setAttribute('wrap', 'off');
+    area.value = (file && file.content) || '';
+    win.body.appendChild(area);
+
+    const st = el('div', 'ged-status');
+    st.innerHTML = '<span class="ged-pos">行 1，列 1</span><span class="ged-sep"></span>' +
+      '<span class="ged-kind">纯文本</span><span class="ged-sep"></span>' +
+      '<span>制表符宽度：8</span>';
+    win.body.appendChild(st);
+    const posEl = st.querySelector('.ged-pos');
+
+    function caret(){
+      const head = area.value.slice(0, area.selectionStart);
+      const line = head.split('\n').length;
+      return '行 ' + line + '，列 ' + (head.length - head.lastIndexOf('\n'));
+    }
+    function setTitle(){
+      const t = win.head.querySelector('.win-title');
+      if (t) t.textContent = name + ' — 文本编辑器';
+      ttl.textContent = name;
+    }
+    function save(){
+      const target = '~/Desktop/' + name + (/\.\w+$/.test(name) ? '' : '.txt');
+      try {
+        Desktop.fs.write(target, area.value);
+        toast('已保存 ' + Desktop.fs.pretty(Desktop.fs.abs(target)), 'ok');
+      } catch (e){ toast('保存失败：' + e.message, 'err'); }
+    }
+
+    area.addEventListener('keyup', () => { posEl.textContent = caret(); });
+    area.addEventListener('click', () => { posEl.textContent = caret(); });
+    area.addEventListener('keydown', e => {
+      if (e.key === 'Tab'){
+        e.preventDefault();
+        area.setRangeText('        ', area.selectionStart, area.selectionEnd, 'end');
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){ e.preventDefault(); save(); }
+    });
+    bNew.onclick = () => { openTextEditor(); };
+    bOpen.onclick = () => {
+      const fs = Desktop.fs;
+      const items = (fs.list('~/Desktop') || []).filter(n => n.type === 'file');
+      if (!items.length){ toast('桌面没有可打开的文件', 'err'); return; }
+      const n = items[0];
+      openTextEditor({ name: n.name, content: n.content || '' });
+    };
+    bMenu.onclick = () => toast('gedit 菜单：保存 / 另存为 / 首选项');
+    bFind.onclick = () => toast('查找：Ctrl+F');
+    setTitle();
+    setTimeout(() => { try { area.focus(); } catch (err) {} }, 30);
+    return win;
+  }
+
+  /* ================= VS Code / Sublime Text ================= */
+  /* 两家共用一个「可编辑的高亮代码区」：textarea 文字透明叠在着色好的 <pre> 上，
+     滚动同步。词法器复用 joe 那个，靠 CSS 换配色（VS Code 的 #569cd6 / Sublime 的
+     Monokai #66d9ef），省一套实现。 */
+  function mountCodeArea(host, opts){
+    opts = opts || {};
+    const wrap = el('div', 'ce-code');
+    wrap.innerHTML =
+      '<div class="ce-gutter"><div class="ce-gut"></div></div>' +
+      '<div class="ce-view"><pre class="ce-hl"></pre>' +
+      '<textarea class="ce-ta" spellcheck="false" wrap="off" autocomplete="off" autocapitalize="off"></textarea></div>';
+    host.appendChild(wrap);
+    const gut = wrap.querySelector('.ce-gut');
+    const hl = wrap.querySelector('.ce-hl');
+    const ta = wrap.querySelector('.ce-ta');
+
+    function caret(){
+      const head = ta.value.slice(0, ta.selectionStart);
+      return { line: head.split('\n').length, col: head.length - head.lastIndexOf('\n') };
+    }
+    function sync(){
+      hl.style.transform = 'translate(' + (-ta.scrollLeft) + 'px,' + (-ta.scrollTop) + 'px)';
+      gut.style.transform = 'translateY(' + (-ta.scrollTop) + 'px)';
+    }
+    function paint(){
+      hl.innerHTML = joeHighlight(ta.value) + '\n';
+      const n = ta.value.split('\n').length;
+      let g = '';
+      for (let i = 1; i <= n; i++) g += i + '\n';
+      gut.textContent = g;
+      sync();
+      if (opts.onCaret) opts.onCaret(caret());
+    }
+    ta.addEventListener('input', paint);
+    ta.addEventListener('scroll', sync);
+    ta.addEventListener('keyup', () => { if (opts.onCaret) opts.onCaret(caret()); });
+    ta.addEventListener('click', () => { if (opts.onCaret) opts.onCaret(caret()); });
+    ta.addEventListener('keydown', e => {
+      if (e.key === 'Tab'){
+        e.preventDefault();
+        ta.setRangeText('    ', ta.selectionStart, ta.selectionEnd, 'end');
+        paint();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){
+        e.preventDefault();
+        if (opts.onSave) opts.onSave(ta.value);
+        paint();
+      }
+    });
+    return {
+      ta, paint, caret,
+      set(v){ ta.value = v; ta.selectionStart = ta.selectionEnd = 0; paint(); },
+      get(){ return ta.value; },
+      focus(){ try { ta.focus(); } catch (e) {} },
+    };
+  }
+
+  const CE_MENUS = ['文件', '编辑', '选择', '查看', '转到', '运行', '终端', '帮助'];
+  const CE_ACT = [
+    { t: '资源管理器', svg: '<svg viewBox="0 0 24 24"><path d="M4 4h6l2 2h8v14H4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>' },
+    { t: '搜索', svg: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M15 15l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>' },
+    { t: '源代码管理', svg: '<svg viewBox="0 0 24 24"><circle cx="7" cy="6" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7" cy="18" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17" cy="12" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 8.4v7.2M9.4 6.6H14a3 3 0 0 1 3 3v.4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>' },
+    { t: '运行和调试', svg: '<svg viewBox="0 0 24 24"><path d="M5 5l14 7-14 7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>' },
+    { t: '扩展', svg: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16.5 13v7M13 16.5h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>' },
+  ];
+
+  function openCodeEditor(kind){
+    const isVsc = kind !== 'sublime';
+    const label = isVsc ? 'Visual Studio Code' : 'Sublime Text';
+    const problems = enabledProblems();
+    if (!problems.length){ toast('没有可用题目', 'err'); return; }
+    let cur = (ideWin && problems.find(p => p.id === ideWin.problemId)) ? ideWin.problemId : problems[0].id;
+
+    const win = createWindow({
+      id: 'ce:' + kind, title: cur + '.cpp - ' + label, ico: kind, w: 1080, h: 720,
+    });
+    if (win._built){ Desktop.focusWin(win); return win; }
+    win._built = true;
+
+    const box = el('div', 'ce ce-' + (isVsc ? 'vsc' : 'sub'));
+    box.innerHTML =
+      (isVsc ? '<div class="ce-menu">' + CE_MENUS.map(m => '<span class="ce-mi">' + m + '</span>').join('') + '</div>' : '') +
+      '<div class="ce-body">' +
+        (isVsc ? '<div class="ce-act">' + CE_ACT.map((a, i) =>
+          '<button class="ce-act-b' + (i === 0 ? ' on' : '') + '" title="' + a.t + '">' + a.svg + '</button>').join('') + '</div>' : '') +
+        '<div class="ce-side">' +
+          '<div class="ce-side-h">' + (isVsc ? '资源管理器' : '侧栏') + '</div>' +
+          '<div class="ce-tree"></div>' +
+        '</div>' +
+        '<div class="ce-main">' +
+          '<div class="ce-tabs"></div>' +
+          '<div class="ce-editor"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ce-status"></div>';
+    win.body.appendChild(box);
+
+    const tree = box.querySelector('.ce-tree');
+    const tabs = box.querySelector('.ce-tabs');
+    const editor = box.querySelector('.ce-editor');
+    const status = box.querySelector('.ce-status');
+
+    function paintTree(){
+      tree.innerHTML = '';
+      const head = el('div', 'ce-node root');
+      head.innerHTML = '<span class="ce-caret">▾</span><b>' + esc('teacher') + '</b>';
+      tree.appendChild(head);
+      problems.forEach(p => {
+        const n = el('div', 'ce-node file' + (p.id === cur ? ' sel' : ''));
+        n.dataset.problem = p.id;
+        n.style.paddingLeft = '22px';
+        n.innerHTML = '<img class="ce-fi" src="assets/icons/cpp.png" alt=""><span>' + esc(p.id) + '.cpp</span>';
+        n.onclick = () => open(p.id);
+        tree.appendChild(n);
+      });
+    }
+    function paintTabs(){
+      tabs.innerHTML = '<div class="ce-tab on">' + esc(cur) + '.cpp' +
+        '<span class="ce-tab-x">×</span></div>';
+    }
+    function paintStatus(c){
+      if (isVsc){
+        status.innerHTML =
+          '<span class="ce-st-l"><span class="ce-branch">⎇ main</span></span>' +
+          '<span class="ce-st-r">' +
+          '<span class="ce-st-i">Lg 12, Col 5</span>' +
+          '<span class="ce-st-i">UTF-8</span><span class="ce-st-i">C++</span>' +
+          '<span class="ce-st-i">空格: 4</span></span>';
+      } else {
+        status.innerHTML =
+          '<span class="ce-st-l">' + esc(cur) + '.cpp</span>' +
+          '<span class="ce-st-r"><span class="ce-st-i">Line 1, Column 1</span>' +
+          '<span class="ce-st-i">UTF-8</span><span class="ce-st-i">C++</span></span>';
+      }
+      if (c) onCaret(c);
+    }
+    const caretEl = () => status.querySelector('.ce-st-r .ce-st-i');
+    function onCaret(c){
+      const elx = caretEl();
+      if (!elx) return;
+      elx.textContent = isVsc ? ('Lg ' + c.line + ', Col ' + c.col) : ('Line ' + c.line + ', Column ' + c.col);
+    }
+
+    const code = mountCodeArea(editor, {
+      onCaret,
+      onSave(v){ saveCode(v); },
+    });
+
+    function title(){
+      const t = win.head.querySelector('.win-title');
+      if (t) t.textContent = cur + '.cpp - ' + label;
+    }
+    function saveCode(v){
+      Store.saveCode(cur, v);
+      try { Desktop.fs.write('~/Desktop/teacher/' + cur + '/' + cur + '.cpp', v); } catch (e) {}
+      toast('已保存 ' + cur + '.cpp', 'ok');
+    }
+    function open(id){
+      if (id === cur) return;
+      saveCode(code.get());
+      cur = id;
+      code.set(Store.getCode(cur) || '');
+      paintTree(); paintTabs(); paintStatus(); title();
+    }
+
+    paintTree();
+    paintTabs();
+    paintStatus();
+    code.set(Store.getCode(cur) || '');
+    title();
+    setTimeout(() => code.focus(), 40);
+    return win;
   }
 
   /* ================= IDE ================= */
@@ -637,11 +1088,223 @@ const Student = (() => {
     return file + ' - Code::Blocks 20.03';
   }
 
+  /* ── Code::Blocks 20.03 ──────────────────────────────────────────────
+   * 外壳（菜单栏 / 工具栏 / Management / 状态栏）在这边搭，编辑区交给
+   * ide.html?ui=cbc（那边把自带工具栏、状态栏藏掉，只留编辑区 + 底部停靠面板）。
+   * 菜单文字、工具栏图标都来自 ISO：/usr/share/codeblocks/images 下的真图标。 */
+  function openCodeBlocks(problems){
+    const sid = 'teacher';
+    let cur = (ideWin && ideWin.problemId) || problems[0].id;
+    const win = createWindow({
+      id: 'ide', title: ideWinTitle('Code::Blocks', cur + '.cpp'),
+      ico: 'cb', w: 1180, h: 760, onClose(){ ideWin = null; },
+    });
+    if (win._built) return win;
+    win._built = true;
+
+    const shell = el('div', 'cbc-shell');
+    win.body.appendChild(shell);
+
+    /* ── 菜单栏 ── */
+    const mb = el('div', 's-menubar');
+    const menuCtx = {
+      save(){ postIDE({ type: 'ide:getCode' }); setTimeout(() => toast('已保存', 'ok'), 120); },
+      judge(){ postIDE({ type: 'ide:runJudge' }); },
+      close(){ Desktop.closeWin(win); },
+    };
+    IDE_MENU_ORDER.forEach(name => {
+      const b = el('div', 'mb-item', name);
+      b.addEventListener('mousedown', e => {
+        e.preventDefault(); e.stopPropagation();
+        const items = (IDE_MENU_ITEMS[name] || []).map(it => it.dim || it.sep
+          ? it
+          : Object.assign({}, it, { run(){ it.run(it, menuCtx); } }));
+        Desktop.openMenuAt(b, '', items);
+      });
+      mb.appendChild(b);
+    });
+    shell.appendChild(mb);
+
+    /* ── 工具栏 ── */
+    const tb = el('div', 'cbc-toolbar');
+    function tbBtn(img, title, fn, dim){
+      const b = el('button', 'cbc-tb' + (dim ? ' off' : ''));
+      b.title = title;
+      b.innerHTML = '<img src="assets/cb/' + img + '" alt="">';
+      if (fn && !dim) b.onclick = fn;
+      tb.appendChild(b);
+      return b;
+    }
+    function tbSep(){ tb.appendChild(el('div', 'cbc-tb-sep')); }
+    tbBtn('folder_new.png', '新建空白文件 (Ctrl+Shift+N)', null, true);
+    tbBtn('folder.png',     '打开已有文件 (Ctrl+O)', null, true);
+    const tbSave = tbBtn('source.png', '保存当前文件 (Ctrl+S)', () => menuCtx.save());
+    tbSep();
+    tbBtn('rebuild.png',    '全部重新编译 (Ctrl+F11)', () => postIDE({ type: 'ide:runJudge' }));
+    tbBtn('compile.png',    '编译当前文件 (Ctrl+F9)',  () => postIDE({ type: 'ide:runJudge' }));
+    tbBtn('compilerun.png', '编译并运行 (F9)',         () => postIDE({ type: 'ide:runJudge' }));
+    tbBtn('stop.png',       '终止当前构建 (Ctrl+C)', null, true);
+    tbSep();
+    tb.appendChild(el('span', 'cbc-tb-lbl', 'Target:'));
+    const tgt = el('select');
+    ['Debug', 'Release'].forEach(v => { const o = el('option', '', v); o.value = v; tgt.appendChild(o); });
+    tb.appendChild(tgt);
+    tb.appendChild(el('span', 'cbc-tb-lbl', '标准:'));
+    const stdSel = el('select');
+    [['c++11', 'C++11'], ['c++14', 'C++14'], ['c++17', 'C++17']].forEach(([v, t]) => {
+      const o = el('option', '', t); o.value = v; stdSel.appendChild(o);
+    });
+    stdSel.value = 'c++17';
+    tb.appendChild(stdSel);
+    shell.appendChild(tb);
+
+    /* ── 中部：Management + 编辑区 ── */
+    const mid = el('div', 'cbc-body');
+    const side = el('div', 'cbc-side');
+    const sideHead = el('div', 'cbc-side-head');
+    sideHead.innerHTML = '<img class="cbc-ico" src="assets/cb/source.png" alt="">' +
+      '<span>Management</span><span class="cbc-x">✕</span>';
+    const tree = el('div', 'cbc-tree');
+    const sideTabs = el('div', 'cbc-side-tabs');
+    sideTabs.innerHTML = '<button class="on">Projects</button><button>Symbols</button><button>Resources</button>';
+    side.appendChild(sideHead); side.appendChild(tree); side.appendChild(sideTabs);
+
+    const frame = el('iframe', 'cbc-frame');
+    frame.src = 'ide.html?ui=cbc';
+    mid.appendChild(side); mid.appendChild(frame);
+    shell.appendChild(mid);
+
+    /* ── 状态栏 ── */
+    const sb = el('div', 'cbc-statusbar');
+    sb.innerHTML =
+      '<span class="cbc-sb" data-cbc="file">—</span>' +
+      '<span class="cbc-sb" data-cbc="caret">行 1, 列 1</span>' +
+      '<span class="cbc-sb" data-cbc="mode">INS</span>' +
+      '<span class="cbc-sb" data-cbc="syntax">C++</span>' +
+      '<span class="cbc-sb push dim" data-cbc="path">—</span>' +
+      '<span class="cbc-sb dim save-dot">已保存</span>';
+    shell.appendChild(sb);
+
+    /* 启动图：真机 Code::Blocks 起来时先弹这张 splash */
+    const splash = el('div', 'cbc-splash');
+    splash.innerHTML = '<img src="assets/cb/splash.png" alt="Code::Blocks 20.03">';
+    shell.appendChild(splash);
+
+    const sbFile = sb.querySelector('[data-cbc="file"]');
+    const sbCaret = sb.querySelector('[data-cbc="caret"]');
+    const sbPath = sb.querySelector('[data-cbc="path"]');
+    const treeFiles = {};
+
+    let othersBox = null;
+    function buildTree(){
+      tree.innerHTML = '';
+      const add = (depth, caret, ico, label, cls, onClick, parent) => {
+        const n = el('div', 'cbc-node' + (cls ? ' ' + cls : ''));
+        n.style.paddingLeft = (4 + depth * 12) + 'px';
+        n.innerHTML =
+          '<span class="cbc-caret">' + (caret || '') + '</span>' +
+          (ico ? '<img class="cbc-ico" src="assets/cb/' + ico + '" alt="">' : '<span class="cbc-ico"></span>') +
+          '<span>' + esc(label) + '</span>';
+        if (onClick) n.onclick = onClick;
+        (parent || tree).appendChild(n);
+        return n;
+      };
+      add(0, '▾', null, 'Workspace');
+      add(1, '▾', 'folder.png', sid);
+      add(2, '▾', 'folder.png', 'Sources');
+      problems.forEach(p => {
+        const n = add(3, '', 'source.png', p.id + '.cpp', 'file', () => switchTo(p.id));
+        n.dataset.problem = p.id;
+        treeFiles[p.id] = n;
+      });
+      add(2, '▾', 'folder.png', 'Others');
+      othersBox = el('div', 'cbc-others');
+      tree.appendChild(othersBox);
+      paintOthers();
+      paintTree();
+    }
+    /* Others 下挂的是「当前题」的样例文件，切题时必须跟着换 */
+    function paintOthers(){
+      if (!othersBox) return;
+      othersBox.innerHTML = '';
+      const p = problems.find(x => x.id === cur) || problems[0];
+      if (!p) return;
+      const tests = p.tests || [];
+      const others = [p.id + '1.in', p.id + '1.ans']
+        .concat(tests.length > 1 ? [p.id + '2.in', p.id + '2.ans'] : []);
+      others.forEach(f => {
+        const n = el('div', 'cbc-node');
+        n.style.paddingLeft = '40px';
+        n.innerHTML = '<span class="cbc-caret"></span>' +
+          '<img class="cbc-ico" src="assets/cb/source.png" alt="">' +
+          '<span>' + esc(f) + '</span>';
+        othersBox.appendChild(n);
+      });
+    }
+    function paintTree(){
+      Object.keys(treeFiles).forEach(id => {
+        treeFiles[id].classList.toggle('sel', id === cur);
+      });
+    }
+
+    ideWin = { win, frame, problemId: cur, ready: false, cbc: true };
+    const s = Store.getSettings();
+
+    function loadCurrent(){
+      const p = problems.find(x => x.id === ideWin.problemId);
+      if (!p) return;
+      const code = Store.getCode(p.id);
+      postIDE({ type: 'ide:file', name: p.id + '.cpp' });
+      postIDE({ type: 'ide:setCode', code });
+      postIDE({
+        type: 'ide:setJudge',
+        cases: (p.tests || []).map(t => ({ input: t.input, expected: t.expected })),
+        tl: p.tl || 1000,
+      });
+      cur = p.id;
+      if (sbFile) sbFile.textContent = p.id + '.cpp';
+      if (sbPath) sbPath.textContent = '~/Desktop/' + sid + '/' + p.id + '/' + p.id + '.cpp';
+      const tt = win.head.querySelector('.win-title');
+      if (tt) tt.textContent = ideWinTitle('Code::Blocks', p.id + '.cpp');
+      paintOthers();
+      paintTree();
+      if (sbCaret) sbCaret.textContent = '行 1, 列 1';
+    }
+    function switchTo(id){
+      if (!id || id === ideWin.problemId) return;
+      postIDE({ type: 'ide:getCode' });
+      setTimeout(() => { ideWin.problemId = id; loadCurrent(); }, 60);
+    }
+
+    buildTree();
+    loadCurrent();
+
+    /* 启动图在编辑区就绪后淡出（真机 splash 也是在主窗口映射后消失） */
+    let splashOff = false;
+    function dropSplash(){
+      if (splashOff) return;
+      splashOff = true;
+      splash.classList.add('out');
+      setTimeout(() => splash.remove(), 260);
+    }
+    frame.addEventListener('load', () => {
+      postIDE({ type: 'ide:config', showJudge: s.allowJudge !== false, allowCopy: s.allowCopy !== false });
+      setTimeout(() => { ideWin.ready = true; loadCurrent(); }, 400);
+      setTimeout(dropSplash, 900);
+    });
+    setTimeout(() => { if (ideWin && !ideWin.ready){ ideWin.ready = true; loadCurrent(); } }, 1800);
+    setTimeout(dropSplash, 2600);
+
+    return win;
+  }
+
   function openIDE(name){
     const problems = enabledProblems();
     if (!problems.length){ toast('管理员未启用任何题目', 'err'); return; }
     const label = name || 'Code::Blocks';
-    const icoName = label === 'Code::Blocks' ? 'cb' : label === 'Geany' ? 'geany' : label === 'Lazarus' ? 'lazarus' : 'gedit';
+    if (label === 'Code::Blocks') return openCodeBlocks(problems);
+
+    const icoName = label === 'Geany' ? 'geany' : label === 'Lazarus' ? 'lazarus' : 'gedit';
     const win = createWindow({ id: 'ide', title: label + ' 20.03', ico: icoName, w: 1080, h: 700, onClose(){ ideWin = null; } });
     if (win._built) return win;
     win._built = true;
@@ -725,7 +1388,15 @@ const Student = (() => {
   }
   window.addEventListener('message', ev => {
     const d = ev.data;
-    if (!d || d.type !== 'ide:code') return;
+    if (!d) return;
+    /* Code::Blocks 外壳的状态栏：光标位置由编辑区那边报上来 */
+    if (d.type === 'ide:caret'){
+      if (!ideWin || !ideWin.cbc) return;
+      const c = ideWin.win.body.querySelector('[data-cbc="caret"]');
+      if (c) c.textContent = '行 ' + d.line + ', 列 ' + d.col;
+      return;
+    }
+    if (d.type !== 'ide:code') return;
     if (!ideWin) return;
     const pid = ideWin.problemId;
     if (!pid) return;
@@ -1086,7 +1757,583 @@ const Student = (() => {
   }
 
   /* ================= 终端式编辑器（vim / nano / emacs） ================= */
+  /* ================= joe（Joe's Own Editor）=================
+   * 界面全部照 ISO 的真配置还原：
+   *   /etc/joe/joerc                      -lmsg \i%k%T%W%I%X %n %m%y%R %M %x
+   *                                       -rmsg  %S Row %4r Col %3c
+   *                                       默认开 -status（顶部反显状态行）、-keepup
+   *   /usr/share/joe/colors/default.jcf   .colors 16 → Comment 绿 / Keyword 粗体 /
+   *                                       Preproc 蓝 / Constant 青 / Brace 品红
+   *   /etc/joe/joerc 的 {Basic} 段       就是 ^KH 弹出的那张键位表，这里原样搬过来
+   */
+  const JOE_BASIC = [
+    ' \\|\u0001REGION\u0001        \\|\u0001GO TO\u0001           \\|\u0001GO TO\u0001           \\|\u0001DELETE\u0001    \\|\u0001EXIT\u0001       \\|\u0001SEARCH\u0001    \\|',
+    ' \\|\u0002^Arrow\u0002 Select \\|\u0002^Z\u0002 Prev. word   \\|\u0002^U/^V\u0002 PgUp/PgDn \\|\u0002^D\u0002 Char.  \\|\u0002^KX\u0002 Save   \\|\u0002^KF\u0002 Find  \\|',
+    ' \\|\u0002^KB\u0002 Begin     \\|\u0002^X\u0002 Next word    \\|\u0001MISC\u0001            \\|\u0002^Y\u0002 Line   \\|\u0002^C\u0002  Abort  \\|\u0002^L\u0002  Next  \\|',
+    ' \\|\u0002^KK\u0002 End       \\|\u0002^KU\u0002 Top of file \\|\u0002^KJ\u0002 Paragraph   \\|\u0002^W\u0002 >Word  \\|\u0002^KQ\u0002 All    \\|\u0001HELP\u0001      \\|',
+    ' \\|\u0002^KC\u0002 Copy      \\|\u0002^KV\u0002 End of file \\|\u0002^KA\u0002 Center line \\|\u0002^O\u0002 Word<  \\|\u0001FILE\u0001       \\|\u0002Esc .\u0002 Next\\|',
+    ' \\|\u0002^KM\u0002 Move      \\|\u0002^A\u0002 Beg. of line \\|\u0002^K Space\u0002 Status \\|\u0002^J\u0002 >Line  \\|\u0002^KE\u0002 Edit   \\|\u0002Esc ,\u0002 Prev\\|',
+    ' \\|\u0002^KW\u0002 File      \\|\u0002^E\u0002 End of line  \\|\u0001SPELL\u0001           \\|\u0002^[O\u0002 Line< \\|\u0002^KR\u0002 Insert \\|\u0002^KH\u0002 Off   \\|',
+    ' \\|\u0002^KY\u0002 Delete    \\|\u0002^KL\u0002 To line no. \\|\u0002Esc N\u0002 Word      \\|\u0002^_\u0002 Undo   \\|\u0002^KD\u0002 Save   \\|\u0002^T\u0002  Menu  \\|',
+    ' \\|\u0002^K/\u0002 Filter    \\|\u0002^G\u0002  Matching (  \\|\u0002Esc L\u0002 File      \\|\u0002^^\u0002 Redo   \\|\u0002^K`\u0002 Revert \\|            \\|',
+  ];
+  const JOE_KW = new Set(('int char bool double float void long short unsigned signed const ' +
+    'static struct class template typename using namespace return if else for while do switch ' +
+    'case break continue new delete public private protected virtual inline typedef sizeof enum ' +
+    'union constexpr nullptr true false auto operator friend explicit mutable this throw try ' +
+    'catch volatile register extern goto default').split(' '));
+
+  function joeEsc(s){
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  /* 一个够用的 C++ 词法器：只认 default.jcf 里定义的那几类颜色 */
+  function joeHighlight(src){
+    let out = '', i = 0;
+    const n = src.length;
+    const wrap = (cls, text) => '<span class="joe-' + cls + '">' + joeEsc(text) + '</span>';
+    while (i < n){
+      const c = src[i];
+      if (c === '/' && src[i + 1] === '/'){
+        let j = src.indexOf('\n', i); if (j < 0) j = n;
+        out += wrap('com', src.slice(i, j)); i = j; continue;
+      }
+      if (c === '/' && src[i + 1] === '*'){
+        let j = src.indexOf('*/', i + 2); j = j < 0 ? n : j + 2;
+        out += wrap('com', src.slice(i, j)); i = j; continue;
+      }
+      if (c === '#'){
+        const ls = src.lastIndexOf('\n', i - 1) + 1;
+        if (!src.slice(ls, i).trim()){
+          let j = src.indexOf('\n', i); if (j < 0) j = n;
+          const line = src.slice(i, j);
+          const m = /^(#[ \t]*[A-Za-z]+)[ \t]*(.*)$/.exec(line);
+          if (!m){ out += wrap('pre', line); }
+          else {
+            out += wrap('pre', m[1]) + ' ';
+            const rest = m[2];
+            const q = /^([<"])([^>"\n]*)([>"])/.exec(rest);
+            if (/#[ \t]*include$/.test(m[1]) && q){
+              out += wrap('inc', q[0]) + joeEsc(rest.slice(q[0].length));
+            } else out += joeEsc(rest);
+          }
+          i = j; continue;
+        }
+      }
+      if (c === '"' || c === "'"){
+        let j = i + 1;
+        while (j < n && src[j] !== c && src[j] !== '\n'){ if (src[j] === '\\') j++; j++; }
+        j = Math.min(j + 1, n);
+        out += wrap('const', src.slice(i, j)); i = j; continue;
+      }
+      if (c === '{' || c === '}'){ out += wrap('brace', c); i++; continue; }
+      if (c >= '0' && c <= '9'){
+        let j = i;
+        while (j < n && /[0-9a-fA-FxX.]/.test(src[j])) j++;
+        out += wrap('num', src.slice(i, j)); i = j; continue;
+      }
+      if (/[A-Za-z_]/.test(c)){
+        let j = i;
+        while (j < n && /[A-Za-z0-9_]/.test(src[j])) j++;
+        const w = src.slice(i, j);
+        out += JOE_KW.has(w) ? wrap('kw', w) : joeEsc(w);
+        i = j; continue;
+      }
+      out += joeEsc(c); i++;
+    }
+    return out;
+  }
+
+  function openJoe(){
+    const problems = enabledProblems();
+    if (!problems.length){ toast('没有可用题目', 'err'); return; }
+    const pid = (ideWin && ideWin.problemId) || problems[0].id;
+    const path = '~/Desktop/teacher/' + pid + '/' + pid + '.cpp';
+    const win = createWindow({
+      id: 'tui:joe', title: 'joe  ' + pid + '.cpp', ico: 'joe', w: 880, h: 580,
+    });
+    if (win._built) return win;
+    win._built = true;
+
+    const box = el('div', 'joe');
+    box.innerHTML =
+      '<div class="joe-status"><span class="joe-st-l"></span><span class="joe-st-r"></span></div>' +
+      '<div class="joe-view"><pre class="joe-hl"></pre>' +
+      '<textarea class="joe-ta" spellcheck="false" wrap="off" autocomplete="off"></textarea></div>' +
+      '<div class="joe-msg"></div>';
+    win.body.appendChild(box);
+
+    const stL = box.querySelector('.joe-st-l');
+    const stR = box.querySelector('.joe-st-r');
+    const hlEl = box.querySelector('.joe-hl');
+    const ta = box.querySelector('.joe-ta');
+    const msgEl = box.querySelector('.joe-msg');
+
+    ta.value = Store.getCode(pid) || '';
+    if (!ta.value){
+      ta.value = '#include <iostream>\nusing namespace std;\n\nint main() {\n    \n    return 0;\n}\n';
+    }
+
+    let pending = '';        // %k：已按下的前缀键（^K）
+    let modified = false;
+    let saved = ta.value;
+    let helpEl = null;
+
+    function context(){
+      /* %x：从光标往上找第一条顶格的行 */
+      const v = ta.value.slice(0, ta.selectionStart);
+      const lines = v.split('\n');
+      for (let i = lines.length - 2; i >= 0; i--){
+        const s = lines[i];
+        if (s && !/^[ \t]/.test(s)) return s.trim();
+      }
+      return '';
+    }
+    function paintStatus(){
+      const v = ta.value;
+      const p = ta.selectionStart;
+      const head = v.slice(0, p);
+      const row = head.split('\n').length;
+      const col = p - head.lastIndexOf('\n');
+      /* -lmsg \i%k%T%W%I%X %n %m%y%R %M %x
+         %T=I（插入） %W= 空（未开 wordwrap） %I= 空（未开 autoindent）
+         %y=C（c.jsf） %R= 空（非只读） %M= 空（未录宏） */
+      stL.textContent = pending + 'I' + ' ' + pid + '.cpp ' +
+        (modified ? '(Modified)' : '') + 'C' + ' ' + ' ' + context();
+      /* -rmsg  %S Row %4r Col %3c */
+      stR.textContent = ' Row ' + String(row).padStart(4) + ' Col ' + String(col).padStart(3);
+    }
+    function render(){
+      hlEl.innerHTML = joeHighlight(ta.value) + '\n';
+      modified = ta.value !== saved;
+      paintStatus();
+    }
+    function say(text, dim){
+      msgEl.textContent = text || '';
+      msgEl.classList.toggle('dim', !!dim);
+    }
+    function save(quiet){
+      const code = ta.value;
+      Store.saveCode(pid, code);
+      try { Desktop.fs.write(path, code); } catch (e){}
+      saved = code; modified = false;
+      render();
+      say('File ' + path + ' saved', false);
+      if (!quiet) toast(pid + '.cpp 已写入 ' + path, 'ok');
+    }
+    function quit(){ closeWin(win); }
+
+    function toggleHelp(){
+      if (helpEl){ helpEl.remove(); helpEl = null; return; }
+      helpEl = el('div', 'joe-help');
+      helpEl.innerHTML = JOE_BASIC.map(row => {
+        let s = joeEsc(row);
+        s = s.replace(/\u0001([^\u0001]*)\u0001/g, '<u>$1</u>');
+        s = s.replace(/\u0002([^\u0002]*)\u0002/g, '<b>$1</b>');
+        s = s.replace(/\\\|/g, '<span class="sep">|</span>');
+        return s;
+      }).join('\n');
+      box.querySelector('.joe-view').appendChild(helpEl);
+    }
+
+    ta.addEventListener('input', render);
+    ['keyup', 'click', 'mouseup', 'select', 'focus'].forEach(ev => {
+      ta.addEventListener(ev, () => setTimeout(paintStatus, 0));
+    });
+    ta.addEventListener('scroll', () => {
+      hlEl.scrollTop = ta.scrollTop;
+      hlEl.scrollLeft = ta.scrollLeft;
+    });
+
+    /* joe 的 WordStar 键序：^K 是前缀键，状态行会先显示 ^K */
+    ta.addEventListener('keydown', e => {
+      if (e.ctrlKey && !e.altKey && (e.key === 'k' || e.key === 'K')){
+        e.preventDefault();
+        pending = '^K ';
+        paintStatus();
+        say('', true);
+        return;
+      }
+      if (pending){
+        if (e.key === 'Escape'){ e.preventDefault(); pending = ''; say(''); paintStatus(); return; }
+        if (!e.ctrlKey){ pending = ''; paintStatus(); return; }
+        const k = e.key.toLowerCase();
+        const had = pending;
+        pending = '';
+        if (k === 'x'){ e.preventDefault(); save(); quit(); return; }
+        if (k === 'f' || k === 'd'){ e.preventDefault(); save(); return; }
+        if (k === 'q'){ e.preventDefault(); say('Aborting...'); setTimeout(quit, 60); return; }
+        if (k === 'h' || k === 't'){ e.preventDefault(); toggleHelp(); say('', true); paintStatus(); return; }
+        if (e.key === ' '){
+          e.preventDefault();
+          const v = ta.value, p = ta.selectionStart, head = v.slice(0, p);
+          const row = head.split('\n').length, col = p - head.lastIndexOf('\n') + 1;
+          say('** Line ' + row + ' Col ' + col + ' Offset ' + p + '(0x' + p.toString(16) + ') ' +
+              'UTF-8 0(0x0) Width 1 **', false);
+          paintStatus();
+          return;
+        }
+        pending = had; paintStatus();
+        say('No such command', false);
+        return;
+      }
+      if (e.ctrlKey && !e.altKey){
+        const k = e.key.toLowerCase();
+        if (k === 'c'){ e.preventDefault(); say('Aborting...'); setTimeout(quit, 60); }
+        else if (k === 'h'){ e.preventDefault(); toggleHelp(); }
+      }
+    });
+
+    render();
+    say('', true);
+    setTimeout(() => ta.focus(), 80);
+    return win;
+  }
+
+  /* ================= Vim 8.1（终端里跑） ================= */
+  /* 真机在中文 locale 下 vim 的提示是中文的：`-- 插入 --`、`E37: 已修改但未保存`。
+     窗口标题也照 vim 自己的规矩：`queue.cpp (~/Desktop/teacher/queue) - VIM1`。 */
+  function vimEsc(s){
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function openVim(){
+    const problems = enabledProblems();
+    if (!problems.length){ toast('没有可用题目', 'err'); return; }
+    const pid = (ideWin && ideWin.problemId) || problems[0].id;
+    const win = createWindow({
+      id: 'tui:vim',
+      title: pid + '.cpp (~/Desktop/teacher/' + pid + ') - VIM1',
+      ico: 'vim', w: 900, h: 600,
+    });
+    if (win._built){ Desktop.focusWin(win); return win; }
+    win._built = true;
+
+    const box = el('div', 'vim');
+    box.tabIndex = 0;
+    box.innerHTML =
+      '<pre class="vim-screen"></pre>' +
+      '<div class="vim-status"><span class="vim-l"></span><span class="vim-r"></span></div>' +
+      '<div class="vim-cmd"></div>';
+    win.body.appendChild(box);
+    const screenEl = box.querySelector('.vim-screen');
+    const stL = box.querySelector('.vim-l');
+    const stR = box.querySelector('.vim-r');
+    const cmdEl = box.querySelector('.vim-cmd');
+
+    const init = Store.getCode(pid) ||
+      '#include <iostream>\nusing namespace std;\n\nint main() {\n    \n    return 0;\n}\n';
+    let lines = init.replace(/\n$/, '').split('\n');
+    let cy = 0, cx = 0, mode = 'normal', cmd = '', msg = '', dirty = false, dPending = false;
+
+    function paintStatus(){
+      const chars = lines.reduce((a, l) => a + l.length + 1, 0);
+      stL.textContent = '"' + pid + '.cpp"' + (dirty ? ' [已修改]' : '') +
+        ' ' + lines.length + 'L, ' + chars + 'C';
+      const pct = lines.length > 1 ? Math.round((cy + 1) / lines.length * 100) : 100;
+      stR.textContent = (cy + 1) + ',' + (cx + 1) + '          ' +
+        (pct >= 100 ? '全部' : pct + '%');
+    }
+    function render(){
+      const lh = 19;
+      const rows = Math.max(6, Math.floor(screenEl.clientHeight / lh) - 1);
+      let out = '';
+      for (let i = 0; i < rows; i++){
+        if (i >= lines.length){
+          out += '<span class="vim-tilde">~</span>\n';
+          continue;
+        }
+        const L = lines[i];
+        if (i === cy && mode !== 'cmd'){
+          const pos = Math.min(cx, L.length);
+          const before = vimEsc(L.slice(0, pos));
+          const ch = L[pos];
+          const after = vimEsc(L.slice(pos + (mode === 'insert' ? 0 : 1)));
+          out += before + '<span class="vim-cur">' +
+            (mode === 'insert' ? '\u00a0' : vimEsc(ch || '\u00a0')) + '</span>' + after + '\n';
+        } else {
+          out += (vimEsc(L) || '\u00a0') + '\n';
+        }
+      }
+      screenEl.innerHTML = out;
+      paintStatus();
+      cmdEl.innerHTML = mode === 'cmd'
+        ? ':' + vimEsc(cmd)
+        : (msg ? vimEsc(msg) : '');
+      cmdEl.className = 'vim-cmd' + (mode === 'cmd' ? ' typing' : '');
+    }
+    function clamp(){
+      cy = Math.max(0, Math.min(lines.length - 1, cy));
+      const max = Math.max(0, lines[cy].length - (mode === 'insert' ? 0 : 1));
+      cx = Math.max(0, Math.min(max, cx));
+    }
+    function save(){
+      const v = lines.join('\n') + '\n';
+      Store.saveCode(pid, v);
+      try { Desktop.fs.write('~/Desktop/teacher/' + pid + '/' + pid + '.cpp', v); } catch (e) {}
+      dirty = false;
+      msg = '"' + pid + '.cpp" ' + lines.length + 'L, ' + lines.reduce((a, l) => a + l.length + 1, 0) + 'C 已写入';
+    }
+    function quit(){
+      if (dirty){ msg = 'E37: 已修改但未保存（加 ! 强制退出）'; render(); return; }
+      Desktop.closeWin(win);
+    }
+
+    box.addEventListener('keydown', e => {
+      const k = e.key;
+      if (mode === 'cmd'){
+        if (k === 'Enter'){
+          const c = cmd.trim();
+          mode = 'normal'; cmd = ''; msg = '';
+          if (c === 'w' || c === 'wq' || c === 'x'){ save(); if (c !== 'w') { render(); setTimeout(quit, 80); return; } }
+          else if (c === 'q'){ quit(); return; }
+          else if (c === 'q!'){ dirty = false; Desktop.closeWin(win); return; }
+          else if (c) msg = 'E492: 不是编辑器的命令: ' + c;
+          render(); return;
+        }
+        if (k === 'Escape'){ mode = 'normal'; cmd = ''; render(); return; }
+        if (k === 'Backspace'){ cmd = cmd.slice(0, -1); if (!cmd) mode = 'normal'; render(); return; }
+        if (k.length === 1){ cmd += k; render(); }
+        e.preventDefault();
+        return;
+      }
+
+      if (mode === 'insert'){
+        if (k === 'Escape'){ mode = 'normal'; if (cx > 0) cx--; render(); return; }
+        if (k === 'Enter'){
+          const rest = lines[cy].slice(cx);
+          lines[cy] = lines[cy].slice(0, cx);
+          lines.splice(cy + 1, 0, rest);
+          cy++; cx = 0; dirty = true; render(); e.preventDefault(); return;
+        }
+        if (k === 'Backspace'){
+          if (cx > 0){ lines[cy] = lines[cy].slice(0, cx - 1) + lines[cy].slice(cx); cx--; }
+          else if (cy > 0){
+            cx = lines[cy - 1].length;
+            lines[cy - 1] += lines[cy];
+            lines.splice(cy, 1); cy--;
+          }
+          dirty = true; render(); e.preventDefault(); return;
+        }
+        if (k === 'Tab'){ lines[cy] = lines[cy].slice(0, cx) + '    ' + lines[cy].slice(cx); cx += 4; dirty = true; render(); e.preventDefault(); return; }
+        if (k.length === 1 && !e.ctrlKey && !e.metaKey){
+          lines[cy] = lines[cy].slice(0, cx) + k + lines[cy].slice(cx);
+          cx++; dirty = true; render(); e.preventDefault();
+        }
+        return;
+      }
+
+      /* ---- 普通模式 ---- */
+      if (dPending){
+        dPending = false;
+        if (k === 'd'){
+          if (lines.length === 1) lines[0] = '';
+          else lines.splice(cy, 1);
+          dirty = true; clamp(); render(); e.preventDefault(); return;
+        }
+      }
+      const arrow = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+      if (arrow[k]){
+        cx += arrow[k][0] * (mode === 'insert' ? 1 : 1);
+        cy += arrow[k][1];
+        clamp(); render(); e.preventDefault(); return;
+      }
+      switch (k){
+        case 'h': cx--; break;
+        case 'l': cx++; break;
+        case 'j': cy++; break;
+        case 'k': cy--; break;
+        case '0': cx = 0; break;
+        case '$': cx = Math.max(0, lines[cy].length - 1); break;
+        case 'G': cy = lines.length - 1; break;
+        case 'i': mode = 'insert'; msg = ''; break;
+        case 'a': mode = 'insert'; cx = Math.min(lines[cy].length, cx + 1); break;
+        case 'o':
+          lines.splice(cy + 1, 0, '');
+          cy++; cx = 0; mode = 'insert'; dirty = true;
+          break;
+        case 'x':
+          lines[cy] = lines[cy].slice(0, cx) + lines[cy].slice(cx + 1);
+          dirty = true;
+          break;
+        case 'd': dPending = true; msg = 'd'; break;
+        case ':': mode = 'cmd'; cmd = ''; msg = ''; break;
+        default: return;
+      }
+      if (k !== 'd') msg = '';
+      clamp(); render();
+      e.preventDefault();
+    });
+
+    render();
+    setTimeout(() => { try { box.focus(); } catch (e) {} }, 60);
+    return win;
+  }
+
+  /* ================= Midnight Commander 4.8 ================= */
+  /* 经典蓝底双栏：面板靠 ─│┌┐└┘ 画，空格补位，所以字宽必须严格等宽
+     （DejaVu Sans Mono）。列数按窗口实际宽度现算，跟真机 MC 一样铺满终端。
+     F10 退出。 */
+  const MC_FKEYS = ['1 帮助', '2 菜单', '3 查看', '4 编辑', '5 拷贝', '6 移动', '7 建目录', '8 删除', '9 下拉', '10 退出'];
+  const MC_W = 44;        // 面板宽度兜底值（量不到布局时用，例如 jsdom）
+  const MC_ROWS = 16;     // 面板内容行数兜底值
+
+  function openMc(){
+    const fs = Desktop.fs;
+    const win = createWindow({ id: 'tui:mc', title: 'Midnight Commander', ico: 'mc', w: 940, h: 620 });
+    if (win._built){ Desktop.focusWin(win); return win; }
+    win._built = true;
+
+    const box = el('div', 'mc');
+    box.tabIndex = 0;
+    box.innerHTML = '<div class="mc-panels"><pre class="mc-p"></pre><pre class="mc-p"></pre></div>' +
+      '<div class="mc-fkeys"></div>';
+    win.body.appendChild(box);
+    const panels = [...box.querySelectorAll('.mc-p')];
+    const fkeys = box.querySelector('.mc-fkeys');
+
+    let W = MC_W, ROWS = MC_ROWS;       // 每次布局后重算
+    /* 字宽用 offsetWidth 量（layout 尺寸，不受开窗动画 scale(.92) 影响；
+       用 getBoundingClientRect 会量到缩放后的值，列数就偏大）。 */
+    function layout(){
+      if (!box.clientWidth || !box.clientHeight) return;   // jsdom 没有布局，走兜底值
+      const p0 = panels[0];
+      p0.style.width = '50ch';
+      const chPx = p0.offsetWidth / 50;
+      if (!(chPx > 3)){ p0.style.width = ''; return; }
+      W = Math.max(26, Math.floor((box.clientWidth - 6) / (2 * chPx)));
+      const lh = parseFloat(getComputedStyle(box).lineHeight) || 17;
+      /* 用面板容器的高度算行数（它 overflow:hidden，高度由 flex 定，不会被内容撑开） */
+      const panelH = panels[0].parentNode.offsetHeight || (box.clientHeight - fkeys.offsetHeight);
+      ROWS = Math.max(6, Math.floor(panelH / lh) - 2);            // 上下边框各占一行
+      panels.forEach(p => { p.style.width = W + 'ch'; });
+    }
+    const state = [
+      { path: '~/Desktop/teacher', sel: 0, items: [] },
+      { path: '~/Desktop', sel: 0, items: [] },
+    ];
+    let act = 0;
+
+    function load(s){
+      const abs = fs.abs(s.path);
+      const list = fs.list(abs) || [];
+      s.items = [{ name: '..', type: 'dir', up: true }].concat(list);
+      s.sel = Math.max(0, Math.min(s.items.length - 1, s.sel));
+    }
+    /* 中文按两列宽算（真机 MC 用 wcwidth），否则带中文的文件名会把右边框顶出去 */
+    const mcWide = ch => /[\u1100-\u115F\u2E80-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6]/.test(ch) ? 2 : 1;
+    const mcWidth = str => { let n = 0; for (const ch of String(str)) n += mcWide(ch); return n; };
+    const pad = (str, n, right) => {
+      str = String(str);
+      if (mcWidth(str) > n){
+        let out = '', acc = 0;
+        for (const ch of str){
+          const cw = mcWide(ch);
+          if (acc + cw > n) break;
+          out += ch; acc += cw;
+        }
+        str = out;
+      }
+      const fill = ' '.repeat(Math.max(0, n - mcWidth(str)));
+      return right ? fill + str : str + fill;
+    };
+    function drawPanel(i){
+      const s = state[i];
+      const inner = W - 2;
+      const title = fs.pretty(s.path);
+      const bar = '─[' + title + ']' + '─'.repeat(Math.max(0, inner - mcWidth(title) - 3));
+      /* 每一行都用块级 <div>，行与行之间不能留 '\n' —— pre 里块之间的换行会各生成一个
+         空行盒子，整个面板就会被撑高一倍。 */
+      let out = '<div class="mc-row">┌' + pad(bar, inner) + '┐</div>';
+      for (let r = 0; r < ROWS; r++){
+        const it = s.items[r];
+        let text;
+        if (!it) text = '';
+        else if (it.up) text = '/..';
+        else if (it.type === 'dir') text = '/' + it.name;
+        else text = ' ' + it.name;
+        const sizeCol = Math.min(8, Math.max(4, inner - 12));
+        let line = pad(text, it && it.type === 'file' ? inner - sizeCol - 1 : inner);
+        if (it && it.type === 'file'){
+          line += pad(fmtSize((it.content || '').length).replace(' ', ''), sizeCol, true) + ' ';
+        }
+        const sel = r === s.sel;
+        out += '<div class="mc-row' + (sel ? (i === act ? ' sel on' : ' sel') : '') +
+          '" data-r="' + r + '">│' + pad(line, inner) + '│</div>';
+      }
+      out += '<div class="mc-row">└' + '─'.repeat(inner) + '┘</div>';
+      panels[i].innerHTML = out;
+    }
+    function draw(){
+      state.forEach((s, i) => { load(s); drawPanel(i); });
+      fkeys.innerHTML = MC_FKEYS.map(f =>
+        '<span class="mc-fk"><b>' + f.split(' ')[0] + '</b>' + f.split(' ').slice(1).join(' ') + '</span>').join('');
+    }
+    function go(i){
+      const s = state[i];
+      const it = s.items[s.sel];
+      if (!it) return;
+      if (it.up){
+        const p = s.path.replace(/\/[^\/]+$/, '') || '~';
+        s.path = fs.pretty(fs.abs(p)); s.sel = 0;
+      } else if (it.type === 'dir'){
+        s.path = s.path + '/' + it.name; s.sel = 0;
+      } else {
+        return openText(it.name, it.content || '');
+      }
+      draw();
+    }
+
+    box.addEventListener('keydown', e => {
+      const s = state[act];
+      switch (e.key){
+        case 'Tab': act = 1 - act; break;
+        case 'ArrowUp': s.sel = Math.max(0, s.sel - 1); break;
+        case 'ArrowDown': s.sel = Math.min(s.items.length - 1, s.sel + 1); break;
+        case 'Enter': go(act); e.preventDefault(); return;
+        case 'F10': case 'Escape': Desktop.closeWin(win); return;
+        default: return;
+      }
+      e.preventDefault();
+      draw();
+    });
+    box.addEventListener('click', e => {
+      const row = e.target.closest('.mc-row');
+      if (!row || row.dataset.r == null) return;
+      const i = panels.findIndex(p => p.contains(row));
+      if (i < 0) return;
+      act = i;
+      state[i].sel = Number(row.dataset.r);
+      draw();
+      try { box.focus(); } catch (err) {}
+    });
+
+    /* 按实测像素重排：先算出列/行，再用真实滚动尺寸校正 ——
+       多一行的空行盒子、字体回退之类的误差都能被这条回路吃掉。 */
+    function fit(){
+      layout();
+      draw();
+      const cont = panels[0].parentNode;
+      for (let i = 0; i < 5 && cont.scrollWidth > cont.clientWidth && W > 26; i++){ W--; draw(); }
+      for (let i = 0; i < 5 && panels[0].scrollHeight > cont.clientHeight && ROWS > 6; i++){ ROWS--; draw(); }
+    }
+    draw();                       // 先用兜底列数铺一屏，别让窗口空着
+    /* 窗口真正拿到尺寸之后（以及用户拖边改了大小），按实测像素重算 */
+    if (typeof ResizeObserver === 'function'){
+      const ro = new ResizeObserver(() => fit());
+      ro.observe(box);
+      win.onClose = () => { try { ro.disconnect(); } catch (e) {} };
+    } else {
+      setTimeout(fit, 220);
+    }
+    setTimeout(() => { try { box.focus(); } catch (e) {} }, 60);
+    return win;
+  }
+
   function openTuiEditor(kind){
+    if (kind === 'joe') return openJoe();
+    if (kind === 'vim') return openVim();
+    if (kind === 'mc') return openMc();
     const problems = enabledProblems();
     if (!problems.length){ toast('没有可用题目', 'err'); return; }
     const stu = Store.getStudent() || {};
@@ -1431,10 +2678,47 @@ const Student = (() => {
     return win;
   }
 
-  /* ================= 文件管理器 ================= */
+  /* ================= 文件管理器（Nautilus 3.36） ================= */
+  /* 依据 ISO 里的 Nautilus 3.36：标题栏就是工具栏，左边后退/前进，中间路径栏
+     （连在一起的分段按钮，Yaru 里是 #484848 底 + 1px #222 边、只在首尾切圆角），
+     右边搜索与主菜单；内容区是图标视图，不是 Windows 那种「名称/大小/类型」列表。
+     图标全部取自 /usr/share/icons/Yaru/256x256 的 places 与 mimetypes。 */
+  const NU_BACK = '<svg viewBox="0 0 16 16"><path d="M10 3.2L4.6 8 10 12.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const NU_FWD = '<svg viewBox="0 0 16 16"><path d="M6 3.2L11.4 8 6 12.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const NU_SEARCH = '<svg viewBox="0 0 16 16"><circle cx="7.2" cy="7.2" r="4.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.6 10.6L14 14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
+  const NU_MENU = '<svg viewBox="0 0 16 16"><path d="M2.6 4.2h10.8M2.6 8h10.8M2.6 11.8h10.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
+
+  /* 图标视图按 MIME 取图，与真机 Nautilus 一致 */
+  const FS_ICON = { folder: 'folder', cpp: 'cpp', text: 'textfile', zip: 'zip', pdf: 'pdf', home: 'home', desktop: 'desktop', trash: 'trash' };
+  function fsKind(name, isDir){
+    if (isDir) return 'folder';
+    if (/\.(cpp|cc|cxx|c|h|hpp)$/i.test(name)) return 'cpp';
+    if (/\.zip$/i.test(name)) return 'zip';
+    if (/\.pdf$/i.test(name)) return 'pdf';
+    return 'text';
+  }
+  function fsIcoHTML(kind){
+    return '<img src="assets/icons/' + (FS_ICON[kind] || 'textfile') + '.png" alt="">';
+  }
+
+  /* 内容区骨架：窗口外壳先出现，视图位置先放灰块，几百毫秒后才填真实内容。
+     真机读目录是一瞬间的事，但完全没有过渡就是「假」的来源——考场机器上
+     冷启动 Nautilus、冷开 Firefox 都要等一两秒。 */
+  function skelGrid(host, n){
+    const box = el('div', 'skel skel-grid');
+    for (let i = 0; i < n; i++){
+      const c = el('div', 'skel-cell');
+      c.style.animationDelay = (i % 7) * 80 + 'ms';
+      c.innerHTML = '<i class="skel-ico"></i><i class="skel-line" style="width:' + (46 + (i * 17) % 38) + '%"></i>';
+      box.appendChild(c);
+    }
+    host.appendChild(box);
+    return box;
+  }
+
   function openFiles(path){
     const fs = Desktop.fs;
-    const win = createWindow({ id: 'files', title: '文件管理器', ico: 'folder', w: 860, h: 560 });
+    const win = createWindow({ id: 'files', title: '文件管理器', ico: 'folder', w: 900, h: 580, headBar: true });
     if (win._built){
       if (path) win.fmanGo(path);
       Desktop.focusWin(win);
@@ -1442,80 +2726,131 @@ const Student = (() => {
     }
     win._built = true;
     let cur = path ? fs.abs(path) : fs.cwd;
+    const hist = [], fwd = [];
 
-    const bar = el('div', 'fman-bar');
-    const btnBack = el('button', 'fman-btn', '←');
-    const btnUp = el('button', 'fman-btn', '↑');
-    const btnHome = el('button', 'fman-btn', '⌂');
-    const crumb = el('div', 'fman-crumb');
-    bar.appendChild(btnBack); bar.appendChild(btnUp); bar.appendChild(btnHome); bar.appendChild(crumb);
-    const list = el('div', 'fman-list');
-    const status = el('div', 'fman-status');
-    win.body.appendChild(bar);
-    win.body.appendChild(list);
-    win.body.appendChild(status);
+    /* ---- headerbar：后退 / 前进 / 路径栏 / 搜索 / 主菜单 ---- */
+    const nav = el('div', 'nu-nav');
+    const bBack = el('button', 'nu-tb', NU_BACK); bBack.title = '后退';
+    const bFwd = el('button', 'nu-tb', NU_FWD); bFwd.title = '前进';
+    nav.appendChild(bBack); nav.appendChild(bFwd);
+    const pathbar = el('div', 'nu-path');
+    const bSearch = el('button', 'nu-tb', NU_SEARCH); bSearch.title = '搜索';
+    const bMenu = el('button', 'nu-tb', NU_MENU); bMenu.title = '主菜单';
+    win.headApp.appendChild(nav);
+    win.headApp.appendChild(pathbar);
+    win.headApp.appendChild(bSearch);
+    win.headApp.appendChild(bMenu);
 
-    const hist = [];
-    function go(p){
-      const a = fs.abs(p);
-      if (!fs.isDir(a)) { toast('目录不存在：' + p, 'err'); return; }
-      if (cur !== a) hist.push(cur);
-      cur = a;
-      render();
-    }
-    win.fmanGo = go;
+    const view = el('div', 'nu-view');
+    const grid = el('div', 'nu-grid');
+    view.appendChild(grid);
+    win.body.appendChild(view);
 
-    function render(){
-      // 面包屑
-      const rel = fs.pretty(cur);
-      const segs = rel.split('/');
-      crumb.innerHTML = '';
-      let acc = cur.startsWith(Desktop.HOME) ? '~' : '';
-      segs.forEach((s, i) => {
-        if (i > 0 || rel !== '~'){
-          const b = el('button', 'crumb-seg', esc(s === '' ? '/' : s));
-          const target = i === 0 && s === '~' ? Desktop.HOME : cur.split('/').slice(0, cur.split('/').length - (segs.length - 1 - i)).join('/');
-          b.onclick = () => go(target || Desktop.HOME);
-          crumb.appendChild(b);
-          if (i < segs.length - 1) crumb.appendChild(el('span', 'crumb-sep', '/'));
-        }
+    let seq = 0;
+    function paintCrumbs(){
+      pathbar.innerHTML = '';
+      const rel = fs.pretty(cur);          // ~  或  ~/Desktop/teacher  或  /tmp
+      const segs = rel.split('/').filter(Boolean);
+      const targets = [];
+      let acc;
+      if (rel.startsWith('~')){
+        acc = Desktop.HOME;
+        targets.push({ label: '~', path: acc });
+        const rest = rel.slice(1).split('/').filter(Boolean);
+        rest.forEach(s => { acc += '/' + s; targets.push({ label: s, path: acc }); });
+      } else {
+        acc = '';
+        targets.push({ label: '/', path: '/' });
+        segs.forEach(s => { acc += '/' + s; targets.push({ label: s, path: acc }); });
+      }
+      targets.forEach((t, i) => {
+        const b = el('button', 'nu-crumb', esc(t.label));
+        if (i === targets.length - 1) b.classList.add('cur');
+        b.title = fs.pretty(t.path);
+        b.onclick = () => go(t.path, 130);
+        pathbar.appendChild(b);
       });
+    }
+
+    function paintItems(){
+      grid.innerHTML = '';
       const items = fs.list(cur) || [];
-      list.innerHTML = '';
       if (!items.length){
-        list.innerHTML = '<div class="fman-empty">此文件夹为空</div>';
+        grid.appendChild(el('div', 'nu-empty', '文件夹为空'));
+        return;
       }
       items.forEach(n => {
-        const row = el('div', 'fman-row');
-        const kind = n.type === 'dir' ? 'folder' : /\.cpp$/.test(n.name) ? 'code' : /\.zip$/.test(n.name) ? 'zip' : 'text';
-        row.innerHTML = Desktop.ico(kind) +
-          '<span class="fman-name">' + esc(n.name) + '</span>' +
-          '<span class="fman-size">' + (n.type === 'dir' ? '—' : fmtSize((n.content || '').length)) + '</span>' +
-          '<span class="fman-type">' + (n.type === 'dir' ? '文件夹' : /\.cpp$/.test(n.name) ? 'C++ 源文件' : /\.zip$/.test(n.name) ? '压缩包' : '文本') + '</span>';
-        row.ondblclick = () => {
-          if (n.type === 'dir') return go(n.path);
-          if (/\.cpp$/.test(n.name)){
+        const kind = fsKind(n.name, n.type === 'dir');
+        const it = el('div', 'nu-item');
+        it.dataset.kind = kind;
+        it.dataset.name = n.name;
+        it.innerHTML = '<span class="nu-ico">' + fsIcoHTML(kind) + '</span>' +
+          '<span class="nu-name">' + esc(n.name) + '</span>';
+        it.title = n.name + (n.type === 'dir' ? '' : '\n' + fmtSize((n.content || '').length));
+        it.onclick = () => {
+          [...grid.querySelectorAll('.nu-item.sel')].forEach(x => x.classList.remove('sel'));
+          it.classList.add('sel');
+        };
+        it.ondblclick = () => {
+          it.classList.remove('sel');
+          if (n.type === 'dir') return go(n.path, 150);
+          if (/\.(cpp|cc|cxx|c)$/i.test(n.name)){
             const pid = pidFromPath(n.path);
             if (pid && ideWin){ ideWin.problemId = pid; if (ideWin.loadCurrent) ideWin.loadCurrent(); }
             return openIDE('Code::Blocks');
           }
-          if (/\.zip$/.test(n.name)){
-            const pid = n.name.replace(/\.zip$/, '');
+          if (/\.zip$/i.test(n.name)){
+            const pid = n.name.replace(/\.zip$/i, '');
             const p = enabledProblems().find(x => x.id === pid);
             if (p) return openZip(p);
           }
           openText(n.name, n.content || '');
         };
-        list.appendChild(row);
+        grid.appendChild(it);
       });
-      status.textContent = items.length + ' 个项目　·　' + fs.pretty(cur);
-      const tt = win.head.querySelector('.win-title');
-      if (tt) tt.textContent = '文件管理器 — ' + fs.pretty(cur);
     }
-    btnBack.onclick = () => { const p = hist.pop(); if (p) { cur = p; render(); } };
-    btnUp.onclick = () => { const p = cur.slice(0, cur.lastIndexOf('/')) || '/'; if (fs.isDir(p)) go(p); };
-    btnHome.onclick = () => go('~/Desktop');
-    render();
+
+    function render(ms){
+      const my = ++seq;
+      paintCrumbs();
+      bBack.disabled = !hist.length;
+      bFwd.disabled = !fwd.length;
+      grid.innerHTML = '';
+      const old = view.querySelector('.skel');
+      if (old) old.remove();
+      if (!ms) { paintItems(); return; }
+      skelGrid(view, 14);
+      setTimeout(() => {
+        if (my !== seq || !document.body.contains(view)) return;
+        const s = view.querySelector('.skel');
+        if (s) s.remove();
+        paintItems();
+      }, ms);
+    }
+
+    function go(p, ms){
+      const a = fs.abs(p);
+      if (!fs.isDir(a)){ toast('目录不存在：' + p, 'err'); return; }
+      if (cur !== a){ hist.push(cur); fwd.length = 0; }
+      cur = a;
+      render(ms == null ? 130 : ms);
+    }
+    win.fmanGo = go;
+
+    bBack.onclick = () => {
+      const p = hist.pop();
+      if (!p) return;
+      fwd.push(cur); cur = p; render(120);
+    };
+    bFwd.onclick = () => {
+      const p = fwd.pop();
+      if (!p) return;
+      hist.push(cur); cur = p; render(120);
+    };
+    bSearch.onclick = () => toast('搜索：考场机器上仅索引本机文件');
+    bMenu.onclick = () => toast('主菜单：新建文件夹 / 显示隐藏文件（实训环境未启用）');
+
+    render(360);          // 进入时先出外壳与骨架，再填内容
     return win;
   }
 
@@ -1574,20 +2909,67 @@ const Student = (() => {
   }
   function rcQName(p, i){ return '第' + cnNumber(i + 1) + '题：' + p.title; }
 
+  /* Firefox 79 Photon 的工具栏：后退/前进/刷新 + 地址栏 + 主菜单。
+     连接期间地址栏左侧的身份位是转圈动画，页面左下角弹出状态面板
+     「正在连接 10.10.20.30…」→「正在等待…」，连上或失败后淡出。 */
+  const FF_BACK = '<svg viewBox="0 0 16 16"><path d="M10 3.2L4.6 8 10 12.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const FF_FWD = '<svg viewBox="0 0 16 16"><path d="M6 3.2L11.4 8 6 12.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const FF_RELOAD = '<svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.6-3.7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M13.2 2.4v2.9h-2.9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const FF_MENU = '<svg viewBox="0 0 16 16"><path d="M2.6 4.2h10.8M2.6 8h10.8M2.6 11.8h10.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
+  const FF_SHIELD = '<svg viewBox="0 0 16 16"><path d="M8 2l4.6 1.7v4.1c0 2.7-1.9 4.9-4.6 6.2C5.3 12.7 3.4 10.5 3.4 7.8V3.7z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+
   function openFirefox(){
     const win = createWindow({ id: 'firefox', title: 'Firefox', ico: 'firefox', w: 1010, h: 730 });
     if (win._built) return win;
     win._built = true;
     const bar = el('div', 'ff-bar');
-    const inp = el('input');
+    const bBack = el('button', 'ff-tb', FF_BACK); bBack.title = '后退';
+    const bFwd = el('button', 'ff-tb', FF_FWD); bFwd.title = '前进';
+    const bRel = el('button', 'ff-tb', FF_RELOAD); bRel.title = '重新载入';
+    const urlbox = el('div', 'ff-url');
+    const ident = el('span', 'ff-ident', FF_SHIELD);
+    const inp = el('input', 'ff-input');
     inp.value = 'http://www.example.com/';
-    const go = el('button', 'btn btn-sm', '前往');
-    bar.appendChild(inp); bar.appendChild(go);
+    urlbox.appendChild(ident); urlbox.appendChild(inp);
+    const bMenu = el('button', 'ff-tb', FF_MENU); bMenu.title = '打开菜单';
+    bar.appendChild(bBack); bar.appendChild(bFwd); bar.appendChild(bRel);
+    bar.appendChild(urlbox); bar.appendChild(bMenu);
+
+    const view = el('div', 'ff-view');
     const page = el('div', 'ff-page');
-    page.style.position = 'relative';
+    const stat = el('div', 'ff-status');
+    view.appendChild(page); view.appendChild(stat);
     win.body.appendChild(bar);
-    win.body.appendChild(page);
+    win.body.appendChild(view);
     const setTitle = t => { const n = win.head.querySelector('.win-title'); if (n) n.textContent = t; };
+
+    /* ---- 连接过程：没这段就直接刷出页面，是「假」的最直观看点 ---- */
+    let loadT = null, loadSeq = 0;
+    function ffLoad(url, done, ms){
+      const my = ++loadSeq;
+      clearTimeout(loadT);
+      const host = String(url).replace(/^[a-z]+:\/\//i, '').replace(/[\/?#].*$/, '') || 'about:blank';
+      page.innerHTML = '';
+      stat.textContent = '正在连接 ' + host + '…';
+      stat.classList.remove('out');
+      ident.classList.add('busy');
+      urlbox.classList.add('loading');
+      bRel.disabled = true;
+      const total = ms || 760;
+      const t1 = Math.max(120, total * 0.42);
+      loadT = setTimeout(() => {
+        if (my !== loadSeq) return;
+        stat.textContent = '正在等待 ' + host + '…';
+        loadT = setTimeout(() => {
+          if (my !== loadSeq) return;
+          ident.classList.remove('busy');
+          urlbox.classList.remove('loading');
+          bRel.disabled = false;
+          stat.classList.add('out');
+          done();
+        }, Math.max(140, total - t1));
+      }, t1);
+    }
 
     /* ---- 离线错误页：外网一律不通，但给出考场内网入口 ---- */
     function rcOffline(){
@@ -1759,18 +3141,27 @@ const Student = (() => {
       });
     }
 
-    go.onclick = () => {
-      const u = String(inp.value || '').trim();
-      if (/10\.10\.20\.30/.test(u) || /回收/.test(u)) rcRender();
-      else { rcOffline(); toast('考场断网，无法访问外网', 'err'); }
-    };
-    inp.addEventListener('keydown', e => { if (e.key === 'Enter') go.onclick(); });
+    /* 地址栏回车 = 前往；刷新按钮重载当前地址。外网一律连不上 */
+    function navigate(){
+      const u = String(inp.value || '').trim() || 'http://www.example.com/';
+      const inner = /10\.10\.20\.30/.test(u) || /回收/.test(u);
+      ffLoad(u, () => {
+        if (inner) rcRender();
+        else { rcOffline(); toast('考场断网，无法访问外网', 'err'); }
+      }, inner ? 820 : 700);
+    }
+    bRel.onclick = navigate;
+    bBack.onclick = () => { inp.value = 'http://www.example.com/'; navigate(); };
+    bFwd.onclick = () => toast('没有可前进的页面');
+    bMenu.onclick = () => toast('Firefox 菜单：考场镜像已关闭下载与扩展');
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') navigate(); });
+    inp.addEventListener('focus', () => inp.select());
 
     /* 供「程序回收系统」应用直接打开本站（等价于考生在地址栏敲地址） */
-    win.gotoRecovery = () => { inp.value = RECOVERY_URL; rcRender(); };
+    win.gotoRecovery = () => { inp.value = RECOVERY_URL; navigate(); };
 
-    if (rcState.logged || rcState.bye) rcRender();
-    else rcOffline();
+    if (rcState.logged || rcState.bye) ffLoad(inp.value, rcRender, 700);
+    else ffLoad(inp.value, rcOffline, 860);
     return win;
   }
 

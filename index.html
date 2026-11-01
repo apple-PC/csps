@@ -22,6 +22,14 @@
       <span class="hm-go">›</span>
     </a>
 
+    <a class="hm-card hm-admin" id="hmAdmin" href="noi/?admin=1">
+      <span class="hm-ico">
+        <svg viewBox="0 0 48 48"><path d="M24 4.5l17 6.6v10.4c0 11.6-7 19.6-17 22-10-2.4-17-10.4-17-22V11.1z" fill="#546574"/><path d="M24 7.8l13.7 5.3v8.4c0 9.4-5.6 15.9-13.7 18-8.1-2.1-13.7-8.6-13.7-18v-8.4z" fill="#6d7f90"/><path d="M24 14.6a4.3 4.3 0 1 1 0 8.6 4.3 4.3 0 0 1 0-8.6z" fill="#dfe6ec"/><path d="M15.8 30.6c1.5-3.6 4.5-5.5 8.2-5.5s6.7 1.9 8.2 5.5c-2.3 2.4-5 3.9-8.2 3.9s-5.9-1.5-8.2-3.9z" fill="#dfe6ec"/></svg>
+      </span>
+      <span class="hm-txt"><b>管理员</b><i>考试设置 · 题库 · 考试控制</i></span>
+      <span class="hm-go">›</span>
+    </a>
+
     <a class="hm-card hm-study" id="hmStudy" href="study/">
       <span class="hm-ico">
         <svg viewBox="0 0 48 48"><path d="M6 9.6c6-2.4 12-2.4 18 .8v26.8c-6-3.2-12-3.2-18-.8z" fill="#5a8fd6"/><path d="M42 9.6c-6-2.4-12-2.4-18 .8v26.8c6-3.2 12-3.2 18-.8z" fill="#7aa9e6"/><path d="M24 10.4v26.8" stroke="#2f5f9e" stroke-width="1.4"/><path d="M10 16.6c3.4-1 6.6-.9 9.6.5M10 21.6c3.4-1 6.6-.9 9.6.5M10 26.6c3.4-1 6.6-.9 9.6.5" stroke="#dfeaf8" stroke-width="1.3" stroke-linecap="round"/><path d="M28.4 16.6c3-1.4 6.2-1.5 9.6-.5M28.4 21.6c3-1.4 6.2-1.5 9.6-.5M28.4 26.6c3-1.4 6.2-1.5 9.6-.5" stroke="#e8f1fb" stroke-width="1.3" stroke-linecap="round"/></svg>
@@ -39,6 +47,7 @@
 (function(){
   if (location.protocol === 'file:'){
     document.getElementById('hmExam').href = 'noi/index.html';
+    document.getElementById('hmAdmin').href = 'noi/index.html?admin=1';
     document.getElementById('hmStudy').href = 'study/index.html';
   }
 })();

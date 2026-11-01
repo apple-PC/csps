@@ -127,8 +127,10 @@ body.resizing.row{cursor:row-resize;}
   .pane{flex:1 1 auto !important;min-height:60px;overflow:hidden;}
 }
 </style>
+<link rel="stylesheet" href="assets/cbc-ide.css">
 </head>
 <body>
+<script>if(/[?&]ui=cbc(?:&|$)/.test(location.search))document.body.classList.add("cbc");</script>
 
 <div id="bootOverlay" class="boot-overlay">
   <div class="boot-box"><span class="spin"></span>正在加载编译器环境…</div>
@@ -5521,5 +5523,6 @@ setTimeout(() => {
   try{ parent.postMessage({ type:'ide:ready' }, '*'); }catch(e){}
 })();
 </script>
+<script src="assets/cbc-ide.js"></script>
 </body>
 </html>

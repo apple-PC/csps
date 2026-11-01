@@ -59,6 +59,8 @@ input,select,textarea{ font:inherit; }
 
 /* ============ 开始界面 ============ */
 .screen{ position:absolute; inset:0; }
+/* 管理员控制台打开时把桌面收起来（否则 #studentApp 会盖住 #adminApp） */
+.screen.admin-away{ display:none; }
 
 /* ═══ 主页：只有「考试端」与「复习中心」两个入口 ═══ */
 .home-body{
@@ -92,6 +94,7 @@ input,select,textarea{ font:inherit; }
 }
 .hm-card:hover{ background:rgba(255,255,255,.085); border-color:rgba(255,255,255,.22); transform:translateY(-1px); }
 .hm-exam:hover{ border-color:rgba(233,84,32,.55); }
+.hm-admin:hover{ border-color:rgba(140,163,184,.55); }
 .hm-study:hover{ border-color:rgba(90,143,214,.55); }
 .hm-ico{ flex:none; width:44px; height:44px; }
 .hm-ico svg{ width:100%; height:100%; display:block; }
@@ -228,20 +231,30 @@ input,select,textarea{ font:inherit; }
    - /etc/skel/.config/dconf/user 里唯一的定制：壁纸 noi_wallpaper_00.png
    - favorite-apps = [ubiquity, firefox, nautilus] */
 
-/* ---- 顶部面板：26px，近黑半透明，白色 12.5px 文字 ---- */
+/* ---- 顶部面板 ----
+   数值全部来自 ISO：/usr/share/gnome-shell/theme/Yaru/gnome-shell-theme.gresource
+     #panel { background-color:#1d1d1d; font-weight:bold; height:1.86em; }
+     #panel .panel-button { color:#f2f2f2; -natural-hpadding:12px; }
+     #panel .panel-button:active/:overview { color:#fff;
+        box-shadow: inset 0 -2px 0 0 #e95825; }   ← 橙色下划线是 GNOME 的活动态
+   1.86em @ 11pt ≈ 27px。 */
 .ub-top{
-  position:absolute; left:0; right:0; top:0; height:26px; z-index:7000;
+  position:absolute; left:0; right:0; top:0; height:27px; z-index:7000;
   display:flex; align-items:center; padding:0 4px;
-  background:rgba(29,29,29,.93);
-  color:#fff; font-family:var(--ui-font); font-size:12.5px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+  background:#1d1d1d;
+  color:#f2f2f2; font-family:var(--ui-font); font-size:12.5px; font-weight:700;
+  font-feature-settings:"tnum";
 }
 .ub-act{
-  height:26px; padding:0 9px; border:0; border-radius:0; background:transparent;
-  color:#fff; font:12.5px/26px var(--ui-font); cursor:default;
+  height:27px; padding:0 12px; border:0; border-radius:0; background:transparent;
+  color:#f2f2f2; font:700 12.5px/27px var(--ui-font); cursor:default;
   display:flex; align-items:center; gap:6px; white-space:nowrap; max-width:46%;
+  box-shadow:inset 0 -2px 0 0 transparent;
+  transition:box-shadow 150ms cubic-bezier(.25,.46,.45,.94), color 150ms;
 }
-.ub-act:hover{ background:rgba(255,255,255,.17); }
+.ub-act:hover{ color:#fff; }
+/* 「活动」处于 overview（应用网格打开）时：白字 + 底部 2px 橙线 */
+.ub-act.on{ color:#fff; box-shadow:inset 0 -2px 0 0 #e95825; }
 .ub-act:focus,.ub-ico:focus,.ub-power:focus,.ub-dock-item:focus,.ub-dock-grid:focus,
 .ub-grid-app:focus,.win-btn:focus{ outline:none; }
 .ub-act-ico{ display:none; width:14px; height:14px; flex:none; }
@@ -250,53 +263,99 @@ input,select,textarea{ font:inherit; }
 .ub-act-lbl{ overflow:hidden; text-overflow:ellipsis; }
 .ub-clock{
   position:absolute; left:50%; transform:translateX(-50%);
-  font:12.5px/26px var(--ui-font); color:#fff; white-space:nowrap; pointer-events:none;
+  font:700 12.5px/27px var(--ui-font); color:#f2f2f2; white-space:nowrap; pointer-events:none;
 }
-.ub-tray{ margin-left:auto; display:flex; align-items:center; gap:11px; padding-right:2px; }
-.ub-ico{ width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center; opacity:.95; }
+.ub-tray{ margin-left:auto; display:flex; align-items:center; gap:2px; padding-right:2px; }
+/* 状态区按钮：-natural-hpadding 12px，图标 1.09em + padding 5px */
+.ub-ico{
+  width:26px; height:27px; display:inline-flex; align-items:center; justify-content:center;
+  color:#f2f2f2; box-shadow:inset 0 -2px 0 0 transparent;
+  transition:box-shadow 150ms cubic-bezier(.25,.46,.45,.94);
+}
+.ub-ico:hover{ color:#fff; }
+.ub-ico.on{ box-shadow:inset 0 -2px 0 0 #e95825; }
 .ub-ico svg{ width:16px; height:16px; }
-.ub-power{ width:16px; height:16px; padding:0; border:0; background:transparent; color:#fff; }
-.ub-power:hover{ opacity:.7; }
-.ub-ime{ font-size:12.5px; display:inline-flex; align-items:center; gap:1px; }
+.ub-power{ width:26px; height:27px; padding:0; border:0; background:transparent; color:#f2f2f2; }
+.ub-power:hover{ color:#fff; }
+.ub-ime{ font-size:12.5px; display:inline-flex; align-items:center; gap:1px; padding:0 7px; height:27px; }
 .ub-ime b{ font-weight:400; font-size:9px; opacity:.8; }
-.ub-caret{ font-size:9px; opacity:.85; }
+.ub-caret{ font-size:9px; opacity:.85; padding:0 4px; }
 .ub-remain{ font:700 11.5px var(--mono-font); color:#c6e6a0; letter-spacing:.2px; }
 .ub-remain.warn{ color:#f2c14b; }
 .ub-remain.crit{ color:#ff8a7a; animation:blink 1s step-start infinite; }
 @keyframes blink{ 50%{ opacity:.35; } }
 
-/* ---- 左侧 Dock：64px，70% 不透明黑，占满顶栏以下高度 ---- */
+/* ---- 左侧 Dock ----
+   来自 ISO 同一份 gnome-shell.css：
+     .workspace-thumbnails, #dash { color:#eeeeec;
+        background-color:rgba(29,29,29,.775); border:1px solid rgba(255,255,255,.16); }
+     #dash { padding:5px 0; border-radius:0 9px 9px 0; border-left-width:0; }
+     .dash-item-container > StWidget { padding:5px 10px; }
+     .dash-label { background:rgba(29,29,29,.925); border-radius:6px;
+        box-shadow:0 0 0 1px rgba(255,255,255,.16); color:#eeeeec; padding:6px 8px; }
+   48px 图标 + 左右各 10px = 68px 宽。 */
 .ub-dock{
-  position:absolute; left:0; top:26px; bottom:0; width:64px; z-index:6900;
+  position:absolute; left:0; top:27px; bottom:0; width:68px; z-index:6900;
   display:flex; flex-direction:column; align-items:center;
-  padding:8px 0 6px; gap:4px;
-  background:rgba(28,28,28,.72);
+  padding:5px 0; gap:0;
+  background:rgba(29,29,29,.775);
+  border:1px solid rgba(255,255,255,.16); border-left-width:0;
+  border-radius:0 9px 9px 0;
+  -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+  transition:opacity 200ms cubic-bezier(.25,.46,.45,.94);
 }
 .ub-dock-apps{
   flex:1; width:100%; display:flex; flex-direction:column; align-items:center;
-  gap:4px; overflow:hidden;
+  gap:0; overflow:hidden;
 }
 .ub-dock-item{
-  position:relative; width:48px; height:48px; flex:none; padding:0;
-  border:0; border-radius:5px; background:transparent; cursor:default;
+  position:relative; width:48px; height:48px; flex:none;
+  margin:5px 0; padding:0; border:2px solid transparent; border-radius:4px;
+  background:transparent; cursor:default;
   display:flex; align-items:center; justify-content:center;
+  transition:background-color 100ms cubic-bezier(.25,.46,.45,.94);
 }
-.ub-dock-item:hover{ background:rgba(255,255,255,.13); }
-.ub-dock-item svg{ width:40px; height:40px; }
-/* 运行指示：右上角橙色小圆点（dash-to-dock DOTS 样式） */
+.ub-dock-item:hover{ background:rgba(238,238,236,.1); }
+.ub-dock-item svg{ width:48px; height:48px; }
+/* 真图标（从 ISO 抽的 PNG）走 <img>，尺寸跟着容器 */
+.ub-dock-item img{ width:48px; height:48px; display:block; object-fit:contain; }
+.ub-grid-app img{ width:96px; height:96px; flex:none; display:block; object-fit:contain; }
+.s-icon .ico img{ width:100%; height:100%; display:block; object-fit:contain; }
+.win-ico img{ width:16px; height:16px; display:block; object-fit:contain; }
+.gp-item-ico img{ width:16px; height:16px; display:block; object-fit:contain; }
+/* 运行指示：右侧橙色点（dash-to-dock running-indicator-style='DOTS'，色 #e95420） */
 .ub-dock-item.running::after{
-  content:''; position:absolute; right:3px; top:50%; margin-top:-2.5px;
+  content:''; position:absolute; right:-6px; top:50%; margin-top:-2.5px;
   width:5px; height:5px; border-radius:50%; background:#e95420;
   box-shadow:0 0 2px rgba(0,0,0,.6);
 }
+.ub-dock-item.focused{ background:rgba(238,238,236,.1); }
+/* 启动中：图标压暗 + 右下角转圈（真机起进程到窗口映射之间就是这个手感） */
+.ub-dock-item.launching svg{ opacity:.5; }
+.ub-dock-item.launching::before{
+  content:''; position:absolute; right:1px; bottom:1px; width:11px; height:11px;
+  border:2px solid rgba(238,238,236,.26); border-top-color:#f2f2f2; border-radius:50%;
+  box-sizing:border-box; animation:launchSpin .68s linear infinite;
+}
+@keyframes launchSpin{ to{ transform:rotate(360deg); } }
 .ub-dock-grid{
-  width:42px; height:42px; flex:none; padding:10px;
-  border:0; border-radius:50%; background:transparent;
+  width:48px; height:48px; flex:none; margin:5px 0; padding:12px;
+  border:0; border-radius:4px; background:transparent;
   display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
   gap:2px; cursor:default;
+  transition:background-color 100ms cubic-bezier(.25,.46,.45,.94);
 }
-.ub-dock-grid:hover{ background:rgba(255,255,255,.13); }
-.ub-dock-grid i{ display:block; width:3.5px; height:3.5px; margin:auto; border-radius:50%; background:#e6e6e6; }
+.ub-dock-grid:hover{ background:rgba(238,238,236,.1); }
+.ub-dock-grid i{ display:block; width:3.5px; height:3.5px; margin:auto; border-radius:50%; background:#eeeeec; }
+/* Dock 悬停提示（.dash-label） */
+.ub-tip{
+  position:absolute; z-index:7600; pointer-events:none;
+  background:rgba(29,29,29,.925); border-radius:6px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.16);
+  color:#eeeeec; font:12px var(--ui-font); padding:6px 8px;
+  white-space:nowrap; animation:tipIn 100ms cubic-bezier(.25,.46,.45,.94);
+}
+@keyframes tipIn{ from{ opacity:0; transform:translateX(-4px); } to{ opacity:1; transform:none; } }
 
 /* ---- 桌面：壁纸铺满整个屏幕，Dock 压在上面 ---- */
 #studentApp{
@@ -307,10 +366,13 @@ input,select,textarea{ font:inherit; }
   background-size:100% 100%; background-position:center; background-repeat:no-repeat;
 }
 .s-desktop{
-  position:absolute; inset:26px 0 0 64px; padding:10px 8px;
+  position:absolute; inset:27px 0 0 68px; padding:10px 8px;
   display:block; column-width:100px; column-gap:0; column-fill:auto;
   overflow:hidden; background:transparent;
 }
+/* 起进程期间光标变「忙」，跟真机等窗口映射时一样 */
+#studentApp.launching .s-desktop,
+#studentApp.launching .ub-dock-item{ cursor:progress; }
 .s-icon{
   width:100px; margin:0; break-inside:avoid; padding:7px 3px 8px;
   display:flex; flex-direction:column; align-items:center; gap:5px;
@@ -327,7 +389,7 @@ input,select,textarea{ font:inherit; }
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
 }
 .s-watermark{
-  position:absolute; inset:26px 0 0 64px; z-index:6000; pointer-events:none;
+  position:absolute; inset:27px 0 0 68px; z-index:6000; pointer-events:none;
   display:flex; align-items:center; justify-content:center; overflow:hidden;
   color:#fff; font-family:var(--mono-font); text-align:center;
   opacity:.016; font-size:20px; font-weight:700; line-height:3; letter-spacing:1px;
@@ -335,38 +397,114 @@ input,select,textarea{ font:inherit; }
 }
 .s-watermark.hidden{ display:none; }
 
-/* ---- 窗口（Yaru：深灰标题栏、标题居中、右上角按钮、关闭为红圆） ---- */
+/* ---- 窗口 ----
+   装饰数值来自 ISO /usr/share/themes/Yaru/gtk-3.20/gtk.gresource：
+     decoration { border-radius:7px 7px 0 0; border-width:0;
+                  box-shadow:0 3px 9px 1px rgba(0,0,0,.5), 0 0 0 1px rgba(34,34,34,.9); }
+     decoration:backdrop { box-shadow:0 2px 6px 2px rgba(0,0,0,.2), 0 0 0 1px rgba(34,34,34,.9);
+                           transition:200ms ease-out; }
+     headerbar { min-height:40px; padding:0 6px; border-bottom:1px solid #252525;
+                 background:#252525 linear-gradient(to top,#2c2c2c,#2c2c2c);
+                 box-shadow:inset 0 1px rgba(247,247,247,.07); }
+     headerbar:backdrop { background-color:#3e3e3e; }   ← 失焦反而更浅
+     button { border-radius:4px; transition:all 200ms cubic-bezier(.25,.46,.45,.94); }
+   开窗动画按 Mutter 的 200ms ease-out：0.92 缩放 + 淡入。 */
 .s-win{
   position:absolute; display:flex; flex-direction:column; min-width:300px; min-height:180px;
-  background:#f6f5f4; color:#2c2c2c; border-radius:6px; overflow:hidden;
-  box-shadow:0 6px 22px rgba(0,0,0,.42), 0 0 0 1px rgba(0,0,0,.26);
+  background:#f6f5f4; color:#2c2c2c;
+  border-radius:7px 7px 0 0; overflow:hidden;
+  box-shadow:0 3px 9px 1px rgba(0,0,0,.5), 0 0 0 1px rgba(34,34,34,.9);
+  transform-origin:center center;
+  animation:winOpen 200ms cubic-bezier(.25,.46,.45,.94) both;
+  transition:box-shadow 200ms ease-out, left 250ms cubic-bezier(.25,.46,.45,.94),
+             top 250ms cubic-bezier(.25,.46,.45,.94),
+             width 250ms cubic-bezier(.25,.46,.45,.94),
+             height 250ms cubic-bezier(.25,.46,.45,.94),
+             border-radius 160ms ease-out;
 }
-.s-win.maxed{ border-radius:0; box-shadow:0 0 0 1px rgba(0,0,0,.4); }
+/* 开窗动画放完就把 animation 摘掉：带 transform 的祖先会让内部 position:fixed
+   的弹出菜单以窗口为参照，必须避免长期保留 transform */
+.s-win.anim-done{ animation:none; }
+@keyframes winOpen{
+  from{ opacity:0; transform:scale(.92); }
+  to{ opacity:1; transform:scale(1); }
+}
+.s-win.closing{ animation:winClose 160ms cubic-bezier(.4,0,1,1) both; pointer-events:none; }
+@keyframes winClose{
+  from{ opacity:1; transform:scale(1); }
+  to{ opacity:0; transform:scale(.94); }
+}
+.s-win.minimizing{ animation:winMin 160ms cubic-bezier(.4,0,1,1) both; pointer-events:none; }
+@keyframes winMin{
+  from{ opacity:1; transform:scale(1); }
+  to{ opacity:0; transform:scale(.86); }
+}
+.s-win.restoring{ animation:winRestore 200ms cubic-bezier(.25,.46,.45,.94) both; }
+@keyframes winRestore{
+  from{ opacity:0; transform:scale(.86); }
+  to{ opacity:1; transform:scale(1); }
+}
+.s-win.maxed{ border-radius:0; box-shadow:0 0 0 1px rgba(34,34,34,.9); }
+/* 拖动 / 拖边时摘掉过渡，窗口要跟手 */
+.s-win.moving, .s-win.resizing{ transition:none; }
+.s-win.moving .s-win-head{ cursor:grabbing; }
+/* 鼠标划过内嵌 iframe（IDE 编辑区）时父窗口收不到 mousemove，拖到一半会卡住 */
+.s-win.moving iframe, .s-win.resizing iframe{ pointer-events:none; }
+/* 八向缩放手柄（不可见，只负责光标与命中区） */
+.win-rs{ position:absolute; z-index:6; }
+.win-rs.n{ top:0; left:10px; right:10px; height:5px; cursor:ns-resize; }
+.win-rs.s{ bottom:0; left:10px; right:10px; height:5px; cursor:ns-resize; }
+.win-rs.w{ left:0; top:10px; bottom:10px; width:5px; cursor:ew-resize; }
+.win-rs.e{ right:0; top:10px; bottom:10px; width:5px; cursor:ew-resize; }
+.win-rs.nw{ top:0; left:0; width:11px; height:11px; cursor:nwse-resize; }
+.win-rs.ne{ top:0; right:0; width:11px; height:11px; cursor:nesw-resize; }
+.win-rs.sw{ bottom:0; left:0; width:11px; height:11px; cursor:nesw-resize; }
+.win-rs.se{ bottom:0; right:0; width:11px; height:11px; cursor:nwse-resize; }
+.s-win.maxed .win-rs{ display:none; }
+/* 失焦窗口：阴影变浅 + 标题栏变浅（Yaru backdrop #3e3e3e） */
+.s-win:not(.focused){
+  box-shadow:0 2px 6px 2px rgba(0,0,0,.2), 0 0 0 1px rgba(34,34,34,.9);
+}
 .s-win-head{
-  position:relative; height:30px; flex:none; display:flex; align-items:center;
-  padding:0 6px 0 10px; gap:6px;
-  background:linear-gradient(#3c3c3c,#333);
-  color:#cfcfcf; font-size:12px; cursor:default; user-select:none;
+  position:relative; height:40px; flex:none; display:flex; align-items:center;
+  padding:0 6px 0 8px; gap:8px;
+  background:#2c2c2c;
+  border-bottom:1px solid #252525;
+  box-shadow:inset 0 1px rgba(247,247,247,.07);
+  color:#cfcfcf; font-size:12.5px; cursor:default; user-select:none;
+  transition:background-color 200ms ease-out, border-color 200ms ease-out, color 200ms ease-out;
 }
-.s-win.focused .s-win-head{ background:linear-gradient(#4a4a4a,#3b3b3b); color:#f4f4f4; }
-.s-win-head .win-ico{ width:14px; height:14px; flex:none; display:flex; align-items:center; justify-content:center; opacity:.9; }
-.s-win-head .win-ico svg{ width:14px; height:14px; }
+.s-win.focused .s-win-head{ background:#2c2c2c; color:#f4f4f4; }
+.s-win:not(.focused) .s-win-head{ background:#3e3e3e; border-bottom-color:#282828; color:#b8b8b8; }
+.s-win-head .win-ico{ width:16px; height:16px; flex:none; display:flex; align-items:center; justify-content:center; opacity:.9; }
+.s-win-head .win-ico svg{ width:16px; height:16px; }
 .s-win-head .win-title{
   position:absolute; left:50%; transform:translateX(-50%);
-  max-width:calc(100% - 160px); font-size:12px; font-weight:700;
+  max-width:calc(100% - 180px); font-size:12.5px; font-weight:700; padding:0 12px;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap; pointer-events:none;
 }
-.win-btns{ display:flex; gap:5px; align-items:center; margin-left:auto; flex:none; z-index:1; }
+.win-btns{ display:flex; gap:6px; align-items:center; margin-left:auto; flex:none; z-index:1; }
 .win-btn{
-  width:22px; height:22px; padding:0; border:0; border-radius:50%;
-  background:transparent; color:#cfcfcf; cursor:default;
+  width:24px; height:24px; padding:0; border:0; border-radius:50%;
+  background:rgba(255,255,255,.12); color:#f4f4f4; cursor:default;
   display:flex; align-items:center; justify-content:center;
-  font:400 10px/1 var(--ui-font);
+  font:400 11px/1 var(--ui-font);
+  transition:background-color 150ms cubic-bezier(.25,.46,.45,.94), color 150ms;
 }
-.win-btn:hover{ background:rgba(255,255,255,.18); color:#fff; }
+.win-btn:hover{ background:rgba(255,255,255,.26); color:#fff; }
 .win-btn.close{ background:#e01b24; color:#fff; }
 .win-btn.close:hover{ background:#f22b35; }
 .s-win-body{ flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; background:#fff; }
+/* headerbar 型窗口（Nautilus、软件中心）：标题栏兼任工具栏，居中标题让位给应用内容 */
+.s-win-head.head-bar{ padding:0 6px 0 7px; gap:5px; }
+/* 真机 GNOME 的 CSD 标题栏不放应用图标，窗口身份靠路径栏自己说明 */
+.s-win-head.head-bar .win-ico{ display:none; }
+/* 屏幕阅读器式隐藏：headerbar 窗口不需要居中标题，但节点要留着给 setTitle 用 */
+.s-win-head .win-title.head-title{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0;
+}
+.head-app{ flex:1; min-width:0; display:flex; align-items:center; gap:6px; overflow:hidden; }
 
 /* ---- GTK 菜单栏 / 工具栏 / 状态栏 ---- */
 .s-menubar{
@@ -386,13 +524,23 @@ input,select,textarea{ font:inherit; }
   font-size:10.5px; color:#5a5955;
 }
 
-/* ---- 题面文档 ---- */
-.pdf-bar{
-  flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:5px 12px;
-  background:#cfd6df; border-bottom:1px solid #aab4c0; font-size:12px; color:#333;
+/* ---- 题面文档（Evince 3.36） ---- */
+/* 真机 Evince：文档名在 headerbar 里，页面是灰色桌面上一张白纸 + 阴影 */
+.pdf-name{
+  flex:1; min-width:0; text-align:center; font-family:Consolas,monospace; font-weight:700;
+  font-size:12.5px; color:#f4f4f4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.pdf-bar .pdf-name{ font-family:Consolas,monospace; font-weight:700; }
-.pdf-body{ flex:1; overflow:auto; background:#fff; }
+.ev-body{
+  flex:1; min-height:0; overflow:auto; background:#e8e8e7;
+  display:flex; justify-content:center; align-items:flex-start; padding:14px 16px 26px;
+}
+.ev-page{
+  background:#fff; width:100%; max-width:742px; min-height:100%;
+  box-shadow:0 1px 3px rgba(0,0,0,.28), 0 6px 18px rgba(0,0,0,.10);
+  transform-origin:top center; transition:transform 140ms ease-out;
+}
+.ev-page.ev-frame{ display:flex; min-height:640px; }
+.ev-page.ev-frame iframe{ flex:1; border:0; width:100%; }
 .prob-doc{ padding:34px 44px 60px; max-width:860px; margin:0 auto; font-size:14px; line-height:1.8; }
 .prob-doc h2{ font-size:20px; margin:0 0 18px; padding-bottom:10px; border-bottom:2px solid #333; }
 .prob-doc h3{ font-size:15.5px; margin:22px 0 8px; }
@@ -406,16 +554,226 @@ input,select,textarea{ font:inherit; }
 .prob-doc p{ margin:6px 0; }
 .prob-doc iframe{ width:100%; height:100%; border:0; display:block; }
 
-/* ---- 压缩包查看器 ---- */
-.zip-list{ flex:1; overflow:auto; background:#fff; padding:12px; }
-.zip-row{
-  display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:6px; cursor:default; font-size:13px;
+/* ---- 归档管理器（file-roller 3.36） ---- */
+.ar-btn{
+  flex:none; min-height:24px; padding:0 11px; border:1px solid #222222; border-radius:4px;
+  background:#484848; color:#f7f7f7; font-size:12px; cursor:default;
+  transition:background-color 140ms cubic-bezier(.25,.46,.45,.94);
 }
-.zip-row:hover{ background:#eef3fa; }
-.zip-row .zi{ font-size:20px; }
-.zip-row .zname{ font-family:Consolas,monospace; }
-.zip-row .zmeta{ margin-left:auto; color:#999; font-size:11.5px; }
-.zip-row .zdir{ font-weight:700; }
+.ar-btn:hover{ background:#545454; }
+.ar-btn:active{ background:#3c3c3c; }
+.ar-title{
+  flex:1; min-width:0; text-align:center; font-weight:700; font-size:12.5px; color:#f4f4f4;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.ar-list{ flex:1; min-height:0; overflow:auto; background:#ffffff; font-size:12.5px; color:#2c2c2c; }
+.ar-head, .ar-row{
+  display:flex; align-items:center; gap:10px; padding:0 12px; height:29px;
+}
+.ar-head{
+  position:sticky; top:0; z-index:1; height:27px;
+  background:#f2f2f1; border-bottom:1px solid #dcdcd8;
+  font-size:11.5px; color:#5c5b57; font-weight:700;
+}
+.ar-row{ border-bottom:1px solid #f4f4f2; cursor:default; }
+.ar-row:hover{ background:#eef3fa; }
+.ar-c-name{ flex:1; min-width:0; display:flex; align-items:center; gap:8px; overflow:hidden; }
+.ar-c-name b{ font-weight:400; font-family:Consolas,monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ar-c-name img{ width:18px; height:18px; flex:none; object-fit:contain; }
+.ar-c-size{ width:76px; flex:none; text-align:right; color:#5c5b57; font-size:11.5px; }
+.ar-c-type{ width:140px; flex:none; color:#7a7975; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ar-c-time{ width:132px; flex:none; color:#7a7975; font-size:11.5px; }
+.ar-indent .ar-c-name{ padding-left:22px; }
+
+/* ---- GNOME 计算器 3.36 ---- */
+.calc{ flex:1; min-height:0; display:flex; flex-direction:column; gap:9px; padding:10px; background:#f6f5f4; }
+.calc-disp{
+  flex:0 0 auto; min-height:84px; display:flex; flex-direction:column;
+  align-items:flex-end; justify-content:flex-end; gap:2px;
+  padding:6px 12px; background:#fbfbfa; border:1px solid #e3e2df; border-radius:6px;
+}
+.calc-expr{ font-size:12px; color:#8a8984; min-height:15px; }
+.calc-val{
+  font-size:33px; font-weight:300; line-height:1.12; color:#2c2c2c;
+  max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.calc-pad{ flex:1; min-height:0; display:grid; grid-template-columns:repeat(4,1fr); grid-auto-rows:1fr; gap:6px; }
+.calc-key{
+  border:1px solid #d9d8d4; border-radius:6px; background:#fbfbfa; color:#2c2c2c;
+  font:400 15px/1 var(--ui-font); cursor:default;
+  transition:background-color 120ms cubic-bezier(.25,.46,.45,.94);
+}
+.calc-key:hover{ background:#f0efec; }
+.calc-key:active{ background:#e3e2de; }
+.calc-key.op{ background:#ecebe7; color:#1f1f1d; font-weight:500; }
+.calc-key.op:hover{ background:#e3e2de; }
+.calc-key.eq{ background:#df4a16; border-color:#c7400f; color:#ffffff; font-weight:700; }
+.calc-key.eq:hover{ background:#e95a26; }
+.calc-key.eq:active{ background:#c7400f; }
+
+/* ---- 文本编辑器（gedit 3.36） ---- */
+.ged-title{
+  flex:1; min-width:0; text-align:center; font-weight:700; font-size:12.5px; color:#f4f4f4;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.ged-area{
+  flex:1; min-height:0; width:100%; padding:10px 12px; border:0; outline:0; resize:none;
+  background:#ffffff; color:#2c2c2c; white-space:pre; overflow:auto;
+  font:13px/1.5 'Ubuntu Mono','DejaVu Sans Mono',Consolas,monospace;
+  tab-size:8;
+}
+.ged-status{
+  flex:0 0 auto; display:flex; align-items:center; gap:9px; padding:3px 10px;
+  background:#f0efec; border-top:1px solid #dcdbd7; font-size:11.5px; color:#5c5b57;
+}
+.ged-pos{ margin-right:auto; }
+.ged-sep{ width:1px; height:11px; background:#d5d4d0; flex:none; }
+
+/* ---- VS Code / Sublime Text 共用的代码区 ---- */
+.ce{
+  flex:1; min-height:0; display:flex; flex-direction:column;
+  font:13px/1.45 'DejaVu Sans Mono',Consolas,monospace;
+}
+.ce-vsc{ background:#1e1e1e; color:#d4d4d4; }
+.ce-sub{ background:#272822; color:#f8f8f2; }
+.ce-menu{
+  flex:0 0 auto; display:flex; gap:1px; padding:2px 6px;
+  background:#3c3c3c; color:#cccccc; font:12px/1.4 var(--ui-font);
+}
+.ce-mi{ padding:3px 7px; border-radius:3px; }
+.ce-mi:hover{ background:#505050; }
+.ce-body{ flex:1; min-height:0; display:flex; }
+.ce-act{
+  width:48px; flex:none; display:flex; flex-direction:column; align-items:center;
+  gap:1px; padding-top:4px; background:#333333;
+}
+.ce-act-b{
+  width:48px; height:43px; padding:0; border:0; border-left:2px solid transparent;
+  background:transparent; color:#858585; cursor:default;
+  display:flex; align-items:center; justify-content:center;
+  transition:color 140ms ease, border-color 140ms ease;
+}
+.ce-act-b svg{ width:22px; height:22px; }
+.ce-act-b:hover{ color:#ffffff; }
+.ce-act-b.on{ color:#ffffff; border-left-color:#ffffff; }
+.ce-side{ width:214px; flex:none; overflow:auto; background:#252526; color:#cccccc; }
+.ce-sub .ce-side{ background:#212121; color:#d0d0d0; }
+.ce-side-h{
+  padding:7px 12px 5px; font:11px/1.3 var(--ui-font); letter-spacing:.4px;
+  text-transform:uppercase; color:#bbbbbb;
+}
+.ce-sub .ce-side-h{ text-transform:none; letter-spacing:0; color:#b8b8b8; }
+.ce-node{
+  display:flex; align-items:center; gap:5px; height:22px; padding:0 10px;
+  font-size:12.5px; white-space:nowrap; cursor:default;
+}
+.ce-node.root{ font-weight:700; color:#e4e4e4; }
+.ce-sub .ce-node.root{ color:#e8e8e8; }
+.ce-node.file:hover{ background:#2a2d2e; }
+.ce-sub .ce-node.file:hover{ background:#2d2d2d; }
+.ce-node.sel{ background:#37373d; color:#ffffff; }
+.ce-sub .ce-node.sel{ background:#3a3a3a; color:#ffffff; }
+.ce-caret{ width:10px; flex:none; color:#c8c8c8; font-size:10px; }
+.ce-fi{ width:15px; height:15px; flex:none; object-fit:contain; }
+.ce-main{ flex:1; min-width:0; display:flex; flex-direction:column; background:#1e1e1e; }
+.ce-sub .ce-main{ background:#272822; }
+.ce-tabs{ flex:0 0 auto; display:flex; height:34px; background:#252526; }
+.ce-sub .ce-tabs{ background:#303030; }
+.ce-tab{
+  position:relative; display:flex; align-items:center; gap:8px; padding:0 12px;
+  font:12px/1.4 var(--ui-font); color:#969696; background:#2d2d2d;
+  border-right:1px solid #252526; cursor:default;
+}
+.ce-sub .ce-tab{ background:#303030; border-right:0; color:#8f8f8f; }
+.ce-tab.on{ background:#1e1e1e; color:#ffffff; }
+.ce-sub .ce-tab.on{ background:#272822; color:#ffffff; }
+.ce-tab.on::before{ content:''; position:absolute; left:0; right:0; top:0; height:1px; background:#007acc; }
+.ce-sub .ce-tab.on::before{ display:none; }
+.ce-tab-x{ margin-left:4px; opacity:.75; font-size:13px; }
+.ce-editor{ flex:1; min-height:0; display:flex; }
+.ce-code{ flex:1; min-height:0; display:flex; font:13px/1.45 'DejaVu Sans Mono',Consolas,monospace; }
+.ce-gutter{
+  flex:none; min-width:54px; overflow:hidden; padding:6px 0;
+  text-align:right; user-select:none; color:#858585;
+}
+.ce-sub .ce-gutter{ color:#7f7f7f; }
+.ce-gut{ white-space:pre; padding-right:14px; }
+.ce-view{ flex:1; min-width:0; position:relative; overflow:hidden; }
+.ce-hl,.ce-ta{
+  position:absolute; inset:0; margin:0; border:0; padding:6px 10px;
+  font:inherit; white-space:pre; tab-size:4; overflow:auto;
+}
+.ce-hl{ pointer-events:none; overflow:hidden; }
+.ce-ta{
+  background:transparent; color:transparent; caret-color:#aeafad;
+  resize:none; outline:0; -webkit-text-fill-color:transparent;
+}
+.ce-sub .ce-ta{ caret-color:#f8f8f2; }
+.ce-ta::selection{ background:#264f78; }
+.ce-sub .ce-ta::selection{ background:#57544d; }
+.ce-ta::-webkit-scrollbar{ width:12px; height:12px; }
+.ce-ta::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.16); }
+/* VS Code 的 C++ 配色 */
+.ce-vsc .joe-com{ color:#6a9955; font-weight:400; font-style:normal; }
+.ce-vsc .joe-kw{ color:#569cd6; font-weight:400; }
+.ce-vsc .joe-pre{ color:#c586c0; font-weight:400; }
+.ce-vsc .joe-inc{ color:#ce9178; font-weight:400; }
+.ce-vsc .joe-str,.ce-vsc .joe-const{ color:#ce9178; font-weight:400; }
+.ce-vsc .joe-num{ color:#b5cea8; font-weight:400; }
+.ce-vsc .joe-brace{ color:#d4d4d4; font-weight:400; }
+/* Sublime 的 Monokai */
+.ce-sub .joe-com{ color:#75715e; font-weight:400; font-style:normal; }
+.ce-sub .joe-kw{ color:#66d9ef; font-weight:400; font-style:italic; }
+.ce-sub .joe-pre{ color:#f92672; font-weight:400; }
+.ce-sub .joe-inc{ color:#e6db74; font-weight:400; }
+.ce-sub .joe-str,.ce-sub .joe-const{ color:#e6db74; font-weight:400; }
+.ce-sub .joe-num{ color:#ae81ff; font-weight:400; }
+.ce-sub .joe-brace{ color:#f8f8f2; font-weight:400; }
+.ce-status{
+  flex:0 0 auto; height:22px; display:flex; align-items:center; gap:14px; padding:0 10px;
+  background:#007acc; color:#ffffff; font:11.5px/1.4 var(--ui-font);
+}
+.ce-sub .ce-status{ background:#2e2e2e; color:#d0d0d0; height:24px; }
+.ce-st-l{ margin-right:auto; display:flex; align-items:center; gap:12px; }
+.ce-st-r{ display:flex; gap:14px; }
+.ce-st-i{ white-space:nowrap; }
+.ce-branch{ opacity:.95; }
+
+/* ---- Vim 8.1（终端里） ---- */
+.vim{
+  flex:1; min-height:0; outline:0; display:flex; flex-direction:column;
+  background:#300a24; color:#ffffff;
+  font:13px/19px 'DejaVu Sans Mono','Ubuntu Mono',Consolas,monospace;
+}
+.vim-screen{ flex:1; min-height:0; margin:0; padding:0 2px; white-space:pre; overflow:hidden; }
+.vim-tilde{ color:#3465a4; }
+.vim-cur{ background:#ffffff; color:#300a24; }
+.vim-status{
+  flex:0 0 auto; display:flex; padding:0 2px; white-space:pre;
+  background:#ffffff; color:#000000;
+}
+.vim-r{ margin-left:auto; }
+.vim-cmd{ flex:0 0 auto; min-height:19px; padding:0 2px; white-space:pre; color:#ffffff; }
+.vim-cmd.typing{ color:#ffffff; }
+
+/* ---- Midnight Commander 4.8 ---- */
+.mc{
+  flex:1; min-height:0; outline:0; display:flex; flex-direction:column;
+  background:#0000aa; color:#ffffff; padding:4px 0 0;
+  font:13px/1.32 'DejaVu Sans Mono',Consolas,monospace;
+}
+.mc-panels{ flex:1; min-height:0; display:flex; justify-content:center; gap:3px; overflow:hidden; }
+/* 宽度由脚本按窗口实际像素测得（ch 单位在某些字体下会取整跑偏） */
+.mc-p{ flex:0 0 auto; width:44ch; margin:0; white-space:pre; color:#ffffff; }
+.mc-row{ display:block; }
+.mc-row.sel{ background:#005555; color:#dddddd; }
+.mc-row.sel.on{ background:#00aaaa; color:#ffffff; }
+.mc-fkeys{
+  flex:0 0 auto; display:flex; gap:3px; padding:2px 6px 3px;
+  background:#0000aa; border-top:1px solid #00aaaa; white-space:pre;
+}
+.mc-fk{ color:#ffffff; }
+.mc-fk b{ color:#ffff55; font-weight:400; }
 
 /* ---- IDE 窗口 ---- */
 .ide-bar{
@@ -768,14 +1126,55 @@ input,select,textarea{ font:inherit; }
 /* 侧栏收起后正文过宽不利于阅读，限制单行长度 */
 .rev-content > *{ max-width:1100px; }
 
-/* ═══════════════ 桌面弹出菜单（GNOME 2 / Ambiance：浅灰底 + 橙选区） ═══════════════ */
+/* ═══════════════ 弹出菜单 ═══════════════
+   两套：
+   · .gp-pop.shell —— GNOME Shell 的菜单（顶栏「活动」/系统菜单/网络/日历）。
+     来自 gnome-shell.css：.popup-menu{min-width:15em;color:#F7F7F7}
+       .popup-menu-content{padding:16px 0}  .popup-menu-item{spacing:6px;padding:6px}
+       .popup-menu-item.selected{background:rgba(247,247,247,.1)}
+       .popup-menu-item:checked{background:#3e3e3e}
+       .popup-sub-menu{background:#373737}  分隔线 background:#2c2c2c, margin 6px 64px
+   · .gp-ctx / 不带 shell —— GTK 应用与桌面右键菜单（Yaru 浅色）。 */
 .gp-pop,.gp-ctx{
   position:fixed; z-index:9000; min-width:190px; max-height:76vh; overflow:auto;
   background:#f2f1f0; border:1px solid #a9a6a0; border-radius:3px; padding:2px;
   box-shadow:0 4px 14px rgba(0,0,0,.45); color:#2c2b28;
   font:11px/1.4 Ubuntu,"DejaVu Sans","Noto Sans SC","PingFang SC",sans-serif;
+  transform-origin:top left;
+  animation:menuIn 120ms cubic-bezier(.25,.46,.45,.94);
 }
 .gp-pop.hidden,.gp-ctx.hidden{ display:none; }
+@keyframes menuIn{
+  from{ opacity:0; transform:scale(.97) translateY(-4px); }
+  to{ opacity:1; transform:none; }
+}
+/* GNOME Shell 菜单：深灰圆角 6px，白字 */
+.gp-pop.shell{
+  min-width:15em; padding:6px; border:0; border-radius:6px;
+  background:#3e3e3e; color:#F7F7F7;
+  box-shadow:0 0 0 1px rgba(0,0,0,.35), 0 10px 26px rgba(0,0,0,.45);
+  font:13px/1.35 var(--ui-font);
+}
+.gp-pop.shell .gp-menuhead{
+  padding:7px 12px 5px; font-size:11.5px; letter-spacing:0; text-transform:none;
+  color:rgba(247,247,247,.55); font-weight:700; border-bottom:0; margin-bottom:2px;
+}
+.gp-pop.shell .gp-item{
+  gap:12px; padding:8px 12px; border-radius:4px; color:#F7F7F7; font-size:13px;
+  transition:background-color 100ms cubic-bezier(.25,.46,.45,.94);
+}
+.gp-pop.shell .gp-item:hover,.gp-pop.shell .gp-item:focus{
+  background:rgba(247,247,247,.1); color:#fff;
+}
+.gp-pop.shell .gp-item.dim{ color:rgba(247,247,247,.5); }
+.gp-pop.shell .gp-item.dim:hover{ background:transparent; color:rgba(247,247,247,.5); }
+.gp-pop.shell .gp-chk{ color:#df4a16; }
+.gp-pop.shell .gp-item:hover .gp-chk{ color:#df4a16; }
+.gp-pop.shell .gp-sep{ background:#2c2c2c; margin:6px 12px; }
+.gp-pop.shell .gp-sub{ background:#373737; }
+.gp-pop.shell .gp-item-hint{ color:rgba(247,247,247,.45); }
+.gp-pop.shell .gp-item:hover .gp-item-hint{ color:rgba(247,247,247,.7); }
+.gp-pop.shell .gp-item svg{ opacity:.92; }
 .gp-pop-wide{ min-width:250px; }
 .gp-menuhead{
   padding:4px 8px 3px; font-size:10px; letter-spacing:.4px; text-transform:uppercase;
@@ -799,40 +1198,57 @@ input,select,textarea{ font:inherit; }
 .gp-item:hover .gp-chk{ color:#fff; }
 .gp-sep{ height:1px; background:#dcd9d4; margin:3px 2px; }
 
-/* ═══════════════ 应用网格（Super+A / 点 Dock 底部九宫格） ═══════════════ */
+/* ═══════════════ 应用网格（Super+A / 点 Dock 底部九宫格） ═══════════════
+   数值来自 ISO gnome-shell.css：
+     .icon-grid { -shell-grid-horizontal-item-size:144px;
+                  -shell-grid-vertical-item-size:144px; spacing:36px }
+     .icon-grid .overview-icon { icon-size:96px }
+     .app-well-app .overview-icon { border-radius:4px; padding:6px;
+                 border:2px solid transparent; transition-duration:100ms }
+     .app-well-app:hover .overview-icon { background-color:rgba(255,255,255,.1) }
+     .app-well-app .overview-icon-with-label { padding:10px 8px 5px 8px } (>StBoxLayout spacing 6px)
+     .all-apps, .frequent-apps > StBoxLayout { padding:0 88px 10px 88px }
+     /* Frequent | All toggle *\/
+     .app-view-controls { padding-bottom:32px }
+     .app-view-control { padding:4px 32px; margin:0 4px; color:#b2b2a9 }
+     .app-view-control:hover { color:#eeeeec; box-shadow:inset 0 -2px #b2b2a9 }
+     .app-view-control:checked { color:#eeeeec; box-shadow:inset 0 -2px #df4a16 } */
 .ub-grid{
-  position:absolute; left:0; right:0; top:26px; bottom:0; z-index:7400;
+  position:absolute; left:0; right:0; top:27px; bottom:0; z-index:7400;
   background:rgba(22,22,22,.97);
   overflow-y:auto; overscroll-behavior:contain;
   display:flex; flex-direction:column;
   -webkit-backdrop-filter:blur(22px); backdrop-filter:blur(22px);
+  animation:gridIn 200ms cubic-bezier(.25,.46,.45,.94);
 }
+@keyframes gridIn{ from{ opacity:0; } to{ opacity:1; } }
 .ub-grid.hidden{ display:none; }
-/* 打开网格时 Dock 收起（真机 dash-to-dock 就是这么做的），只保留顶栏 */
+/* 打开网格时 Dock 收起（dash-to-dock 在 overview 里会隐藏），只保留顶栏 */
 #studentApp.grid-open .ub-dock{ display:none; }
-/* 底部分页：常用（灰）/ 全部（白 + 橙色下划线） */
+/* 底部分页：常用（#b2b2a9）/ 全部（#eeeeec + 2px #df4a16 下划线，满宽） */
 .ub-grid-tabs{
-  display:flex; justify-content:center; align-items:center; gap:26px;
-  margin:26px auto 0; padding:0 0 18px;
+  display:flex; justify-content:center; align-items:center;
+  margin:0 auto; padding:0 0 32px;
 }
 .ub-grid-tab{
-  position:relative; padding:6px 2px 9px; border:0; background:transparent;
-  color:rgba(255,255,255,.58); font:13px var(--ui-font); cursor:default;
-  letter-spacing:.5px;
+  padding:4px 32px; margin:0 4px; border:0; background:transparent;
+  color:#b2b2a9; font:13px var(--ui-font); cursor:default;
+  box-shadow:inset 0 -2px transparent;
+  transition:color 120ms cubic-bezier(.25,.46,.45,.94),
+             box-shadow 120ms cubic-bezier(.25,.46,.45,.94);
 }
-.ub-grid-tab:hover{ color:rgba(255,255,255,.86); }
-.ub-grid-tab.on{ color:#fff; }
-.ub-grid-tab.on::after{
-  content:''; position:absolute; left:50%; bottom:0; transform:translateX(-50%);
-  width:26px; height:2.5px; border-radius:2px; background:#e95420;
-}
+.ub-grid-tab:hover{ color:#eeeeec; box-shadow:inset 0 -2px #b2b2a9; }
+.ub-grid-tab:active{ box-shadow:inset 0 -2px #eeeeec; }
+.ub-grid-tab.on{ color:#eeeeec; box-shadow:inset 0 -2px #df4a16; }
 /* GNOME 把整块网格在可视区里垂直居中；margin:auto 在 flex 里正好做到这一点 */
-.ub-grid-inner{ width:min(880px, 90%); margin:auto; padding:26px 0 40px; }
+.ub-grid-inner{ width:100%; margin:auto; padding:26px 0 10px; }
 .ub-grid-search{
   display:flex; align-items:center; gap:9px; height:34px;
-  width:min(460px, 100%); margin:0 auto 30px; padding:0 13px; border-radius:8px;
-  background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.08);
+  width:min(340px, 60%); margin:0 auto 26px; padding:0 13px; border-radius:17px;
+  background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.08);
+  transition:background-color 120ms cubic-bezier(.25,.46,.45,.94);
 }
+.ub-grid-search:focus-within{ background:rgba(255,255,255,.22); }
 .ub-grid-search input{
   flex:1; border:0; background:transparent; outline:none;
   color:#fff; font:13px var(--ui-font);
@@ -851,21 +1267,33 @@ input,select,textarea{ font:inherit; }
   font-size:11px; letter-spacing:.8px; color:rgba(255,255,255,.5);
   margin:0 0 10px 4px; font-weight:700;
 }
-.ub-grid-body{ display:grid; grid-template-columns:repeat(auto-fill, minmax(112px, 1fr)); gap:2px 0; }
-.ub-grid-app{
-  display:flex; flex-direction:column; align-items:center; gap:7px;
-  padding:12px 4px 10px; border:0; border-radius:6px; background:transparent;
-  color:#fff; cursor:default; width:100%;
+/* 144px 单元格 + 36px 间距，整体居中 */
+.ub-grid-body{
+  display:grid; grid-template-columns:repeat(auto-fit, 144px);
+  gap:36px; justify-content:center; padding:0 88px 10px;
 }
-.ub-grid-app:hover{ background:rgba(255,255,255,.14); }
+.ub-grid-app{
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  width:144px; padding:10px 8px 5px; border:2px solid transparent; border-radius:4px;
+  background:transparent; color:#fff; cursor:default;
+  transition:background-color 100ms cubic-bezier(.25,.46,.45,.94);
+  animation:appIn 220ms cubic-bezier(.25,.46,.45,.94) both;
+}
+@keyframes appIn{ from{ opacity:0; transform:scale(.9); } to{ opacity:1; transform:none; } }
+.ub-grid-app:hover{ background:rgba(255,255,255,.1); }
+.ub-grid-app:active{ background:rgba(4,4,4,.475); }
 .ub-grid-app:disabled{ opacity:.42; }
-.ub-grid-app svg{ width:50px; height:50px; flex:none; }
+.ub-grid-app svg{ width:96px; height:96px; flex:none; }
 .ub-grid-app span{
-  font-size:11.5px; line-height:1.3; text-align:center;
-  max-width:104px; overflow:hidden; display:-webkit-box;
+  font-size:12px; line-height:1.3; text-align:center;
+  max-width:128px; overflow:hidden; display:-webkit-box;
   -webkit-line-clamp:2; -webkit-box-orient:vertical;
 }
-.ub-grid-empty{ color:rgba(255,255,255,.5); font-size:12.5px; padding:26px 4px; }
+.ub-grid-empty{ color:rgba(255,255,255,.5); font-size:12.5px; padding:26px 4px; text-align:center; }
+/* 网格里正在启动的应用：图标压暗 + 呼吸，点第二下无效 */
+.ub-grid-app.launching{ pointer-events:none; }
+.ub-grid-app.launching svg{ animation:launchPulse 1.05s ease-in-out infinite; }
+@keyframes launchPulse{ 0%,100%{ opacity:.9; } 50%{ opacity:.42; } }
 
 /* ═══════════════ 终端行 ═══════════════ */
 .term .t-line{ min-height:1.15em; white-space:pre-wrap; word-break:break-all; }
@@ -966,51 +1394,119 @@ input,select,textarea{ font:inherit; }
 .arb-score.part{ color:#c98a1e; }
 .arb-score.zero{ color:#c25a4a; }
 
-/* ═══════════════ 文件管理器 ═══════════════ */
-.fman-bar{
-  flex:0 0 auto; display:flex; align-items:center; gap:6px; padding:5px 10px;
-  background:#e9edf3; border-bottom:1px solid #ccd5e0;
+/* ═══════════════ 文件管理器（Nautilus 3.36） ═══════════════ */
+/* headerbar 里的按钮：Yaru 的按钮底色 #484848、1px #222 边、圆角 4px，
+   路径栏是「连在一起」的分段按钮，只有首尾切圆角（.path-bar.linked 的规则） */
+.nu-nav{ display:flex; align-items:center; gap:2px; flex:none; }
+.nu-tb{
+  width:28px; height:28px; padding:0; flex:none;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid transparent; border-radius:5px; background:transparent;
+  color:#dcdcdc; cursor:default;
+  transition:background-color 140ms cubic-bezier(.25,.46,.45,.94);
 }
-.fman-btn{
-  width:26px; height:24px; border:1px solid #c2ccd8; border-radius:4px; background:#f8fafc;
-  color:#3d4f63; font-size:13px; line-height:1; cursor:default;
+.nu-tb svg{ width:16px; height:16px; }
+.nu-tb:hover{ background:rgba(247,247,247,.11); }
+.nu-tb:active{ background:rgba(247,247,247,.19); }
+.nu-tb:disabled{ opacity:.34; background:transparent; }
+.nu-path{ display:flex; align-items:center; flex:1; min-width:0; overflow:hidden; }
+.nu-crumb{
+  flex:none; min-height:24px; padding:0 9px;
+  border:1px solid #222222; border-right:0; background:#484848; color:#f7f7f7;
+  font-size:12px; cursor:default; border-radius:0;
+  max-width:190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  transition:background-color 140ms cubic-bezier(.25,.46,.45,.94);
 }
-.fman-btn:hover{ background:#e3ecf7; }
-.fman-crumb{ display:flex; align-items:center; gap:2px; flex:1; overflow:hidden; }
-.crumb-seg{
-  border:0; background:transparent; color:#2b4670; font-size:12px; padding:3px 6px; border-radius:3px;
-  cursor:default; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-}
-.crumb-seg:hover{ background:#dae6f5; }
-.crumb-sep{ color:#9aa9ba; font-size:11px; }
-.fman-list{ flex:1; overflow:auto; background:#fff; }
-.fman-row{
-  display:flex; align-items:center; gap:10px; padding:7px 18px 7px 14px; font-size:12.5px; color:#2f4055;
-  border-bottom:1px solid #f2f5f9; cursor:default;
-}
-.fman-row:hover{ background:#f0f6fd; }
-.fman-row .ico{ width:22px; height:22px; display:flex; flex:none; }
-.fman-row .ico svg{ width:22px; height:22px; }
-.fman-name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:Consolas,monospace; }
-.fman-size{ width:82px; flex:none; color:#7b8c9f; font-size:11.5px; text-align:right; }
-.fman-type{ width:88px; flex:none; color:#93a2b3; font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.fman-status{
-  flex:0 0 auto; padding:4px 12px; background:#eef2f7; border-top:1px solid #dde4ec;
-  font-size:11.5px; color:#6b7c8f;
-}
-.fman-empty{ padding:34px; text-align:center; color:#a4b1c0; font-size:13px; }
+.nu-crumb:first-child{ border-radius:4px 0 0 4px; }
+.nu-crumb:last-child{ border-radius:0 4px 4px 0; border-right:1px solid #222222; }
+.nu-crumb:only-child{ border-radius:4px; border-right:1px solid #222222; }
+.nu-crumb:hover{ background:#535353; }
+.nu-crumb:active{ background:#3c3c3c; }
+.nu-crumb.cur{ font-weight:700; }
 
-/* ═══════════════ Firefox（离线） ═══════════════ */
+/* 图标视图：单元格 106px、图标 60px、标签最多两行（Yaru 标准缩放） */
+.nu-view{ flex:1; min-height:0; position:relative; overflow:auto; background:#ffffff; }
+.nu-grid{
+  display:grid; grid-template-columns:repeat(auto-fill,106px); gap:2px;
+  padding:10px; align-content:start;
+}
+.nu-item{
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  padding:8px 4px 7px; border-radius:6px; cursor:default; user-select:none;
+}
+.nu-item .nu-ico{ width:60px; height:60px; flex:none; display:flex; align-items:center; justify-content:center; }
+.nu-item .nu-ico img{ width:100%; height:100%; object-fit:contain; }
+.nu-item .nu-name{
+  font-size:11.5px; line-height:1.32; color:#2c2c2c; text-align:center;
+  max-height:2.64em; overflow:hidden; word-break:break-all;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+}
+.nu-item:hover{ background:#f0f0ef; }
+.nu-item.sel{ background:#df4a16; }
+.nu-item.sel .nu-name{ color:#ffffff; }
+.nu-empty{ grid-column:1 / -1; padding:56px 0; text-align:center; color:#9a9a9a; font-size:13px; }
+
+/* 内容骨架：外壳先出、视图后填。真机冷启动读目录也要一两秒，
+   直接「啪」一下出内容才是假的来源 */
+.skel{ position:absolute; inset:0; background:#fff; animation:skelIn 110ms ease-out both; }
+.skel-grid{ display:grid; grid-template-columns:repeat(auto-fill,106px); gap:2px; padding:10px; align-content:start; }
+.skel-cell{
+  display:flex; flex-direction:column; align-items:center; gap:5px; padding:8px 4px 7px;
+  animation:skelPulse 1.35s ease-in-out infinite;
+}
+.skel-ico{ width:60px; height:60px; border-radius:8px; background:#e6e9ee; }
+.skel-line{ height:9px; border-radius:4px; background:#e6e9ee; }
+@keyframes skelIn{ from{ opacity:0; } to{ opacity:1; } }
+@keyframes skelPulse{ 0%,100%{ opacity:.55; } 45%{ opacity:1; } }
+
+/* ═══════════════ Firefox 79（离线） ═══════════════ */
 .ff-bar{
-  flex:0 0 auto; display:flex; gap:8px; padding:7px 10px;
-  background:#f0f0f0; border-bottom:1px solid #d3d3d3;
+  flex:0 0 auto; display:flex; align-items:center; gap:4px; padding:6px 8px;
+  background:#f9f9fa; border-bottom:1px solid #e0e0e0;
 }
-.ff-bar input{
-  flex:1; padding:4px 10px; border:1px solid #c9c9c9; border-radius:3px; background:#fff;
-  font-size:12.5px; color:#555;
+.ff-tb{
+  width:30px; height:30px; padding:0; flex:none;
+  display:flex; align-items:center; justify-content:center;
+  border:0; border-radius:4px; background:transparent; color:#5b5b66; cursor:default;
+  transition:background-color 120ms ease;
 }
+.ff-tb svg{ width:16px; height:16px; }
+.ff-tb:hover{ background:rgba(12,12,13,.09); }
+.ff-tb:active{ background:rgba(12,12,13,.15); }
+.ff-tb:disabled{ opacity:.4; background:transparent; }
+.ff-url{
+  flex:1; min-width:0; display:flex; align-items:center; gap:6px;
+  height:30px; margin:0 4px; padding:0 8px;
+  background:#ffffff; border:1px solid #d7d7db; border-radius:4px;
+  transition:border-color 140ms ease;
+}
+.ff-url.loading{ border-color:#b6b6bd; }
+.ff-ident{ width:16px; height:16px; flex:none; display:flex; align-items:center; justify-content:center; color:#6b6b76; }
+.ff-ident svg{ width:15px; height:15px; }
+.ff-ident::after{
+  content:''; display:none; width:11px; height:11px; box-sizing:border-box;
+  border:2px solid rgba(12,12,13,.18); border-top-color:#0a84ff; border-radius:50%;
+  animation:ffSpin .72s linear infinite;
+}
+.ff-ident.busy svg{ display:none; }
+.ff-ident.busy::after{ display:block; }
+@keyframes ffSpin{ to{ transform:rotate(360deg); } }
+.ff-input{
+  flex:1; min-width:0; padding:0; border:0; outline:0; background:transparent;
+  font-size:12.5px; color:#15141a;
+}
+.ff-view{ flex:1; min-height:0; position:relative; display:flex; }
 .ff-page{ flex:1; overflow:auto; background:#fff; }
-.ff-off{ max-width:520px; margin:60px auto; text-align:center; }
+/* 左下角状态面板：Photon 连接/等待时的原文提示 */
+.ff-status{
+  position:absolute; left:7px; bottom:7px; max-width:72%;
+  padding:2px 9px; border-radius:3px;
+  background:rgba(255,255,255,.94); border:1px solid rgba(0,0,0,.15);
+  font-size:12px; color:#15141a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  transition:opacity 220ms ease; pointer-events:none;
+}
+.ff-status.out{ opacity:0; }
+.ff-off{ max-width:520px; margin:60px auto; text-align:center; animation:skelIn 180ms ease-out both; }
 .ff-off-ico{ width:72px; height:72px; margin:0 auto 16px; opacity:.85; }
 .ff-off-ico svg{ width:72px; height:72px; }
 .ff-off h1{ font-size:19px; color:#333; margin:0 0 10px; }
@@ -1162,6 +1658,32 @@ input,select,textarea{ font:inherit; }
    背景取 Yaru greeter 的 #2c001e 品牌深紫
    ══════════════════════════════════════════════════════════════════ */
 
+/* ── 开机：Plymouth 启动画面（Ubuntu 20.04 ubuntu-logo 主题）── */
+.ply{
+  position:fixed; inset:0; z-index:9950; background:#000;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px;
+  opacity:1; transition:opacity .42s ease;
+}
+.ply.out{ opacity:0; pointer-events:none; }
+.ply.gone{ display:none; }
+.ply-logo svg{ width:104px; height:104px; display:block; }
+.ply-logo{ animation:plyLogoIn .7s cubic-bezier(.22,.61,.36,1) both; }
+@keyframes plyLogoIn{ from{ opacity:0; transform:scale(.9); } to{ opacity:1; transform:scale(1); } }
+.ply-dots{ display:flex; gap:9px; height:12px; }
+.ply-dots i{
+  width:9px; height:9px; border-radius:50%; background:#f2f2f2;
+  animation:plyDot 1.1s ease-in-out infinite;
+}
+.ply-dots i:nth-child(1){ animation-delay:0s; }
+.ply-dots i:nth-child(2){ animation-delay:.13s; }
+.ply-dots i:nth-child(3){ animation-delay:.26s; }
+.ply-dots i:nth-child(4){ animation-delay:.39s; }
+.ply-dots i:nth-child(5){ animation-delay:.52s; }
+@keyframes plyDot{
+  0%, 70%, 100%{ opacity:.22; transform:scale(.78); }
+  30%{ opacity:1; transform:scale(1); }
+}
+
 /* ── 显示器休眠（DPMS off）── */
 .dpms{
   position:fixed; inset:0; z-index:9900; background:#000;
@@ -1210,7 +1732,7 @@ input,select,textarea{ font:inherit; }
   background:#5b5b5b; display:grid; place-items:center;
   border:2px solid transparent; transition:border-color .18s ease, box-shadow .18s ease;
 }
-.gdm-avatar svg{ width:38px; height:38px; display:block; }
+.gdm-avatar svg{ width:44px; height:44px; display:block; }
 .gdm-user:hover .gdm-avatar{ border-color:rgba(255,255,255,.55); }
 .gdm-user:hover{ transform:translateY(-2px); }
 .gdm-name{
@@ -1482,3 +2004,192 @@ input,select,textarea{ font:inherit; }
 .sw-nav a:hover{ background:#e8e6e3; }
 .sw-nav a.on{ background:#e95420; color:#fff; }
 .sw-body{ flex:1; min-height:0; overflow:auto; }
+
+/* ══════════════════════════════════════════════════════════════════
+   Code::Blocks 20.03 外壳（菜单栏 / 工具栏 / Management / 状态栏）
+   数值来源：ISO 内 /usr/share/themes 的 Yaru-dark gtk.css
+     .background             #3e3e3e 底 / #F7F7F7 字 / backdrop #9b9b9b
+     menubar                 padding:0, box-shadow:inset 0 -1px rgba(0,0,0,.1)
+     menubar > menuitem      min-height:16px, padding:4px 8px
+     menubar > menuitem:hover  inset 0 -3px #df4a16, color:#19B6EE
+     menu                    #404040, border 1px #222222
+     menu menuitem           min-height:16px, padding:4px 6px
+     menu menuitem:hover     #ffffff on #df4a16
+   ══════════════════════════════════════════════════════════════════ */
+.cbc-shell{
+  flex:1; min-height:0; display:flex; flex-direction:column;
+  background:#3e3e3e; color:#f7f7f7;
+  font:12px/1.45 'Ubuntu','DejaVu Sans',sans-serif;
+}
+
+/* ── 菜单栏 ── */
+.cbc-shell .s-menubar{
+  flex:0 0 25px; height:25px; gap:0; padding:0 3px;
+  background:#3e3e3e; color:#f7f7f7;
+  border-bottom:0; box-shadow:inset 0 -1px rgba(0,0,0,.1);
+  font:11.5px/1 'Ubuntu','DejaVu Sans',sans-serif;
+}
+.cbc-shell .s-menubar .mb-item{
+  min-height:16px; height:23px; display:flex; align-items:center;
+  padding:4px 8px; border-radius:2px; color:#f7f7f7;
+}
+.cbc-shell .s-menubar .mb-item:hover{
+  background:transparent; color:#19b6ee; box-shadow:inset 0 -3px #df4a16;
+}
+
+/* ── 工具栏 ── */
+.cbc-toolbar{
+  flex:0 0 34px; height:34px; display:flex; align-items:center; gap:1px;
+  padding:0 4px; background:#3e3e3e;
+  border-bottom:1px solid #2b2b2b;
+  box-shadow:inset 0 1px rgba(247,247,247,.06);
+}
+.cbc-tb{
+  flex:none; width:24px; height:24px; padding:0; display:flex;
+  align-items:center; justify-content:center;
+  border:1px solid transparent; border-radius:3px; background:transparent;
+  cursor:default;
+}
+.cbc-tb img{ width:16px; height:16px; display:block; }
+.cbc-tb:hover{ background:rgba(247,247,247,.12); border-color:rgba(247,247,247,.16); }
+.cbc-tb:active{ background:rgba(0,0,0,.3); }
+.cbc-tb.off img{ opacity:.35; }
+.cbc-tb-sep{ flex:none; width:1px; height:20px; margin:0 5px; background:#4d4d4d; }
+.cbc-tb-lbl{
+  flex:none; margin:0 5px 0 3px; color:#cfcfcf;
+  font:11.5px/1 'Ubuntu','DejaVu Sans',sans-serif;
+}
+.cbc-toolbar select{
+  flex:none; height:22px; padding:1px 4px;
+  background:#4a4a4a; color:#f0f0f0; border:1px solid #2b2b2b; border-radius:3px;
+  font:11.5px/1 'Ubuntu','DejaVu Sans',sans-serif;
+}
+.cbc-toolbar select:hover{ background:#525252; }
+.cbc-spacer{ flex:1; }
+
+/* ── 中部：Management + 编辑区 ── */
+.cbc-body{ flex:1; min-height:0; display:flex; }
+.cbc-side{
+  flex:0 0 208px; width:208px; display:flex; flex-direction:column;
+  min-height:0; background:#3e3e3e;
+  border-right:1px solid #2b2b2b; color:#e8e8e8;
+}
+.cbc-side-head{
+  flex:0 0 22px; height:22px; display:flex; align-items:center; gap:5px;
+  padding:0 7px; background:#4a4a4a; border-bottom:1px solid #2b2b2b;
+  color:#d8d8d8; font:11px/1 'Ubuntu','DejaVu Sans',sans-serif; letter-spacing:.2px;
+}
+.cbc-side-head .cbc-x{ margin-left:auto; color:#9b9b9b; font-size:10px; }
+.cbc-tree{
+  flex:1; min-height:0; overflow:auto; padding:3px 0;
+  font:11.5px/1.7 'Ubuntu','DejaVu Sans',sans-serif;
+}
+.cbc-node{
+  display:flex; align-items:center; gap:4px; padding:0 6px 0 4px;
+  white-space:nowrap; cursor:default; color:#e4e4e4;
+}
+.cbc-node:hover{ background:rgba(247,247,247,.09); }
+.cbc-node.sel{ background:#df4a16; color:#fff; }
+.cbc-node .cbc-caret{
+  flex:none; width:10px; text-align:center; font-size:8px; color:#a8a8a8;
+}
+.cbc-node .cbc-ico{ flex:none; width:16px; height:16px; display:block; }
+.cbc-side-tabs{
+  flex:0 0 23px; display:flex; border-top:1px solid #2b2b2b; background:#4a4a4a;
+}
+.cbc-side-tabs button{
+  flex:1; padding:0; height:22px; border:0; border-right:1px solid #2b2b2b;
+  background:#4a4a4a; color:#c8c8c8; cursor:default;
+  font:10.5px/1 'Ubuntu','DejaVu Sans',sans-serif;
+}
+.cbc-side-tabs button:last-child{ border-right:0; }
+.cbc-side-tabs button.on{ background:#3e3e3e; color:#fff; box-shadow:inset 0 2px 0 #df4a16; }
+.cbc-frame{ flex:1; min-width:0; border:0; width:100%; background:#fff; display:block; }
+
+/* ── 状态栏 ── */
+.cbc-statusbar{
+  flex:0 0 22px; height:22px; display:flex; align-items:center;
+  background:#3e3e3e; border-top:1px solid #2b2b2b; color:#e0e0e0;
+  font:11px/1 'Ubuntu','DejaVu Sans',sans-serif;
+}
+.cbc-sb{ padding:0 10px; height:100%; display:flex; align-items:center;
+  border-right:1px solid #4d4d4d; white-space:nowrap; }
+.cbc-sb:last-child{ border-right:0; }
+.cbc-sb.push{ margin-left:auto; }
+.cbc-sb.dim{ color:#9b9b9b; }
+
+/* ── 启动期的 CBC 启动图（真机 Code::Blocks 也是先弹这张 splash）── */
+.cbc-splash{
+  position:absolute; inset:0; z-index:5; display:flex; align-items:center; justify-content:center;
+  background:#3e3e3e;
+}
+.cbc-splash img{
+  width:min(440px,72%); height:auto; display:block;
+  border-radius:2px; box-shadow:0 10px 30px rgba(0,0,0,.55);
+  animation:cbcSplashIn 260ms cubic-bezier(.25,.46,.45,.94) both;
+}
+@keyframes cbcSplashIn{ from{ opacity:0; transform:scale(.97); } to{ opacity:1; transform:none; } }
+.cbc-splash.out{ opacity:0; transition:opacity .22s ease; }
+
+/* ═══════════════ joe（Joe's Own Editor）═══════════════
+   终端配色取 Ubuntu 20.04 GNOME Terminal 的默认 profile：底 #300a24 / 字 #ffffff。
+   语法色取 ISO 里的 /usr/share/joe/colors/default.jcf：
+     .colors 16        → ANSI 16 色（Tango 调色板）
+     =Comment  green   → #4e9a06
+     =Keyword  bold    → 白色加粗
+     =Preproc  blue    → #3465a4
+     =Constant cyan    → #06989a
+     =Brace    magenta → #75507b
+   顶部状态行来自 /etc/joe/joerc：
+     -lmsg \i%k%T%W%I%X %n %m%y%R %M %x
+     -rmsg  %S Row %4r Col %3c
+   反显（\i）在终端里就是「底色当字色」——白底、#300a24 字。 */
+.joe{
+  flex:1; min-height:0; display:flex; flex-direction:column;
+  background:#300a24; color:#ffffff;
+  font:13px/1.45 'DejaVu Sans Mono','Ubuntu Mono',Consolas,monospace;
+}
+.joe-status{
+  flex:0 0 auto; display:flex; align-items:baseline;
+  background:#ffffff; color:#300a24; font-weight:700;
+  padding:0 2px; white-space:pre; user-select:none;
+}
+.joe-st-l{ flex:0 0 auto; }
+.joe-st-r{ flex:0 0 auto; margin-left:auto; }
+.joe-view{ flex:1; min-height:0; position:relative; overflow:hidden; }
+.joe-hl,.joe-ta{
+  position:absolute; inset:0; margin:0; border:0; padding:1px 3px;
+  font:inherit; white-space:pre; tab-size:8; overflow:auto;
+}
+.joe-hl{ pointer-events:none; color:#ffffff; overflow:hidden; }
+.joe-ta{
+  background:transparent; color:transparent; caret-color:#ffffff;
+  resize:none; outline:0; -webkit-text-fill-color:transparent;
+}
+.joe-ta::selection{ background:#4e6a8a; }
+.joe-ta::-webkit-scrollbar{ width:10px; height:10px; }
+.joe-ta::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.22); }
+.joe-msg{
+  flex:0 0 auto; min-height:1.45em; padding:0 3px; color:#ffffff;
+  white-space:pre; overflow:hidden;
+}
+.joe-msg.dim{ color:#c9a8bc; }
+
+/* default.jcf 里的语法配色 */
+.joe-com{ color:#4e9a06; }
+.joe-kw,.joe-type{ color:#ffffff; font-weight:700; }
+.joe-pre{ color:#3465a4; }
+.joe-inc{ color:#06989a; font-weight:700; }
+.joe-str,.joe-num,.joe-const{ color:#06989a; }
+.joe-brace{ color:#75507b; }
+.joe-esc{ color:#06989a; font-weight:700; }
+
+/* ^KH / ^T 的 {Basic} 键位菜单：原文来自 /etc/joe/joerc 的 {Basic} 段 */
+.joe-help{
+  position:absolute; inset:0; z-index:3; overflow:auto;
+  background:#300a24; color:#ffffff; padding:1px 3px;
+  white-space:pre; font:inherit;
+}
+.joe-help b{ font-weight:700; color:#ffffff; }
+.joe-help u{ text-decoration:none; color:#c4a000; }
+.joe-help .sep{ color:#7a5568; }

@@ -19,6 +19,27 @@
   <div class="g-pct" id="globalLoadingPct"></div>
 </div>
 
+<!-- ═══════════════ 开机（Plymouth：Ubuntu logo + 五点 throbber） ═══════════════ -->
+<div id="boot" class="ply">
+  <div class="ply-logo">
+    <svg viewBox="0 0 100 100" aria-hidden="true">
+      <g fill="none" stroke="#f2f2f2" stroke-width="8.6" stroke-linecap="round">
+        <path d="M81.9 41.5A33 33 0 0 1 58.5 81.9"/>
+        <path d="M41.5 81.9A33 33 0 0 1 18.1 41.5"/>
+        <path d="M26.67 26.67A33 33 0 0 1 73.33 26.67"/>
+      </g>
+      <g fill="#f2f2f2">
+        <circle cx="50" cy="83" r="8.6"/>
+        <circle cx="21.42" cy="33.5" r="8.6"/>
+        <circle cx="78.58" cy="33.5" r="8.6"/>
+      </g>
+    </svg>
+  </div>
+  <div class="ply-dots" id="plyDots">
+    <i></i><i></i><i></i><i></i><i></i>
+  </div>
+</div>
+
 <!-- ═══════════════ 显示器休眠（DPMS off）：动一下鼠标或按键唤醒 ═══════════════ -->
 <div id="dpms" class="dpms">
   <div class="dpms-hint" id="dpmsHint">移动鼠标或按任意键唤醒</div>
@@ -68,7 +89,7 @@
       <button id="btnConnectFolder" class="btn btn-sm">选择文件夹…</button>
       <div class="adm-folder-hint">设置 / 题库 / 状态实时写盘</div>
     </div>
-    <button id="btnAdminExit" class="adm-exit">← 返回开始界面</button>
+    <button id="btnAdminExit" class="adm-exit">← 返回桌面</button>
   </aside>
   <main class="adm-main">
     <section id="view-settings" class="adm-view">

@@ -93,6 +93,8 @@ async function gdmLogin(account, pwd){
   window.__app('admin');
   await sleep(30);
   check('管理员端打开', visible('adminApp'));
+  check('打开控制台时桌面收起（否则桌面会盖住控制台）',
+    document.getElementById('studentApp').classList.contains('admin-away'));
   check('修复回归：打开面板即初始化配置落盘', !!window.localStorage.getItem('csp_sim:settings') && !!window.localStorage.getItem('csp_sim:problems'));
   check('设置视图可见', visible('view-settings'));
   $('#setExamName').value = 'CSP-S 2026 模拟';
@@ -119,6 +121,7 @@ async function gdmLogin(account, pwd){
 
   click($('#btnAdminExit'));
   check('退出管理面板回到桌面', visible('adminApp') === false && visible('studentApp'));
+  check('退出后桌面重新显示', !document.getElementById('studentApp').classList.contains('admin-away'));
 
   // 管理员桌面应当多出「考试管理」入口
   window.Desktop.openAppGrid();
@@ -154,15 +157,31 @@ async function gdmLogin(account, pwd){
   check('桌面有回收站', icons.some(i => i.textContent.includes('回收站')));
 
   /* 桌面上不再摆启动器：应用一律从「显示应用程序」网格启动，与真实 NOI Linux 的操作一致 */
-  async function launchApp(name){
+  async function launchApp(name, opts){
+    opts = opts || {};
     window.Desktop.openAppGrid();
     const box = document.getElementById('sGridInput');
     box.value = name;
     box.dispatchEvent(new window.Event('input', { bubbles: true }));
     const btn = document.querySelector('#sGridBody .ub-grid-app');
     if (!btn) throw new Error('网格里找不到应用：' + name);
+    const winCount = document.querySelectorAll('.s-win').length;
     btn.dispatchEvent(new window.Event('click', { bubbles: true }));
-    await sleep(40);
+    if (opts.probe){
+      // 起进程的几百毫秒里：Dock 上出现启动指示，光标变忙
+      await sleep(60);
+      opts.probe({
+        dockLaunching: document.querySelectorAll('.ub-dock-item.launching').length,
+        bodyBusy: document.getElementById('studentApp').classList.contains('launching'),
+        wins: document.querySelectorAll('.s-win').length - winCount,
+      });
+    }
+    // 等窗口真的被「映射」出来（真机有进程启动耗时，测试不能只 sleep 一个固定值）
+    for (let i = 0; i < 80; i++){
+      if (document.querySelectorAll('.s-win').length > winCount) break;
+      await sleep(25);
+    }
+    await sleep(60);
   }
 
   // ── 壁纸（ISO 内 9 张 NOI 官方图，默认 noi-00） ──
@@ -185,9 +204,21 @@ async function gdmLogin(account, pwd){
   check('网格含 Firefox 网络浏览器', /Firefox/.test(gridTxt));
   check('网格含 LibreOffice 四件套', ['Calc','Draw','Impress','Writer'].every(k => new RegExp('LibreOffice ' + k).test(gridTxt)));
   check('网格含系统监视器 / 语言支持 / 字符 / 字体', ['系统监视器','语言支持','字符','字体'].every(k => gridTxt.includes(k)));
-  check('网格里没有 VS Code（真机不存在）', !/VS Code/.test(gridTxt));
-  check('网格里没有 Vim（真机菜单里没有）', !/Vim/.test(gridTxt));
-  check('网格图标为 SVG', document.querySelectorAll('#sGridBody .ub-grid-app svg').length >= 10);
+  // 按用户指示「补能真做出来的那批」：编辑器 / 计算器 / 归档 / 文档查看器进网格
+  check('网格含 VS Code / Sublime Text',
+    /Visual Studio Code/.test(gridTxt) && /Sublime Text/.test(gridTxt));
+  check('网格含 Vim / Midnight Commander',
+    /Vim/.test(gridTxt) && /Midnight Commander/.test(gridTxt));
+  check('网格含 计算器 / 文本编辑器 / 归档管理器 / 文档查看器',
+    ['计算器','文本编辑器','归档管理器','文档查看器'].every(k => gridTxt.includes(k)));
+  check('网格不含系统设置项（Livepatch / 附加驱动 / 软件和更新）',
+    !/Livepatch/.test(gridTxt) && !/附加驱动/.test(gridTxt) && !/软件和更新/.test(gridTxt) &&
+    !/安装 RELEASE/.test(gridTxt));
+  check('网格图标有真图（ISO 抽出的 PNG）',
+    document.querySelectorAll('#sGridBody .ub-grid-app img').length >= 10);
+  check('网格其余图标仍为 SVG',
+    document.querySelectorAll('#sGridBody .ub-grid-app img, #sGridBody .ub-grid-app svg').length ===
+    document.querySelectorAll('#sGridBody .ub-grid-app').length);
   check('网格按名称排序', (() => {
     const names = [...document.querySelectorAll('#sGridBody .ub-grid-app span')].map(x => x.textContent.trim());
     return names.length > 1 && names.join('|') === [...names].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN')).join('|');
@@ -221,46 +252,118 @@ async function gdmLogin(account, pwd){
   check('应用网格可关闭', grid.classList.contains('hidden'));
   check('关闭网格后 Dock 恢复', !document.getElementById('studentApp').classList.contains('grid-open'));
 
-  // ── 文件管理器：真实目录结构（桌面上只有这一个考生目录） ──
+  // ── 应用启动：有「起进程」过程，不是瞬间出窗口 ──
+  let launchProbe = null;
+  await launchApp('系统监视器', { probe(p){ launchProbe = p; } });
+  check('启动中 Dock 出现启动指示', !!launchProbe && launchProbe.dockLaunching >= 1);
+  check('启动中桌面进入忙碌态（光标 progress）', !!launchProbe && launchProbe.bodyBusy);
+  check('刚点下时窗口还没被映射', !!launchProbe && launchProbe.wins === 0);
+  check('启动耗时过后窗口正常出现', document.querySelectorAll('.s-win').length >= 1);
+  check('启动结束后忙碌态已清除', !document.getElementById('studentApp').classList.contains('launching'));
+
+  // ── 窗口手感：拖动跟手 + 八向拖边缩放 ──
+  {
+    const w0 = document.querySelector('.s-win');
+    check('窗口有八向缩放手柄', w0.querySelectorAll('.win-rs').length === 8);
+    w0.querySelector('.s-win-head').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true, clientX: 300, clientY: 200 }));
+    check('拖动时摘掉过渡（跟手）', w0.classList.contains('moving'));
+    window.dispatchEvent(new window.MouseEvent('mouseup'));
+    check('松手后恢复过渡', !w0.classList.contains('moving'));
+    w0.querySelector('.win-rs.se').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true, clientX: 300, clientY: 200 }));
+    check('拖边时进入 resizing 态', w0.classList.contains('resizing'));
+    window.dispatchEvent(new window.MouseEvent('mousemove', { clientX: 420, clientY: 320 }));
+    window.dispatchEvent(new window.MouseEvent('mouseup'));
+    check('松手后退出 resizing 态', !w0.classList.contains('resizing'));
+  }
+  window.Desktop.closeAllWins();
+  await sleep(220);
+
+  // ── 文件管理器：Nautilus 3.36（headerbar + 图标视图 + 先骨架后内容） ──
   icons.find(i => i.textContent.includes('teacher')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
   await sleep(20);
-  check('文件管理器打开', !!document.querySelector('.fman-list'));
-  check('文件管理器列出 4 个题目目录', [...document.querySelectorAll('.fman-row .fman-type')].filter(x => x.textContent === '文件夹').length === 4);
-  check('状态栏显示 teacher 路径', /teacher/.test(document.querySelector('.fman-status').textContent));
-  const homeRows = [...document.querySelectorAll('.fman-row')];
-  check('考生目录内有压缩包', homeRows.some(r => r.textContent.includes('.zip')));
-  check('考生目录内有考试须知', homeRows.some(r => r.textContent.includes('考试须知')));
+  check('文件管理器打开（headerbar 外壳）', !!document.querySelector('.nu-view') &&
+    !!document.querySelector('.s-win-head.head-bar'));
+  check('外壳先出现、视图区在载入（骨架）', !!document.querySelector('.nu-view .skel'));
+  check('路径栏已显示 teacher', /teacher/.test(
+    [...document.querySelectorAll('.nu-crumb.cur')].map(b => b.textContent).join('')));
+  await sleep(460);
+  check('载入完成后骨架已移除', !document.querySelector('.nu-view .skel'));
+  check('图标视图列出 4 个题目目录',
+    document.querySelectorAll('.nu-item[data-kind="folder"]').length === 4);
+  check('图标用的是 Yaru 真图', [...document.querySelectorAll('.nu-item .nu-ico img')]
+    .every(i => /assets\/icons\/[a-z]+\.png$/.test(i.getAttribute('src'))));
+  const nuItems = [...document.querySelectorAll('.nu-item')];
+  check('考生目录内有压缩包', nuItems.some(r => r.dataset.name.includes('.zip')));
+  check('考生目录内有考试须知', nuItems.some(r => r.dataset.name.includes('考试须知')));
 
   // ── 压缩包 → 题面（在考生目录里双击，而不是桌面上） ──
-  homeRows.find(r => r.textContent.includes('.zip')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
+  nuItems.find(r => r.dataset.name.includes('.zip')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
   await sleep(20);
   check('zip 窗口打开', [...document.querySelectorAll('.win-title')].some(t => t.textContent.includes('.zip')));
-  document.querySelector('.zip-row').dispatchEvent(new window.Event('dblclick', { bubbles: true }));
+  document.querySelector('.ar-row').dispatchEvent(new window.Event('dblclick', { bubbles: true }));
   await sleep(20);
   check('题面窗口打开', document.querySelector('.pdf-name') !== null);
   check('题面含标题', document.querySelector('.prob-doc h2') !== null);
 
-  document.querySelector('.fman-row').dispatchEvent(new window.Event('dblclick', { bubbles: true }));
-  await sleep(20);
-  const fmRows = [...document.querySelectorAll('.fman-row')];
-  check('题目目录含 .cpp 源文件', fmRows.some(r => r.textContent.includes('.cpp')));
-  check('题目目录含样例 .in/.ans', fmRows.some(r => r.textContent.includes('.in')) && fmRows.some(r => r.textContent.includes('.ans')));
+  document.querySelector('.nu-item[data-kind="folder"]').dispatchEvent(new window.Event('dblclick', { bubbles: true }));
+  await sleep(220);
+  const nuIn = [...document.querySelectorAll('.nu-item')];
+  check('题目目录含 .cpp 源文件', nuIn.some(r => r.dataset.kind === 'cpp'));
+  check('题目目录含样例 .in/.ans', nuIn.some(r => r.dataset.name.endsWith('.in')) && nuIn.some(r => r.dataset.name.endsWith('.ans')));
+  check('进入子目录后路径栏多一段', document.querySelectorAll('.nu-crumb').length >= 3);
+  window.Desktop.closeAllWins();
+  await sleep(200);
 
-  // ── IDE ──
+  // ── IDE（Code::Blocks 20.03：外壳 + 内嵌编辑区）──
   await launchApp('Code::Blocks');
   check('Code::Blocks 打开（真实标题格式）', [...document.querySelectorAll('.win-title')].some(t => /\.cpp - Code::Blocks 20\.03$/.test(t.textContent)));
   check('IDE 有 Code::Blocks 菜单栏', (() => {
-    const mb = document.querySelector('.s-menubar');
+    const mb = document.querySelector('.cbc-shell .s-menubar');
     if (!mb) return false;
     const names = [...mb.querySelectorAll('.mb-item')].map(x => x.textContent);
     return names[0] === 'File' && names.includes('Build') && names.includes('DoxyBlocks') && names[names.length - 1] === 'Help';
   })());
-  check('IDE 题目下拉有 4 题', document.querySelectorAll('.ide-bar select option').length === 4);
-  check('IDE 显示源文件真实路径', /teacher\/.*\.cpp/.test(document.querySelector('.ide-path').textContent));
-  const pid = document.querySelector('.ide-bar select option').value;
+  check('IDE 工具栏用 ISO 里的真图标', (() => {
+    const imgs = [...document.querySelectorAll('.cbc-toolbar .cbc-tb img')].map(x => x.getAttribute('src'));
+    return imgs.length >= 6 && imgs.some(s => /compilerun\.png$/.test(s)) && imgs.some(s => /rebuild\.png$/.test(s));
+  })());
+  check('IDE 有 Management 面板（Projects/Symbols/Resources）', (() => {
+    const t = [...document.querySelectorAll('.cbc-side-tabs button')].map(b => b.textContent);
+    return t.join('/') === 'Projects/Symbols/Resources';
+  })());
+  check('Management 项目树列出 4 个题目源文件', document.querySelectorAll('.cbc-tree .cbc-node.file').length === 4);
+  check('Others 节点挂当前题的样例文件（切题要跟着换）', (() => {
+    const sel = document.querySelector('.cbc-tree .cbc-node.file.sel');
+    const box = document.querySelector('.cbc-tree .cbc-others');
+    return !!sel && !!box && box.textContent.includes(sel.dataset.problem + '1.in');
+  })());
+  check('IDE 显示源文件真实路径', /teacher\/.*\.cpp/.test(document.querySelector('.cbc-statusbar [data-cbc="path"]').textContent));
+  check('启动图用的是 ISO 里 Code::Blocks 的 splash', !!document.querySelector('.cbc-splash img[src*="splash.png"]'));
+  check('编辑区以 CBC 内嵌态加载', /ui=cbc/.test(document.querySelector('.cbc-frame').getAttribute('src')));
+  const pidNode = [...document.querySelectorAll('.cbc-tree .cbc-node.file')].find(n => n.classList.contains('sel'));
+  const pid = pidNode.dataset.problem;
+  // 状态栏光标位置由编辑区上报
+  window.dispatchEvent(new window.MessageEvent('message', { data: { type: 'ide:caret', line: 7, col: 12 } }));
+  await sleep(20);
+  check('状态栏显示行列位置', /行 7, 列 12/.test(document.querySelector('.cbc-statusbar [data-cbc="caret"]').textContent));
   window.postMessage({ type: 'ide:code', code: 'int main(){return 0;}' }, '*');
   await sleep(30);
   check('IDE 代码自动保存', (JSON.parse(window.localStorage.getItem('csp_sim:codes'))[pid] || '').includes('main'));
+
+  // 切题：树里的 Others 必须换成新题的样例文件
+  {
+    const other = [...document.querySelectorAll('.cbc-tree .cbc-node.file')].find(n => n.dataset.problem !== pid);
+    other.dispatchEvent(new window.Event('click', { bubbles: true }));
+    await sleep(200);
+    check('点树里的另一题会切过去', [...document.querySelectorAll('.cbc-tree .cbc-node.file.sel')]
+      .some(n => n.dataset.problem === other.dataset.problem));
+    check('切题后 Others 换成新题的样例',
+      document.querySelector('.cbc-tree .cbc-others').textContent.includes(other.dataset.problem + '1.in'));
+    /* 切回去，后面的终端测试还用 pid */
+    [...document.querySelectorAll('.cbc-tree .cbc-node.file')]
+      .find(n => n.dataset.problem === pid).dispatchEvent(new window.Event('click', { bubbles: true }));
+    await sleep(200);
+  }
 
   // ── 终端 ──
   await launchApp('终端');
@@ -301,12 +404,179 @@ async function gdmLogin(account, pwd){
   check('Arbiter 列出全部测试点', document.querySelectorAll('.arb-table tbody tr').length >= 3);
   check('Arbiter 显示评分栏', !!document.querySelector('.arb-foot .arb-score'));
 
+  // ══════════════════════════════════════════════════════════
+  //  办公 / 系统工具 / 编辑器（按 ISO 补的 8 个应用）
+  // ══════════════════════════════════════════════════════════
+  console.log('— 计算器（GNOME 计算器 3.36） —');
+  await launchApp('计算器');
+  await sleep(40);
+  const calcVal = () => document.querySelector('.calc-val').textContent;
+  const calcKey = k => [...document.querySelectorAll('.calc-key')].find(b => b.textContent === k);
+  check('计算器打开，6×4 键盘', document.querySelectorAll('.calc-key').length === 24);
+  check('计算器初始显示 0', calcVal() === '0');
+  ['1','2','+','3','4','='].forEach(k => click(calcKey(k)));
+  check('12 + 34 = 46', calcVal() === '46');
+  check('表达式行回显「12 + 34 =」', /12 \+ 34 =/.test(document.querySelector('.calc-expr').textContent));
+  click(calcKey('C'));
+  check('C 清空回 0', calcVal() === '0');
+  ['8','1','√x'].forEach(k => click(calcKey(k)));
+  check('√81 = 9', calcVal() === '9');
+  click(calcKey('C'));
+  ['3','x²'].forEach(k => click(calcKey(k)));
+  check('3 的平方 = 9', calcVal() === '9');
+  click(calcKey('C'));
+  ['4','¹⁄x'].forEach(k => click(calcKey(k)));
+  check('1/4 = 0.25', calcVal() === '0.25');
+  click(calcKey('C'));
+  ['5','±'].forEach(k => click(calcKey(k)));
+  check('± 取负', calcVal() === '-5');
+  click(calcKey('C'));
+  document.querySelector('.calc').dispatchEvent(
+    new window.KeyboardEvent('keydown', { key: '7', bubbles: true }));
+  check('键盘数字键也能输入', calcVal() === '7');
+
+  console.log('— 文本编辑器（gedit 3.36） —');
+  await launchApp('文本编辑器');
+  await sleep(60);
+  const ged = document.querySelector('.ged-area');
+  check('文本编辑器打开（标题栏兼任工具栏）',
+    !!ged && !!document.querySelector('.s-win-head.head-bar') && !!document.querySelector('.ged-title'));
+  check('状态栏初始「行 1，列 1」', document.querySelector('.ged-pos').textContent === '行 1，列 1');
+  check('状态栏标明纯文本 / 制表符宽度：8',
+    /纯文本/.test(document.querySelector('.ged-status').textContent) &&
+    /制表符宽度：8/.test(document.querySelector('.ged-status').textContent));
+  ged.value = 'hello\nworld';
+  ged.selectionStart = ged.selectionEnd = 8;
+  click(ged);
+  check('光标位置随编辑器内容更新', document.querySelector('.ged-pos').textContent === '行 2，列 3');
+  ged.dispatchEvent(new window.KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true }));
+  await sleep(30);
+  const gedSaved = (window.Desktop.fs.list('~/Desktop') || [])
+    .filter(n => n.type === 'file' && /^未命名文档 \d+\.txt$/.test(n.name));
+  check('Ctrl+S 把文档写进 ~/Desktop', gedSaved.some(n => n.content === 'hello\nworld'));
+
+  console.log('— VS Code / Sublime Text —');
+  await launchApp('Visual Studio Code');
+  await sleep(80);
+  check('VS Code 打开：8 个菜单 + 5 个活动栏按钮',
+    document.querySelectorAll('.ce-vsc .ce-menu .ce-mi').length === 8 &&
+    document.querySelectorAll('.ce-vsc .ce-act-b').length === 5);
+  check('资源管理器树列出全部题目',
+    document.querySelectorAll('.ce-vsc .ce-node.file').length === document.querySelectorAll('.arb-item').length);
+  check('当前文件有标签页', !!document.querySelector('.ce-vsc .ce-tab.on'));
+  check('代码区有语法着色与行号',
+    document.querySelectorAll('.ce-vsc .ce-hl span').length >= 2 &&
+    /^1$/m.test(document.querySelector('.ce-vsc .ce-gut').textContent));
+  check('VS Code 状态栏有分支 / 光标 / 编码',
+    /⎇ main/.test(document.querySelector('.ce-vsc .ce-status').textContent) &&
+    /Lg 1, Col 1/.test(document.querySelector('.ce-vsc .ce-status').textContent) &&
+    /UTF-8/.test(document.querySelector('.ce-vsc .ce-status').textContent));
+  const ceOther = [...document.querySelectorAll('.ce-vsc .ce-node.file')]
+    .find(n => !n.classList.contains('sel'));
+  const ceOtherId = ceOther.dataset.problem;
+  click(ceOther);
+  await sleep(40);
+  check('点资源管理器里的另一题就切过去',
+    document.querySelector('.ce-vsc .ce-tab.on').textContent.includes(ceOtherId) &&
+    document.querySelector('.ce-vsc .ce-node.file.sel').dataset.problem === ceOtherId);
+  check('切题后窗口标题跟着换',
+    document.querySelector('.ce-vsc').closest('.s-win').querySelector('.win-title')
+      .textContent.includes(ceOtherId));
+
+  await launchApp('Sublime Text');
+  await sleep(80);
+  check('Sublime 打开（无菜单栏 / 无活动栏）',
+    !!document.querySelector('.ce-sub') &&
+    !document.querySelector('.ce-sub .ce-menu') && !document.querySelector('.ce-sub .ce-act'));
+  check('Sublime 状态栏用 Line / Column 写法',
+    /Line 1, Column 1/.test(document.querySelector('.ce-sub .ce-status').textContent) &&
+    /C\+\+/.test(document.querySelector('.ce-sub .ce-status').textContent));
+
+  console.log('— Vim 8.1 —');
+  await launchApp('Vim');
+  await sleep(80);
+  const vimBox = document.querySelector('.vim');
+  const vimKey = k => vimBox.dispatchEvent(new window.KeyboardEvent('keydown', { key: k, bubbles: true }));
+  check('Vim 打开（$TERM 黑底 + 空行波浪号）',
+    !!vimBox && /~/.test(vimBox.querySelector('.vim-screen').textContent));
+  check('Vim 状态行报文件名与 行/列 数',
+    /"[\w.-]+\.cpp"\s+\d+L, \d+C/.test(vimBox.querySelector('.vim-l').textContent));
+  check('Vim 右下角报光标位置与百分比',
+    /^\d+,\d+\s+(\d+%|全部)$/.test(vimBox.querySelector('.vim-r').textContent));
+  vimKey('G');
+  check('G 跳到文件末尾（100%）', /全部$/.test(vimBox.querySelector('.vim-r').textContent));
+  vimKey(':');
+  check(': 进入命令行，底部出现冒号', vimBox.querySelector('.vim-cmd').classList.contains('typing'));
+  vimKey('w'); vimKey('Enter');
+  check(':w 写盘并提示已写入', /已写入/.test(vimBox.querySelector('.vim-cmd').textContent));
+  vimKey('i'); vimKey('x'); vimKey('Escape');
+  check('i 插入改动后状态行标记「已修改」', /已修改/.test(vimBox.querySelector('.vim-l').textContent));
+  vimKey(':'); vimKey('q'); vimKey('Enter');
+  check(':q 在未保存时拒绝退出（E37）',
+    !!document.querySelector('.vim') && /E37/.test(vimBox.querySelector('.vim-cmd').textContent));
+  vimKey(':'); vimKey('q'); vimKey('!'); vimKey('Enter');
+  await sleep(340);
+  check(':q! 强制退出，窗口关闭', !document.querySelector('.vim'));
+
+  console.log('— Midnight Commander 4.8 —');
+  await launchApp('Midnight Commander');
+  await sleep(80);
+  const mcP = [...document.querySelectorAll('.mc-p')];
+  const mcKey = k => document.querySelector('.mc').dispatchEvent(
+    new window.KeyboardEvent('keydown', { key: k, bubbles: true }));
+  check('MC 打开：双栏方框', mcP.length === 2 && /[┌┐└┘]/.test(mcP[0].textContent));
+  check('MC 底部 10 个功能键', document.querySelectorAll('.mc-fk').length === 10);
+  check('左栏在 teacher，右栏在 ~/Desktop',
+    /~\/Desktop\/teacher/.test(mcP[0].textContent) &&
+    !/~\/Desktop\/teacher/.test(mcP[1].textContent));
+  check('当前面板的选中行高亮（on）',
+    !!mcP[0].querySelector('.mc-row.on') && !mcP[1].querySelector('.mc-row.on'));
+  mcKey('Tab');
+  check('Tab 把焦点切到右栏',
+    !mcP[0].querySelector('.mc-row.on') && !!mcP[1].querySelector('.mc-row.on'));
+  for (let i = 0; i < 8 && !/teacher/.test(mcP[1].querySelector('.mc-row.on').textContent); i++) mcKey('ArrowDown');
+  mcKey('Enter');
+  check('Enter 进入目录', /~\/Desktop\/teacher/.test(mcP[1].textContent));
+  mcKey('F10');
+  await sleep(340);
+  check('F10 退出 MC', !document.querySelector('.mc'));
+
+  console.log('— 归档管理器 / 文档查看器 —');
+  await launchApp('归档管理器');
+  await sleep(60);
+  check('归档管理器打开（file-roller 3.36）',
+    !!document.querySelector('.ar-list') && !!document.querySelector('.s-win-head.head-bar'));
+  check('标题栏是当前题的 <题号>.zip', /\.zip$/.test(document.querySelector('.ar-title').textContent));
+  check('列表四列（名称 / 大小 / 类型 / 修改时间）',
+    [...document.querySelectorAll('.ar-head span')].map(s => s.textContent.trim()).join('|') === '名称|大小|类型|修改时间');
+  const arRows = [...document.querySelectorAll('.ar-row')];
+  check('压缩包里列出 pdf + 题目录 + 样例', arRows.length >= 3);
+  check('样例文件缩进挂在题目录下', document.querySelectorAll('.ar-row.ar-indent').length >= 2);
+  check('压缩包里能看到 PDF 文档', arRows.some(r => /\.pdf/.test(r.textContent)));
+
+  await launchApp('文档查看器');
+  await sleep(60);
+  const evWin = document.querySelector('.ev-page').closest('.s-win');
+  const evTb = [...evWin.querySelectorAll('.nu-tb')];
+  check('文档查看器打开（Evince 3.36）', !!document.querySelector('.ev-body .ev-page'));
+  check('标题栏是 <题号>.pdf', /^[\w-]+\.pdf$/.test(document.querySelector('.pdf-name').textContent));
+  check('单页文档翻页按钮不可用', evTb[0].disabled && evTb[1].disabled);
+  check('页面是白纸 + 阴影（A4 版心）', !!document.querySelector('.ev-page'));
+  evTb[3].click();
+  check('放大按钮按 0.1 步进', /scale\(1\.1\)/.test(document.querySelector('.ev-page').style.transform));
+  evTb[2].click();
+  check('缩小回到 100%', document.querySelector('.ev-page').style.transform === '');
+
   // ── Dock 运行指示（dash-to-dock 橙点） ──
   document.getElementById('sActBtn').dispatchEvent(new window.Event('click', { bubbles: true }));
   const emacsBtn = [...document.querySelectorAll('#sGridBody .ub-grid-app')].find(b => /Emacs \(GUI\)/.test(b.textContent));
   check('网格里找到 Emacs (GUI)', !!emacsBtn);
   if (emacsBtn) emacsBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
-  await sleep(40);
+  // 等 Emacs 真正被映射（前面 Arbiter 还开着，不能只看 .running 的数量）
+  for (let i = 0; i < 80; i++){
+    if (!/^活动$/.test(document.getElementById('sActLbl').textContent)) break;
+    await sleep(25);
+  }
   check('Dock 显示运行中应用（橙点）', document.querySelectorAll('.ub-dock-item.running').length >= 1);
   check('顶栏左侧切换为应用名', !/^活动$/.test(document.getElementById('sActLbl').textContent));
 
@@ -348,9 +618,18 @@ async function gdmLogin(account, pwd){
 
   // ── 程序回收系统（浏览器内提交源代码，官方流程） ──
   window.__app('recovery');
-  await sleep(150);
+  await sleep(120);
+  check('浏览器先出外壳（地址栏 + 工具栏）', !!document.querySelector('.ff-url') &&
+    document.querySelectorAll('.ff-bar .ff-tb').length === 4);
+  check('连接期间身份位转圈', !!document.querySelector('.ff-ident.busy'));
+  check('左下角状态面板报「正在连接」', /正在(连接|等待)/.test(
+    (document.querySelector('.ff-status') || {}).textContent || ''));
+  check('连接中地址栏还没有页面内容', (document.querySelector('.ff-page') || {}).textContent === '');
+  await sleep(900);
   check('程序回收系统登录页打开', !!document.querySelector('#rcLoginBtn'));
   check('登录页有准考证号与密码', !!document.querySelector('#rcId') && !!document.querySelector('#rcPwd'));
+  check('载入完成后身份位不再转圈', !document.querySelector('.ff-ident.busy'));
+  check('载入完成后状态面板淡出', document.querySelector('.ff-status').classList.contains('out'));
   $('#rcId').value = 'GZ-2026-001';
   document.querySelector('#rcPwd').value = 'demo1234';
   click(document.querySelector('#rcLoginBtn'));
@@ -416,13 +695,14 @@ async function gdmLogin(account, pwd){
 
   console.log('— 主页与复习中心 —');
   const homeHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  check('主页只有考试端与复习中心两个入口',
-    (homeHtml.match(/class="hm-card/g) || []).length === 2);
+  check('主页有考试端 / 管理员 / 复习中心三个入口',
+    (homeHtml.match(/class="hm-card/g) || []).length === 3);
   check('主页考试端指向 noi/', /id="hmExam"[^>]*href="noi\/"/.test(homeHtml));
+  check('主页管理员指向 noi/?admin=1', /id="hmAdmin"[^>]*href="noi\/\?admin=1"/.test(homeHtml));
   check('主页复习中心指向 study/', /id="hmStudy"[^>]*href="study\/"/.test(homeHtml));
-  check('主页不再有管理端入口', !/btnEnterAdmin/.test(homeHtml));
   check('入口不再内嵌复习面板', !document.getElementById('reviewApp'));
   await testStudy();
+  await testAdminDirect();
 
   console.log('— 加载进度显示 —');
   const showLoading = window.eval('showLoading');
@@ -637,4 +917,35 @@ async function testStudy(){
   check('记录了上次阅读位置', !!w.localStorage.getItem('csp_sim:last'));
 
   sdom.window.close();
+}
+
+/* ─────────────────────────────────────────────
+   首页「管理员」入口：noi/?admin=1
+   只载 util.js + greeter.js，验证跳过开机与休眠、直接停在 NOIP 的密码框
+   ───────────────────────────────────────────── */
+async function testAdminDirect(){
+  console.log('— 首页管理员直达（noi/?admin=1） —');
+  const html = fs.readFileSync(path.join(ROOT, 'noi', 'index.html'), 'utf8');
+  const adom = new JSDOM(html, {
+    url: 'https://cspsim.test/noi/index.html?admin=1',
+    runScripts: 'outside-only',
+    pretendToBeVisual: true,
+    virtualConsole: vc,
+  });
+  const w = adom.window, d = w.document;
+  try {
+    w.eval(['util.js', 'greeter.js'].map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n;\n'));
+  } catch (e){ errors.push('管理员直达脚本失败: ' + e.message); }
+  await sleep(60);
+
+  const gone = id => { const n = d.getElementById(id); return !!n && n.classList.contains('gone'); };
+  check('管理员直达：跳过 Plymouth 开机画面', gone('boot'));
+  check('管理员直达：跳过显示器休眠黑屏', gone('dpms'));
+  check('管理员直达：GDM 已显示', !d.getElementById('gdm').classList.contains('hidden'));
+  check('管理员直达：NOIP 账户已选中', d.getElementById('gdm').classList.contains('picking'));
+  check('管理员直达：停在密码框', !d.getElementById('gdmAuth').classList.contains('hidden'));
+  check('管理员直达：密码框对应 NOIP', /NOIP/.test(d.getElementById('gdmAuthUser').textContent));
+  check('管理员直达：没有提前登录', d.getElementById('studentApp').classList.contains('hidden'));
+
+  adom.window.close();
 }

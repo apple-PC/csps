@@ -17,18 +17,46 @@ const Greeter = (() => {
     { id: 'NOIP',      role: 'admin',   group: '',  label: '管理员',     pwd: 'noip2026' },
   ];
 
+  /* 真实默认头像：/usr/share/icons/Yaru/scalable/status/avatar-default-symbolic.svg
+     的路径原样搬过来（16×16 viewBox），symbolic 图标在 GDM 里按前景色着色 */
   const AVATAR =
-    '<svg viewBox="0 0 64 64">' +
-    '<circle cx="32" cy="23.5" r="11" fill="#e8e8e8"/>' +
-    '<path d="M10.5 62c1.8-13 11-20.5 21.5-20.5S51.7 49 53.5 62z" fill="#e8e8e8"/>' +
+    '<svg viewBox="0 0 16 16" fill="#e8e8e8">' +
+    '<path d="M8 2a2.84 2.84 0 0 0-1.12.221c-.345.141-.651.348-.906.615v.003l-.001.002c-.248.269-.44.592-.574.96-.137.367-.203.769-.203 1.2 0 .435.065.841.203 1.209.135.361.327.68.574.95l.001.002c.254.267.558.477.901.624v.003c.346.141.723.21 1.12.21.395 0 .77-.069 1.117-.21v-.002c.343-.147.644-.357.892-.625.255-.268.45-.59.586-.952.138-.368.204-.774.204-1.21h.01c0-.43-.065-.831-.203-1.198a2.771 2.771 0 0 0-.585-.963 2.5 2.5 0 0 0-.897-.618A2.835 2.835 0 0 0 7.999 2z"/>' +
+    '<path d="M8.024 10.002c-2.317 0-3.561.213-4.486.91-.462.35-.767.825-.939 1.378-.172.553-.226.975-.228 1.71L8 14.002h5.629c-.001-.736-.052-1.159-.225-1.712-.172-.553-.477-1.027-.94-1.376-.923-.697-2.124-.912-4.44-.912z"/>' +
     '</svg>';
 
   const $gdm = () => $('#gdm');
   const $dpms = () => $('#dpms');
+  const $boot = () => $('#boot');
+
+  /* 首页的「管理员」入口带 ?admin=1：跳过开机与休眠，直接把 NOIP 账户摆在密码框前 */
+  const ADMIN_DIRECT = /[?&]admin=1(?:&|$)/.test(location.search);
 
   let picked = null;
   let busy = false;
   let wakeBound = false;
+  let fsBound = false;
+
+  /* ---------- 全屏 ----------
+   * 浏览器只认「用户手势」里的 requestFullscreen，而唤醒是靠 mousemove（不算手势），
+   * 所以这里等第一次真正的点击 / 按键再请求一次；loginAs 里那次是兜底。 */
+  function armFullscreen(){
+    if (fsBound) return;
+    fsBound = true;
+    const go = () => {
+      tryFullscreen();
+      window.removeEventListener('mousedown', go, true);
+      window.removeEventListener('keydown', go, true);
+    };
+    window.addEventListener('mousedown', go, true);
+    window.addEventListener('keydown', go, true);
+  }
+  function tryFullscreen(){
+    const elx = document.documentElement;
+    if (!document.fullscreenElement && elx.requestFullscreen){
+      elx.requestFullscreen().catch(() => {});
+    }
+  }
 
   /* ---------- 时钟 ---------- */
   function paintClock(){
@@ -145,6 +173,7 @@ const Greeter = (() => {
       if (!$dpms() || $dpms().classList.contains('awake')) return;
       $dpms().classList.add('awake');
       show();
+      tryFullscreen();
       setTimeout(() => { if ($dpms()) $dpms().classList.add('gone'); }, 560);
       detach();
     };
@@ -213,9 +242,26 @@ const Greeter = (() => {
     }
   }
 
+  /* ---------- 开机：Plymouth 启动画面 → 显示器休眠黑屏 ----------
+   * 真机流程：固件 → GRUB 一闪 → Plymouth（Ubuntu logo + 五点）→ GDM。
+   * 考场的显示器此时处于 DPMS off，所以 Plymouth 之后屏幕是黑的，动鼠标才亮。 */
+  const BOOT_MS = 3000;
+
+  function bootThenSleep(){
+    const b = $boot();
+    if (!b){ bindWake(); armFullscreen(); return; }
+    setTimeout(() => {
+      b.classList.add('out');
+      setTimeout(() => {
+        b.classList.add('gone');
+        bindWake();
+        armFullscreen();
+      }, 460);
+    }, BOOT_MS);
+  }
+
   /* ---------- 绑定 ---------- */
   function init(){
-    bindWake();
     const pw = $('#gdmPwd');
     if (pw){
       pw.addEventListener('keydown', e => {
@@ -229,6 +275,17 @@ const Greeter = (() => {
     if (back) back.onclick = unpick;
     const power = $('#gdmPower');
     if (power) power.onclick = powerOff;
+
+    if (ADMIN_DIRECT){
+      /* 管理员直达：不演开机，不开黑屏，直接停在 NOIP 的密码框 */
+      const b = $boot(); if (b) b.classList.add('gone');
+      const d = $dpms(); if (d) d.classList.add('gone');
+      lock();
+      pick('NOIP');
+      armFullscreen();
+    } else {
+      bootThenSleep();
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

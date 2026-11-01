@@ -1,0 +1,137 @@
+/* ══════════════════════════════════════════════════════════════
+   Code::Blocks 20.03 · 编辑器内嵌态（id=e?ui=cbc）
+   外壳（菜单栏 / 工具栏 / Management / 状态栏）由父页面提供；
+   这里只负责把 ide.html 自己的三栏改成 CBC 的「编辑区 + 底部停靠面板」。
+   色值全部取自 ISO 内 Yaru-dark 的 gtk.css：
+     .background      #3e3e3e / #F7F7F7
+     .background:backdrop #9b9b9b
+     menu             #404040 / border #222222
+     menu menuitem:hover  #df4a16
+     menubar > menuitem:hover  inset 0 -3px #df4a16, color #19B6EE
+   ══════════════════════════════════════════════════════════════ */
+
+body.cbc{
+  --cbc-bg:#3e3e3e; --cbc-panel:#4a4a4a; --cbc-line:#2b2b2b; --cbc-fg:#f7f7f7;
+  --cbc-dim:#9b9b9b; --cbc-accent:#df4a16;
+
+  --bg:#3e3e3e; --fg:#000000; --border:#2b2b2b; --panel:#4a4a4a; --panel2:#ffffff;
+  --editor-bg:#ffffff; --gutter-bg:#f0f0f0; --output-bg:#3e3e3e;
+  --dim:#9b9b9b; --accent:#df4a16; --sel-bg:#cfe3f8;
+  --green:#4e9a06; --red:#cc0000; --yellow:#c4a000;
+
+  /* Code::Blocks 默认配色集（Settings → Editor → Syntax highlighting: default） */
+  --c-kw:#0000cc; --c-fn:#000000; --c-str:#ce0000;
+  --c-num:#0000cc; --c-com:#008000; --c-pre:#808080;
+
+  font:12px/1.45 'Ubuntu','DejaVu Sans',sans-serif;
+}
+
+/* 自带工具栏 / 状态栏由父页面替代 */
+body.cbc .toolbar,
+body.cbc .statusbar{ display:none !important; }
+
+/* ── 编辑区在上，底部停靠面板在下（CBC 的默认布局）── */
+body.cbc .workspace{
+  display:grid; flex:1 1 auto;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  grid-template-rows:minmax(0,1fr) 172px;
+  min-height:0;
+}
+body.cbc #paneCode{ grid-column:1 / -1; grid-row:1; }
+body.cbc #paneIO{ grid-column:1; grid-row:2; }
+body.cbc #paneArtifact{ grid-column:2; grid-row:2; }
+body.cbc .splitter{ display:none !important; }
+
+/* ── 编辑区 ── */
+body.cbc #paneCode{ background:#ffffff; }
+body.cbc #paneCode .pane-head{
+  flex:0 0 25px; height:25px; padding:0 0 0 2px; background:#efefef;
+  border-bottom:1px solid #c4c4c4; color:#2b2b2b;
+  font:11.5px/1 'Ubuntu','DejaVu Sans',sans-serif;
+}
+body.cbc #paneCode .hint{ display:none; }
+/* 当前文件的页签：CBC 的页签顶边是橙色高亮条 */
+body.cbc #paneFile{
+  position:relative; margin-top:2px; padding:4px 26px 4px 10px;
+  background:#ffffff; color:#222222;
+  border:1px solid #c4c4c4; border-bottom:0; border-radius:3px 3px 0 0;
+  box-shadow:inset 0 2px 0 var(--cbc-accent);
+}
+body.cbc #paneFile::after{
+  content:'\2715'; position:absolute; right:8px; top:50%; margin-top:-7px;
+  font-size:9px; line-height:14px; color:#666666;
+}
+body.cbc .gutter{
+  background:#f0f0f0; color:#8a8a8a; border-right:1px solid #d8d8d8;
+  font:12.5px/1.55 'DejaVu Sans Mono',Consolas,monospace;
+}
+body.cbc .hl, body.cbc #code{ padding:5px 10px; font:12.5px/1.55 'DejaVu Sans Mono',Consolas,monospace; }
+body.cbc .c-com{ font-style:normal; }
+
+/* ── 底部停靠面板（Logs & others）── */
+body.cbc .pane-io,
+body.cbc .pane-artifact{
+  background:#3e3e3e; color:#e8e8e8; border-top:1px solid #2b2b2b;
+  font:11.5px/1.5 'Ubuntu','DejaVu Sans',sans-serif;
+}
+body.cbc .pane-io{ border-right:1px solid #2b2b2b; }
+body.cbc .pane-head{
+  flex:0 0 23px; height:23px; padding:0 2px; background:#4a4a4a;
+  border-bottom:1px solid #2b2b2b; color:#e8e8e8;
+  font:11px/1 'Ubuntu','DejaVu Sans',sans-serif;
+}
+body.cbc .pane-artifact .pane-head.tabs{ gap:1px; padding:0 2px; }
+body.cbc .tab{
+  background:#4a4a4a; color:#c8c8c8; border:0; border-radius:2px 2px 0 0;
+  padding:4px 9px; font:11px/1 'Ubuntu','DejaVu Sans',sans-serif;
+}
+body.cbc .tab:hover{ color:#ffffff; background:#555555; }
+body.cbc .tab.active{
+  background:#3e3e3e; color:#ffffff; font-weight:normal;
+  box-shadow:inset 0 2px 0 var(--cbc-accent);
+}
+body.cbc .io-input,
+body.cbc .io-output,
+body.cbc .artifact{
+  background:#3e3e3e; color:#e0e0e0;
+  font:11.5px/1.5 'DejaVu Sans Mono',Consolas,monospace;
+}
+body.cbc .io-input{ background:#383838; border-bottom:1px solid #2b2b2b; }
+body.cbc .exit{ color:#9b9b9b; }
+body.cbc .pane-io .io-input{ flex:0 0 34%; min-height:52px; }
+body.cbc #judgePanel{ background:#3e3e3e; color:#e0e0e0; }
+
+/* 滚动条跟着暗色走（GNOME 的细滚动条） */
+body.cbc ::-webkit-scrollbar{ width:11px; height:11px; }
+body.cbc ::-webkit-scrollbar-track{ background:#333333; }
+body.cbc ::-webkit-scrollbar-thumb{ background:#5c5c5c; border:2px solid #333333; border-radius:6px; }
+body.cbc ::-webkit-scrollbar-thumb:hover{ background:#6e6e6e; }
+body.cbc #code::-webkit-scrollbar-track{ background:#f0f0f0; }
+body.cbc #code::-webkit-scrollbar-thumb{ background:#c4c4c4; border-color:#f0f0f0; }
+
+/* 编译器环境加载遮罩：CBC 只有一小块状态，不要整屏黑 */
+body.cbc .boot-overlay{ background:#3e3e3e; }
+body.cbc .boot-box{ background:#4a4a4a; border-color:#2b2b2b; color:#e8e8e8; }
+
+/* ── 停靠面板里的控件也走暗色（GTK 里按钮/输入框就是 #4a4a4a 底）── */
+body.cbc select,
+body.cbc input,
+body.cbc button:not(.tab){
+  background:#4a4a4a; color:#eeeeee;
+  border:1px solid #2b2b2b; border-radius:3px;
+  font-family:'Ubuntu','DejaVu Sans',sans-serif;
+}
+body.cbc select:hover,
+body.cbc button:not(.tab):hover{ background:#555555; }
+body.cbc button.primary{ background:#df4a16; border-color:#c23f10; color:#ffffff; }
+body.cbc button.primary:hover{ background:#e85c2a; }
+
+body.cbc .judge-panel{ background:#3e3e3e; color:#e0e0e0; }
+body.cbc .judge-toolbar label{ color:#a8a8a8; }
+body.cbc .judge-toolbar input{ background:#2f2f2f; color:#e8e8e8; }
+body.cbc .judge-case{ background:#454545; border-color:#2b2b2b; }
+body.cbc .judge-case-head{ background:#4a4a4a; border-bottom-color:#2b2b2b; }
+body.cbc .judge-case-body textarea{ background:#2f2f2f; color:#e8e8e8; border-color:#2b2b2b; }
+body.cbc .judge-case-body .lbl{ color:#a8a8a8; }
+body.cbc .judge-summary{ background:#4a4a4a; border-color:#2b2b2b; }
+body.cbc .judge-detail > div{ border-bottom-color:#4d4d4d; }

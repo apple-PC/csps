@@ -19,7 +19,18 @@ const Admin = (() => {
   }
 
   /* ---------- 视图切换 ---------- */
+  /* 管理员是从桌面上的「考试管理」打开的：桌面必须收起来。
+     #adminApp 在 DOM 里排在 #studentApp 前面，同层级下会被桌面整个盖住，
+     这就是之前「考试管理点了没反应」的原因。 */
+  function deskAway(on){
+    const desk = document.getElementById('studentApp');
+    if (!desk) return;
+    if (on) desk.classList.add('admin-away');
+    else desk.classList.remove('admin-away');
+    if (document.body) document.body.classList.toggle('admin-open', on);
+  }
   function show(){
+    deskAway(true);
     app.classList.remove('hidden');
     // 初始化默认配置并立即落盘：保证学生端任何时候都能读到考试数据
     Store.saveSettings(Store.getSettings());
@@ -32,6 +43,7 @@ const Admin = (() => {
   }
   function hide(){
     app.classList.add('hidden');
+    deskAway(false);
     if (Admin._timer){ clearInterval(Admin._timer); Admin._timer = null; }
   }
   function switchView(name){

@@ -14,10 +14,10 @@ const URL = process.env.SHOT_URL || 'http://127.0.0.1:8899/noi/index.html';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-/* 唤醒显示器 → GDM 选账户 → 密码 → 桌面 */
+/* 开机（Plymouth 3s）→ 唤醒显示器 → GDM 选账户 → 密码 → 桌面 */
 const WAKE = `
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  await sleep(420);
+  await sleep(3700);
   window.dispatchEvent(new MouseEvent('mousemove', { clientX: 12, clientY: 12 }));
   await sleep(80);
   window.dispatchEvent(new MouseEvent('mousemove', { clientX: 180, clientY: 130 }));
@@ -59,7 +59,14 @@ const ADMIN = GDM + `
   }
   await sleep(300);
   window.__app('admin');
-  await sleep(500);
+  await sleep(700);
+  return JSON.stringify({
+    adminHidden: document.getElementById('adminApp').classList.contains('hidden'),
+    adminDisplay: getComputedStyle(document.getElementById('adminApp')).display,
+    deskDisplay: getComputedStyle(document.getElementById('studentApp')).display,
+    topAtCenter: (() => { const e = document.elementFromPoint(innerWidth/2, innerHeight/2);
+      return e ? (e.id || e.className || e.tagName) : null; })(),
+  }, null, 1);
 `;
 
 const STUDY = `
@@ -82,10 +89,16 @@ const APP = name => `
 `;
 
 const SCENES = {
+  // 开机：Plymouth 启动画面
+  ply: `
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    await sleep(200);
+  `,
+
   // 显示器休眠（开机后、未唤醒）
   dpms: `
     const sleep = ms => new Promise(r => setTimeout(r, ms));
-    await sleep(3200);
+    await sleep(4200);
   `,
 
   // GDM 账户选择
@@ -246,21 +259,160 @@ const SCENES = {
     await sleep(300);
   `,
 
-  files: LOGIN + `
-    const ic = [...document.querySelectorAll('.s-icon')].find(i => i.textContent.includes('GZ-2026-001'));
-    ic.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-    await sleep(400);
-    document.querySelector('.fman-row').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+  // 全屏探针：配合 SHOT_CLICK=x,y 用可信点击触发 requestFullscreen
+  fscheck: `
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
     await sleep(300);
+    return JSON.stringify({
+      fullscreen: !!document.fullscreenElement,
+      el: document.fullscreenElement ? document.fullscreenElement.tagName : null,
+      size: window.innerWidth + 'x' + window.innerHeight,
+      bootGone: (() => { const b = document.getElementById('boot'); return !!b && b.classList.contains('gone'); })(),
+    }, null, 1);
+  `,
+
+  // 拖边缩放探针：真实浏览器里量窗口尺寸变化（jsdom 拿不到 offsetWidth）
+  resizeprobe: LOGIN + `
+    Desktop.launch('files');
+    await sleep(1200);
+    const w = document.querySelector('.s-win');
+    const before = w.offsetWidth + 'x' + w.offsetHeight;
+    const h = w.querySelector('.win-rs.se');
+    const r = h.getBoundingClientRect();
+    h.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: r.left + 3, clientY: r.top + 3 }));
+    const moving = w.classList.contains('resizing');
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: r.left + 160, clientY: r.top + 120 }));
+    await sleep(60);
+    const during = w.offsetWidth + 'x' + w.offsetHeight;
+    const frameAfterResize = document.querySelector('.nu-view').getBoundingClientRect().height|0;
+    window.dispatchEvent(new MouseEvent('mouseup'));
+    await sleep(60);
+    return JSON.stringify({ before, during, moving, done: !w.classList.contains('resizing'),
+      viewH: frameAfterResize, cursor: getComputedStyle(h).cursor }, null, 1);
+  `,
+
+  files: LOGIN + `
+    const ic = [...document.querySelectorAll('.s-icon')].find(i => i.textContent.includes('teacher'));
+    ic.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await sleep(520);
+    document.querySelector('.nu-item[data-kind="folder"]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await sleep(320);
+  `,
+
+  // 文件管理器载入中：外壳已出、视图区还是骨架
+  filesLoading: LOGIN + `
+    const ic = [...document.querySelectorAll('.s-icon')].find(i => i.textContent.includes('teacher'));
+    ic.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await sleep(150);
+    return JSON.stringify({
+      headBar: !!document.querySelector('.s-win-head.head-bar'),
+      crumbs: [...document.querySelectorAll('.nu-crumb')].map(b => b.textContent),
+      skelCells: document.querySelectorAll('.nu-view .skel-cell').length,
+      items: document.querySelectorAll('.nu-item').length,
+      viewBg: getComputedStyle(document.querySelector('.nu-view')).backgroundColor,
+    }, null, 1);
+  `,
+
+  // 浏览器连接中：身份位转圈 + 左下角状态面板
+  firefoxLoading: LOGIN + `
+    Desktop.launch('firefox');
+    await sleep(1400);
+    return JSON.stringify({
+      busy: !!document.querySelector('.ff-ident.busy'),
+      status: (document.querySelector('.ff-status') || {}).textContent,
+      statusOut: (document.querySelector('.ff-status') || {}).className,
+      pageText: (document.querySelector('.ff-page') || {}).textContent,
+      barBg: getComputedStyle(document.querySelector('.ff-bar')).backgroundColor,
+    }, null, 1);
   `,
 
   ide: LOGIN + APP('Code::Blocks') + `
-    await sleep(2200);
+    await sleep(4200);
+    { const d = document.querySelector('.cbc-frame').contentDocument;
+      const w = document.querySelector('.cbc-frame').contentWindow;
+      const ta = d.getElementById('code');
+      ta.value = [
+        '#include <iostream>',
+        '#include <cstdio>',
+        'using namespace std;',
+        '',
+        'const int N = 200005;',
+        'int q[N], head = 0, tail = 0;',
+        '',
+        'int main() {',
+        '    freopen("queue.in", "r", stdin);',
+        '    freopen("queue.out", "w", stdout);',
+        '    int n, m;',
+        '    cin >> n >> m;',
+        '    for (int i = 1; i <= n; ++i) {',
+        '        int op, x;',
+        '        cin >> op;',
+        '        if (op == 1) { cin >> x; q[tail++] = x; }',
+        '        else if (op == 2) { if (head < tail) ++head; }',
+        '        else { cout << (head < tail ? q[head] : -1) << "\\\\n"; }',
+        '    }',
+        '    return 0;',
+        '}',
+      ].join('\\n');
+      ta.dispatchEvent(new w.Event('input', { bubbles: true }));
+      ta.setSelectionRange(ta.value.indexOf('int op, x;') + 4, ta.value.indexOf('int op, x;') + 4);
+      ta.dispatchEvent(new w.Event('keyup', { bubbles: true })); }
+    await sleep(600);
+  `,
+
+  // Code::Blocks 内嵌编辑区探针：量行高/行号/配色，不靠看图猜
+  cbcprobe: LOGIN + APP('Code::Blocks') + `
+    await sleep(4200);
+    const d = document.querySelector('.cbc-frame').contentDocument;
+    const w = document.querySelector('.cbc-frame').contentWindow;
+    const bg = sel => { const e = d.querySelector(sel); if (!e) return 'none';
+      return w.getComputedStyle(e).backgroundColor + ' ' + Math.round(e.getBoundingClientRect().height); };
+    const kw = d.querySelector('.c-kw');
+    return JSON.stringify({
+      stdin: bg('#stdin'), output: bg('#output'), artifact: bg('#artifact'),
+      paneCode: bg('#paneCode'), paneIO: bg('#paneIO'), paneArtifact: bg('#paneArtifact'),
+      outputSel: bg('.io-output'),
+      kwColor: kw ? w.getComputedStyle(kw).color : 'no .c-kw',
+      kwCount: d.querySelectorAll('.c-kw').length,
+      strCount: d.querySelectorAll('.c-str').length,
+      comCount: d.querySelectorAll('.c-com').length,
+    }, null, 1);
+  `,
+
+  // 启动中：Dock 上的转圈 + 光标忙碌态（窗口还没出来）
+  launching: LOGIN + `
+    Desktop.openAppGrid();
+    { const gi = document.getElementById('sGridInput');
+      gi.value = 'Firefox';
+      gi.dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#sGridBody .ub-grid-app').click(); }
+    await sleep(420);
+    return JSON.stringify({
+      items: [...document.querySelectorAll('.ub-dock-item')].map(b => {
+        const r = b.getBoundingClientRect();
+        return b.dataset.app + ' y=' + Math.round(r.top) + ' h=' + Math.round(r.height) + ' cls=' + b.className;
+      }),
+      wins: document.querySelectorAll('.s-win').length,
+      bodyLaunching: document.getElementById('studentApp').classList.contains('launching'),
+      cursor: getComputedStyle(document.querySelector('.s-desktop')).cursor,
+    }, null, 1);
   `,
 
   emacs: LOGIN + `
     Desktop.launch('emacs');
     await sleep(600);
+  `,
+
+  // joe：真机界面（顶部反显状态行 + ^KH 键位表）
+  joe: LOGIN + APP("Joe's Own Editor") + `
+    await sleep(900);
+  `,
+
+  joehelp: LOGIN + APP("Joe's Own Editor") + `
+    await sleep(700);
+    document.querySelector('.joe-help') || document.querySelector('.joe-ta').dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'h', ctrlKey: true, bubbles: true }));
+    await sleep(350);
   `,
 
   gdb: LOGIN + `
@@ -279,7 +431,91 @@ const SCENES = {
 
   firefox: LOGIN + `
     Desktop.launch('firefox');
-    await sleep(500);
+    await sleep(2400);
+  `,
+
+  // ── 按 ISO 补的 8 个应用 ──
+  // GNOME 计算器 3.36（注意：上面那个 calc 是 LibreOffice Calc）
+  gnomecalc: LOGIN + `
+    Desktop.launch('calculator');
+    await sleep(700);
+  `,
+
+  // gedit 3.36
+  gedit: LOGIN + `
+    Desktop.launch('gedit');
+    await sleep(900);
+    const ta = document.querySelector('.ged-area');
+    ta.value = '#include <iostream>\\nusing namespace std;\\n\\nint main() {\\n    int a, b;\\n' +
+      '    cin >> a >> b;\\n    cout << a + b << endl;\\n    return 0;\\n}\\n';
+    ta.selectionStart = ta.selectionEnd = ta.value.length;
+    ta.dispatchEvent(new Event('click', { bubbles: true }));
+    await sleep(250);
+  `,
+
+  // VS Code 1.44
+  vscode: LOGIN + `
+    Desktop.launch('vscode');
+    await sleep(1900);
+    const ta = document.querySelector('.ce-ta');
+    ta.value = '#include <iostream>\\n#include <queue>\\nusing namespace std;\\n\\n' +
+      'const int N = 1e5 + 5;\\nint main() {\\n    // 滑动窗口最大值\\n    int n, k;\\n    ' +
+      'cin >> n >> k;\\n    deque<int> q;\\n    for (int i = 0; i < n; i++) {\\n        int x;\\n' +
+      '        cin >> x;\\n        while (!q.empty() && q.back() < x) q.pop_back();\\n' +
+      '        q.push_back(x);\\n    }\\n    cout << q.front() << endl;\\n    return 0;\\n}\\n';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(250);
+  `,
+
+  // Sublime Text 3.2
+  sublime: LOGIN + `
+    Desktop.launch('sublime');
+    await sleep(1100);
+    const ta = document.querySelector('.ce-ta');
+    ta.value = '#include <cstdio>\\n\\nint f(int n) {\\n    return n <= 1 ? n : f(n - 1) + f(n - 2);\\n}\\n\\n' +
+      'int main() {\\n    int n;\\n    scanf("%d", &n);\\n    printf("%d\\\\n", f(n));\\n    return 0;\\n}\\n';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(250);
+  `,
+
+  // Vim 8.1（普通模式，反显状态行 + 空行波浪号）
+  vim: LOGIN + `
+    Desktop.launch('vim');
+    await sleep(1000);
+  `,
+
+  // Midnight Commander 4.8
+  mc: LOGIN + `
+    Desktop.launch('mc');
+    await sleep(1000);
+  `,
+
+  // MC 尺寸探针：只量 DOM，不截图（面板列数/行数是否真的铺满）
+  mcprobe: LOGIN + `
+    Desktop.launch('mc');
+    await sleep(1000);
+    const box = document.querySelector('.mc');
+    const ps = [...document.querySelectorAll('.mc-p')];
+    const cont = ps[0].parentNode;
+    const r = e => { const bb = e.getBoundingClientRect(); return Math.round(bb.left) + '..' + Math.round(bb.right) + ' w=' + Math.round(bb.width); };
+    return JSON.stringify({
+      boxClientW: box.clientWidth, contH: cont.clientHeight,
+      panels: ps.map(r), pStyleW: ps.map(p => p.style.width),
+      rows: ps.map(p => p.querySelectorAll('.mc-row[data-r]').length),
+      fitH: ps[0].scrollHeight, fitW: cont.scrollWidth,
+    }, null, 1);
+  `,
+
+  // 归档管理器 file-roller 3.36
+  archive: LOGIN + `
+    Desktop.launch('archive');
+    await sleep(1000);
+  `,
+
+  // 文档查看器 Evince 3.36
+  evince: LOGIN + `
+    Desktop.launch('evince');
+    await sleep(1100);
   `,
 };
 
@@ -347,6 +583,17 @@ function connect(wsUrl){
     await cdp.send('Page.navigate', { url: URL });
     await sleep(2000);
 
+    /* 全屏只能靠「真正的用户手势」触发，Runtime.evaluate 里的合成点击不算，
+       所以这里用 Input.dispatchMouseEvent 发可信事件（SHOT_CLICK=x,y） */
+    if (process.env.SHOT_CLICK){
+      await sleep(Number(process.env.SHOT_CLICK_WAIT || 2400));
+      const [cx, cy] = process.env.SHOT_CLICK.split(',').map(Number);
+      for (const type of ['mousePressed', 'mouseReleased']){
+        await cdp.send('Input.dispatchMouseEvent', { type, x: cx, y: cy, button: 'left', clickCount: 1 });
+      }
+      await sleep(700);
+    }
+
     const r = await cdp.send('Runtime.evaluate', {
       expression: '(async () => {' + script + '})()',
       awaitPromise: true,
@@ -360,7 +607,9 @@ function connect(wsUrl){
     if (process.env.SHOT_LOG && r.result && r.result.value !== undefined){
       console.log(typeof r.result.value === 'string' ? r.result.value : JSON.stringify(r.result.value, null, 1));
     }
-    await sleep(400);
+    // SHOT_SETTLE=0 时立刻截图（看「载入中」这类瞬时状态必须关掉这段等待）
+    const settle = process.env.SHOT_SETTLE == null ? 400 : Number(process.env.SHOT_SETTLE);
+    if (settle) await sleep(settle);
 
     const shot = await cdp.send('Page.captureScreenshot', { format: 'png' });
     fs.writeFileSync(out, Buffer.from(shot.data, 'base64'));

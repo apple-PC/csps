@@ -63,6 +63,32 @@ const Desktop = (() => {
     loimpress: '<svg viewBox="0 0 48 48"><path d="M9.5 4h21L39 12.5V43a2 2 0 0 1-2 2H9.5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="#ffffff" stroke="#cfcecb"/><path d="M30.5 4L39 12.5h-8.5z" fill="#dedcd9"/><rect x="12.5" y="16" width="23" height="15.5" rx="1" fill="#f5a623"/><rect x="17" y="20" width="14" height="2.6" rx="1.3" fill="#ffffff"/><rect x="17" y="25" width="9" height="2.6" rx="1.3" fill="#fff0d0"/><path d="M24 31.5v4" stroke="#b97e18" stroke-width="2"/><rect x="18" y="35.5" width="12" height="2" rx="1" fill="#b97e18"/></svg>',
     lowriter: '<svg viewBox="0 0 48 48"><path d="M9.5 4h21L39 12.5V43a2 2 0 0 1-2 2H9.5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="#ffffff" stroke="#cfcecb"/><path d="M30.5 4L39 12.5h-8.5z" fill="#dedcd9"/><rect x="13" y="16" width="22" height="3" rx="1.5" fill="#2b579a"/><path d="M13 23h22M13 28h22M13 33h22M13 38h14" stroke="#b8c4d6" stroke-width="2" stroke-linecap="round"/></svg>',
   };
+  /* ── 真图标优先 ──
+   * 下面这些图标是从 ISO 里直接抽出来的原图（Yaru / hicolor / pixmaps），
+   * 比手绘 SVG 更接近考场那台机器：
+   *   files     ← icons/Yaru/256x256@2x/apps/org.gnome.Nautilus.png
+   *   firefox   ← icons/hicolor/128x128/apps/firefox.png
+   *   arbiter   ← icons/hicolor/512x512/apps/arbiter.png（Arbiter for Personal Usage）
+   *   joe       ← pixmaps/joe.xpm
+   * 源图小于 128px 的（Code::Blocks 的 64px、Geany 的 48px）继续用 SVG，
+   * 因为放大到网格的 96px 会糊。 */
+  const PNG_ICON = {
+    folder: 'files', firefox: 'firefox', calc: 'calc',
+    low: 'lowriter', lowriter: 'lowriter', lodraw: 'lodraw', loimpress: 'loimpress',
+    term: 'terminal', char: 'charmap', emacs: 'emacs', joe: 'joe',
+    monitor: 'monitor', judge: 'arbiter', software: 'software',
+    /* /usr/share/pixmaps 里只有 48×48 的 XPM，真机放大到网格尺寸也是糊的，
+       这里保持原样——换掉反而更不像考场那台机器 */
+    ddd: 'ddd',
+    /* joe / jmacs / jpico / jstar 的 desktop 条目 Icon 都是 accessories-text-editor */
+    texteditor: 'texteditor',
+    /* 真机网格里还有这几个（Yaru 256px / hicolor / pixmaps） */
+    calculator: 'calculator', gedit: 'gedit', archive: 'archive', evince: 'evince',
+    vscode: 'vscode', sublime: 'sublime', vim: 'vim', mc: 'mc',
+  };
+  Object.keys(PNG_ICON).forEach(k => {
+    ICONS[k] = '<img src="assets/icons/' + PNG_ICON[k] + '.png" alt="">';
+  });
   function ico(name, cls){
     return '<span class="ico' + (cls ? ' ' + cls : '') + '">' + (ICONS[name] || ICONS.app) + '</span>';
   }
@@ -178,8 +204,16 @@ const Desktop = (() => {
 
     // Yaru 主题：按钮在标题栏右上角，顺序为 最小化 / 最大化 / 关闭（关闭为红圆）
     const head = el('div', 's-win-head');
+    if (opts.headBar) head.classList.add('head-bar');
     head.insertAdjacentHTML('beforeend',
       '<span class="win-ico">' + (ICONS[opts.ico] || ICONS.app) + '</span>');
+    /* headBar：GNOME 应用的 headerbar 既是标题栏也是工具栏（Nautilus / 软件中心都是）。
+       这里给应用留一个自适应宽度的槽位，居中标题让位给应用自己的路径栏。 */
+    let headApp = null;
+    if (opts.headBar){
+      headApp = el('div', 'head-app');
+      head.appendChild(headApp);
+    }
     const btnBox = el('div', 'win-btns');
     const bMin = el('button', 'win-btn', '\u2013');
     const bMax = el('button', 'win-btn', '\u25a1');
@@ -187,17 +221,34 @@ const Desktop = (() => {
     bMin.title = '最小化'; bMax.title = '最大化'; bX.title = '关闭';
     btnBox.appendChild(bMin); btnBox.appendChild(bMax); btnBox.appendChild(bX);
     head.appendChild(btnBox);
-    head.insertAdjacentHTML('beforeend',
-      '<span class="win-title">' + esc(opts.title || '') + '</span>');
+    if (!opts.headBar){
+      head.insertAdjacentHTML('beforeend',
+        '<span class="win-title">' + esc(opts.title || '') + '</span>');
+    } else {
+      /* headerbar 窗口不显示居中标题（路径栏就是标题），但节点仍保留：
+         setTitle / 测试都靠 .win-title 取值 */
+      head.insertAdjacentHTML('beforeend',
+        '<span class="win-title head-title">' + esc(opts.title || '') + '</span>');
+      head.title = opts.title || '';
+    }
     const body = el('div', 's-win-body');
     win.appendChild(head); win.appendChild(body);
     dw.appendChild(win);
 
     const rec = {
-      id: opts.id || wid, el: win, head, body, title: opts.title || '',
+      id: opts.id || wid, el: win, head, body, headApp, title: opts.title || '',
       ico: opts.ico, minimized: false, maximized: false, onClose: opts.onClose,
     };
     wins.set(wid, rec);
+
+    /* 开窗动画播完立刻摘掉 animation：窗口上残留 transform 会让内部
+       position:fixed 的弹出菜单以窗口为参照定位 */
+    win.addEventListener('animationend', e => {
+      if (e.animationName === 'winOpen' || e.animationName === 'winRestore'){
+        win.classList.remove('restoring');
+        win.classList.add('anim-done');
+      }
+    });
 
     rec.appId = opts.appId || ((Date.now() - lastLaunchAt < 900) ? lastLaunch : null);
 
@@ -207,6 +258,7 @@ const Desktop = (() => {
     bMax.onclick = e => { e.stopPropagation(); toggleMax(rec); };
     head.addEventListener('dblclick', e => { if (!e.target.closest('.win-btn')) toggleMax(rec); });
     dragify(head, win);
+    resizable(win);
     focusWin(rec);
     return rec;
   }
@@ -243,19 +295,54 @@ const Desktop = (() => {
     rec.el.style.zIndex = String(500 + (++zBase % 100));
   }
 
-  function closeWin(rec){
+  function closeWin(rec, instant){
     if (!rec) return;
     if (rec.onClose){ try { rec.onClose(); } catch (e) {} }
-    rec.el.remove();
     for (const [k, w] of wins){ if (w === rec){ wins.delete(k); break; } }
+    const el = rec.el;
+    if (instant || !el || !el.parentNode){
+      if (el && el.parentNode) el.remove();
+      syncDock();
+      if (![...wins.values()].some(w => !w.minimized)) setActTitle(null);
+      return;
+    }
+    /* 关窗动画：Mutter 是 160ms 缩小淡出，播完再真正移除 */
+    el.classList.remove('anim-done', 'restoring', 'minimizing');
+    el.classList.add('closing');
+    let done = false;
+    const drop = () => { if (done) return; done = true; if (el.parentNode) el.remove(); };
+    el.addEventListener('animationend', drop, { once: true });
+    setTimeout(drop, 260);
     syncDock();
     if (![...wins.values()].some(w => !w.minimized)) setActTitle(null);
   }
   function toggleMin(rec){
     rec.minimized = !rec.minimized;
-    rec.el.style.display = rec.minimized ? 'none' : 'flex';
-    if (!rec.minimized) focusWin(rec);
-    else if (![...wins.values()].some(w => !w.minimized && w.el.classList.contains('focused'))) setActTitle(null);
+    if (rec.minimized){
+      rec.el.classList.remove('anim-done', 'restoring');
+      rec.el.classList.add('minimizing');
+      const el = rec.el;
+      let done = false;
+      const hide = () => {
+        if (done || !rec.minimized) return;
+        done = true;
+        el.style.display = 'none';
+        el.classList.remove('minimizing');
+        el.classList.add('anim-done');
+      };
+      el.addEventListener('animationend', hide, { once: true });
+      setTimeout(hide, 240);
+    } else {
+      rec.el.style.display = 'flex';
+      rec.el.classList.remove('minimizing', 'anim-done');
+      rec.el.classList.add('restoring');
+      const el = rec.el;
+      setTimeout(() => { el.classList.remove('restoring'); el.classList.add('anim-done'); }, 240);
+      focusWin(rec);
+      syncDock();
+      return;
+    }
+    if (![...wins.values()].some(w => !w.minimized && w.el.classList.contains('focused'))) setActTitle(null);
     syncDock();
   }
   function dragify(head, win){
@@ -266,6 +353,8 @@ const Desktop = (() => {
       if (rec && rec.maximized) return;
       on = true; sx = e.clientX; sy = e.clientY;
       ox = win.offsetLeft; oy = win.offsetTop;
+      /* 拖动期间必须摘掉 left/top 的 250ms 过渡，否则窗口会「黏」在鼠标后面 */
+      win.classList.add('moving');
       e.preventDefault();
     });
     window.addEventListener('mousemove', e => {
@@ -276,10 +365,50 @@ const Desktop = (() => {
       win.style.left = Math.max(-win.offsetWidth + 90, Math.min(dw.clientWidth - 90, nx)) + 'px';
       win.style.top = Math.max(0, Math.min(dw.clientHeight - 34, ny)) + 'px';
     });
-    window.addEventListener('mouseup', () => { on = false; });
+    window.addEventListener('mouseup', () => { on = false; win.classList.remove('moving'); });
+  }
+
+  /* 八向边缘缩放手柄：Mutter 的窗口都能拖边改大小，缺了它窗口就只是一张会动的图 */
+  function resizable(win){
+    const MIN_W = 320, MIN_H = 200;
+    const dirs = ['n', 's', 'w', 'e', 'nw', 'ne', 'sw', 'se'];
+    let on = null;
+    dirs.forEach(dir => {
+      const h = el('div', 'win-rs ' + dir);
+      win.appendChild(h);
+      h.addEventListener('mousedown', e => {
+        const rec = [...wins.values()].find(w => w.el === win);
+        if (rec && rec.maximized) return;
+        if (rec) focusWin(rec);
+        on = {
+          dir, sx: e.clientX, sy: e.clientY,
+          w: win.offsetWidth, h: win.offsetHeight,
+          l: win.offsetLeft, t: win.offsetTop,
+        };
+        win.classList.add('resizing');
+        e.preventDefault(); e.stopPropagation();
+      });
+    });
+    window.addEventListener('mousemove', e => {
+      if (!on) return;
+      const dw = deskEl();
+      const dx = e.clientX - on.sx, dy = e.clientY - on.sy;
+      let l = on.l, t = on.t, w = on.w, h = on.h;
+      if (on.dir.indexOf('w') >= 0){ l = Math.min(on.l + dx, on.l + on.w - MIN_W); w = on.w - (l - on.l); }
+      if (on.dir.indexOf('e') >= 0){ w = Math.max(MIN_W, on.w + dx); }
+      if (on.dir.indexOf('n') >= 0){ t = Math.min(on.t + dy, on.t + on.h - MIN_H); h = on.h - (t - on.t); }
+      if (on.dir.indexOf('s') >= 0){ h = Math.max(MIN_H, on.h + dy); }
+      l = Math.max(0, l); t = Math.max(0, t);
+      w = Math.min(w, dw.clientWidth - l);
+      h = Math.min(h, dw.clientHeight - t);
+      win.style.left = l + 'px'; win.style.top = t + 'px';
+      win.style.width = w + 'px'; win.style.height = h + 'px';
+    });
+    window.addEventListener('mouseup', () => { on = null; win.classList.remove('resizing'); });
   }
   function closeAllWins(){
-    for (const [, w] of [...wins]) closeWin(w);
+    /* 换账户 / 注销时不能等动画，直接拆掉 */
+    for (const [, w] of [...wins]) closeWin(w, true);
     syncDock();
     setActTitle(null);
   }
@@ -401,22 +530,59 @@ const Desktop = (() => {
   }
 
   /* ═══════════════ 应用注册与启动 ═══════════════ */
+  /* 真机点一个应用不是「瞬间」出窗口：先起进程，X 窗口在几百毫秒后才被映射。
+     这里按应用体积给不同的启动耗时；期间 Dock 图标带转圈、光标变 progress、
+     应用网格里的图标压暗呼吸，窗口本身在延时结束后才创建。 */
+  const LAUNCH_MS = {
+    cb: 1000, geany: 760, lazarus: 1200,
+    firefox: 1250,
+    low: 960, lodraw: 1100, loimpress: 1150, lowriter: 990,
+    files: 620, term: 420, monitor: 720, arbiter: 820,
+    gucharmap: 520, fonts: 640, lang: 560, software: 900,
+    joe: 360, jmacs: 360, jpico: 360, jstar: 360,
+    emacs: 480, emacst: 460, ddd: 900, byobu: 470, kazam: 700,
+    /* Electron / Java 系启动都慢，这和真机手感一致 */
+    vscode: 1500, sublime: 640, vim: 380, mc: 400,
+    gedit: 560, calculator: 300, archive: 520, evince: 700,
+  };
+  const LAUNCH_DEFAULT = 340;
+  const launching = new Set();          // 正在起进程的 appId
+
   function addApp(a){ if (!apps.find(x => x.id === a.id)) apps.push(a); }
   function registerApps(list){
     list.forEach(addApp);
     // 应用是分批注册进来的，注册完要刷新 Dock 与已打开的应用网格
-    if (mounted){ syncDock(); if (gridOpen()) renderGrid(''); }
+    if (mounted){ syncDock(); if (gridOpen()) renderGrid(gridQuery()); }
   }
   function launch(id){
     const a = apps.find(x => x.id === id);
     if (!a) return null;
     if (a.disabled){ toast(a.disabled, 'err'); return null; }
-    lastLaunch = id; lastLaunchAt = Date.now();
-    bumpUsage(id);
-    let r = null;
-    try { r = a.run(); } catch (e){ toast('启动失败：' + (e.message || e), 'err'); }
+    if (launching.has(id)) return null;        // 进程已在起，别重复点
+
+    const wait = LAUNCH_MS[id] != null ? LAUNCH_MS[id] : LAUNCH_DEFAULT;
+    const root = app();
+    launching.add(id);
+    if (root) root.classList.add('launching');
     syncDock();
-    return r;
+    if (gridOpen()) renderGrid(gridQuery());
+
+    setTimeout(() => {
+      launching.delete(id);
+      if (root && !launching.size) root.classList.remove('launching');
+      /* 等窗口出来的这几百毫秒里考生可能已经注销，别再往没人看的桌面上开窗 */
+      if (!root || root.classList.contains('hidden')){ syncDock(); return; }
+      lastLaunch = id; lastLaunchAt = Date.now();
+      bumpUsage(id);
+      try { a.run(); } catch (e){ toast('启动失败：' + (e.message || e), 'err'); }
+      syncDock();
+      if (gridOpen()) renderGrid(gridQuery());
+    }, wait);
+    return null;
+  }
+  function gridQuery(){
+    const gi = document.getElementById('sGridInput');
+    return gi ? gi.value : '';
   }
   function appsByGroup(){
     const g = new Map();
@@ -443,12 +609,41 @@ const Desktop = (() => {
     }
   }
 
-  // Dock：固定启动器 + 运行中的应用，运行中右上角有橙色小圆点
+  /* Dock 悬停气泡：真机是 dash-to-dock 的 .dash-label（深灰 6px 圆角 + 1px 白边） */
+  let tipEl = null, tipTimer = 0;
+  function hideTip(){
+    if (tipTimer){ clearTimeout(tipTimer); tipTimer = 0; }
+    if (tipEl){ tipEl.remove(); tipEl = null; }
+  }
+  function armTip(target, text, anchor){
+    hideTip();
+    tipTimer = setTimeout(() => {
+      tipTimer = 0;
+      const root = document.getElementById('studentApp');
+      if (!root || !text) return;
+      hideTip();
+      tipEl = el('div', 'ub-tip', esc(text));
+      root.appendChild(tipEl);
+      const r = (anchor || target).getBoundingClientRect();
+      const rr = root.getBoundingClientRect();
+      tipEl.style.left = (r.right - rr.left + 10) + 'px';
+      tipEl.style.top = Math.round(r.top - rr.top + r.height / 2 - tipEl.offsetHeight / 2) + 'px';
+    }, 420);
+  }
+
+  // Dock：固定启动器 + 运行中的应用，运行中右侧有橙色小圆点
   function syncDock(){
     const host = document.getElementById('sDockApps');
     if (!host) return;
+    hideTip();
     const pinned = apps.filter(a => a.pin && !a.hidden);
     const list = pinned.slice();
+    /* 正在起进程的应用也会出现在 dash 里（dash-to-dock 就是这么做的） */
+    launching.forEach(id => {
+      if (list.some(a => a.id === id)) return;
+      const a = apps.find(x => x.id === id);
+      if (a) list.push(a);
+    });
     wins.forEach(w => {
       if (!w.appId || list.some(a => a.id === w.appId)) return;
       const a = apps.find(x => x.id === w.appId);
@@ -462,8 +657,13 @@ const Desktop = (() => {
       b.innerHTML = ICONS[a.ico] || ICONS.app;
       const opened = [...wins.values()].filter(w => w.appId === a.id);
       if (opened.length) b.classList.add('running');
+      if (launching.has(a.id)) b.classList.add('launching');
+      if (opened.some(w => w.el.classList.contains('focused'))) b.classList.add('focused');
+      b.onmouseenter = () => armTip(b, a.label, b);
+      b.onmouseleave = hideTip;
       b.onclick = e => {
         e.stopPropagation();
+        hideTip();
         closeAppGrid(); closePop();
         if (!opened.length){ launch(a.id); return; }
         const top = opened[opened.length - 1];
@@ -484,6 +684,8 @@ const Desktop = (() => {
     /* 真机打开「显示应用程序」后左侧 Dock 会收起，只留顶栏 */
     const root = document.getElementById('studentApp');
     if (root) root.classList.add('grid-open');
+    const act = document.getElementById('sActBtn');
+    if (act) act.classList.add('on');       // overview 态：白字 + 底部橙线
     setActTitle(null);
     const inp = document.getElementById('sGridInput');
     if (inp){ inp.value = ''; setTimeout(() => { try { inp.focus(); } catch (e){} }, 0); }
@@ -493,6 +695,8 @@ const Desktop = (() => {
     if (g) g.classList.add('hidden');
     const root = document.getElementById('studentApp');
     if (root) root.classList.remove('grid-open');
+    const act = document.getElementById('sActBtn');
+    if (act) act.classList.remove('on');
   }
   function gridOpen(){ const g = document.getElementById('sGrid'); return g && !g.classList.contains('hidden'); }
 
@@ -558,6 +762,7 @@ const Desktop = (() => {
       b.title = a.desc ? (a.label + ' — ' + a.desc) : a.label;
       b.innerHTML = (ICONS[a.ico] || ICONS.app) + '<span>' + esc(a.label) + '</span>';
       if (a.disabled) b.disabled = true;
+      if (launching.has(a.id)) b.classList.add('launching');
       b.onclick = () => { closeAppGrid(); launch(a.id); };
       body.appendChild(b);
     });
@@ -593,7 +798,7 @@ const Desktop = (() => {
         { sep: true },
         { label: '有线设置…', ico: 'net', run(){ if (window.__app) window.__app('network'); } },
         { label: '网络设置', ico: 'settings', run(){ if (window.__app) window.__app('settings'); } },
-      ]);
+      ], { cls: 'shell' });
     }
     const volIco = document.getElementById('sVolIco');
     if (volIco) volIco.innerHTML = ICONS.vol;
@@ -685,7 +890,8 @@ const Desktop = (() => {
     items.push({ label: '锁定屏幕', ico: 'power', run(){ if (window.__logout) window.__logout(); } });
     items.push({ label: '关机', ico: 'power', run(){ if (window.__powerOff) window.__powerOff(); } });
 
-    openMenuAt(anchor, '', items);
+    /* 顶栏菜单在真机里是 GNOME Shell 的弹层（深灰 6px 圆角），不是 GTK 菜单 */
+    openMenuAt(anchor, '', items, { cls: 'shell' });
   }
 
   /* ================= polkit 认证 =================
