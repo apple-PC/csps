@@ -217,14 +217,15 @@ const SCENES = {
 
   // 程序回收系统：登录页
   rclogin: LOGIN + `
-    Desktop.launch('recovery');
+    window.__app('recovery');
     await sleep(700);
   `,
 
   // 程序回收系统：登录后切到「答题」
   recovery: LOGIN + `
-    Desktop.launch('recovery');
-    await sleep(700);
+    window.__app('recovery');
+    await sleep(1500);
+    document.querySelector('#rcId').value = 'GZ-2026-001';
     document.querySelector('#rcPwd').value = 'demo1234';
     document.querySelector('#rcLoginBtn').click();
     await sleep(500);
@@ -232,10 +233,96 @@ const SCENES = {
     await sleep(400);
   `,
 
+  // 程序回收系统：提交源代码对话框（空白态，真实系统要求手动粘贴）
+  rcsubmit: LOGIN + `
+    window.__app('recovery');
+    await sleep(1500);
+    document.querySelector('#rcId').value = 'GZ-2026-001';
+    document.querySelector('#rcPwd').value = 'demo1234';
+    document.querySelector('#rcLoginBtn').click();
+    await sleep(500);
+    [...document.querySelectorAll('.rc-nav a')].find(a => a.dataset.tab === 'answer').click();
+    await sleep(350);
+    document.querySelector('[data-sub]').click();
+    await sleep(350);
+  `,
+
+  // 程序回收系统：对话框里已粘贴代码 + 触发空白校验错误的样子
+  rcsubmit2: LOGIN + `
+    window.__app('recovery');
+    await sleep(1500);
+    document.querySelector('#rcId').value = 'GZ-2026-001';
+    document.querySelector('#rcPwd').value = 'demo1234';
+    document.querySelector('#rcLoginBtn').click();
+    await sleep(500);
+    [...document.querySelectorAll('.rc-nav a')].find(a => a.dataset.tab === 'answer').click();
+    await sleep(350);
+    document.querySelector('[data-sub]').click();
+    await sleep(300);
+    document.querySelector('.rc-dlg-f [data-ok]').click();
+    await sleep(200);
+  `,
+
   // 顶栏系统菜单
   menu: LOGIN + `
     document.getElementById('sSysBtn').click();
     await sleep(220);
+  `,
+
+  // Code::Blocks：Management 切到 Symbols 页签（核对函数签名树）
+  cbcside: GDM + `
+    document.querySelector('.gdm-user[data-account="csp-s2026"]').click();
+    await sleep(260);
+    document.getElementById('gdmPwd').value = 'csp2026';
+    document.getElementById('gdmSubmit').click();
+    await sleep(1000);
+    (window.__probs || []).forEach(p => {
+      Desktop.fs.mkdirp('~/Desktop/teacher/' + p.id);
+      Desktop.fs.write('~/Desktop/teacher/' + p.id + '/' + p.id + '.cpp',
+        '#include <bits/stdc++.h>\\nusing namespace std;\\nint n, m;\\nint dfs(int u, int fa){ return u; }\\nint main(){\\n  cin >> n;\\n  cout << n << endl;\\n  return 0;\\n}\\n');
+    });
+    Desktop.launch('cb');
+    await sleep(2800);
+    [...document.querySelectorAll('.cbc-side-tabs button')].find(b => b.textContent === 'Symbols').click();
+    await sleep(300);
+  `,
+
+  // 管理员：回收后台（有粘贴提交 + 评测完成的样子）
+  grading: GDM + `
+    document.querySelector('.gdm-user[data-account="NOIP"]').click();
+    await sleep(260);
+    document.getElementById('gdmPwd').value = 'noip2026';
+    document.getElementById('gdmSubmit').click();
+    await sleep(900);
+    window.__app('admin');
+    await sleep(400);
+    document.querySelector('.adm-navbtn[data-view="grading"]').click();
+    await sleep(400);
+  `,
+
+  // 管理员：回收后台（造一条已提交已评分的数据，核对徽章与检查点按钮样式）
+  grading2: GDM + `
+    localStorage.setItem('csp_sim:rcsubmits', JSON.stringify({
+      queue: { time: '2026-11-01 12:30:00', size: 812, code: '#include <bits/stdc++.h>\\nusing namespace std;\\nint main(){ int n; cin >> n; cout << n * 2 << endl; }\\n' },
+      decode:{ time: '2026-11-01 12:41:07', size: 640, code: '// decode' },
+    }));
+    localStorage.setItem('csp_sim:rcgrades', JSON.stringify({
+      queue: { time: Date.now(), verdict: 'OK', score: 75, ac: 6, total: 8, cases: [
+        { ok:true, verdict:'AC', ms:12, sample:true }, { ok:true, verdict:'AC', ms:9, sample:true },
+        { ok:true, verdict:'AC', ms:31 }, { ok:true, verdict:'AC', ms:44 },
+        { ok:true, verdict:'AC', ms:88 }, { ok:false, verdict:'WA', ms:51 },
+        { ok:false, verdict:'TLE', ms:1002 }, { ok:false, verdict:'RE', ms:23 },
+      ] },
+    }));
+    document.querySelector('.gdm-user[data-account="NOIP"]').click();
+    await sleep(260);
+    document.getElementById('gdmPwd').value = 'noip2026';
+    document.getElementById('gdmSubmit').click();
+    await sleep(900);
+    window.__app('admin');
+    await sleep(400);
+    document.querySelector('.adm-navbtn[data-view="grading"]').click();
+    await sleep(400);
   `,
 
   terminal: LOGIN + APP('终端') + `

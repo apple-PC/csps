@@ -198,14 +198,15 @@ body.resizing.row{cursor:row-resize;}
     <div class="splitter" data-dir="-1"></div>
 
     <section class="pane pane-artifact" id="paneArtifact">
+      <!-- 真机 Code::Blocks 的底部停靠面板只有 Compiler messages / Symbols / Resources
+           这类页签，没有本地评测器 —— 评测发生在交卷后的程序回收系统后台，所以这里
+           不设任何「评分 / 检查点」入口。 -->
       <div class="pane-head tabs">
         <button class="tab active" data-view="info">编译信息</button>
         <button class="tab" data-view="asm">结构视图</button>
         <button class="tab" data-view="trace">执行统计</button>
-        <button class="tab" data-view="judge">CSP-S 评测</button>
       </div>
       <pre id="artifact" class="artifact"></pre>
-      <div id="judgePanel" class="judge-panel"></div>
     </section>
   </div>
 
@@ -4846,92 +4847,9 @@ let CURRENT_FILE = 'main.cpp';   // 当前题目源文件名，由父页面通�
 let currentView = 'info';
 let running = false;
 
-async function runProgram(){
-  if (running) return;
-  if (!codeEl.value.trim()){
-    outEl.innerHTML = '<span style="color:var(--yellow)">代码区为空，请先输入 C++ 代码。</span>';
-    setStatus('代码为空', 'err');
-    return;
-  }
-  running = true;
-  runBtn.disabled = true;
-  exitInfo.textContent = '';
-  setStatus('编译中…', 'busy');
-  outEl.innerHTML = '<span style="color:var(--dim)">正在编译…</span>';
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-  const tCompileStart = performance.now();
-  let program = null, ce = null;
-  try { program = CppEngine.compile(codeEl.value); }
-  catch (e){ ce = e; }
-  const compileTime = performance.now() - tCompileStart;
-
-  if (ce){
-    outEl.innerHTML = `<span style="color:var(--red)">编译错误：${esc(ce.message)}</span>`;
-    setStatus('编译失败', 'err');
-    lastInfo = '编译错误：' + ce.message + '\n\n耗时：' + compileTime.toFixed(2) + ' ms';
-    lastAsm = '';
-    lastTrace = '';
-    modeInfo.textContent = '—';
-    renderCapabilityBar(null);
-    showView();
-    running = false;
-    runBtn.disabled = false;
-    return;
-  }
-
-  renderCapabilityBar(scanCapabilities(codeEl.value));
-
-  const r = CppEngine.run(program, stdinEl.value, { timeLimitMs: RUN_TIME_LIMIT_MS });
-  modeInfo.textContent = 'NOI Linux 2.0 · g++ 9.3.0（-std=c++14 -O2）';
-
-  if (r.verdict === 'OK'){
-    outEl.innerHTML = r.output ? esc(r.output)
-      : '<span style="color:var(--dim)">(程序没有产生任何输出)</span>';
-    setStatus('✓ 运行完成', 'ok');
-    exitInfo.textContent = '退出码 0';
-  } else {
-    let html = r.output ? esc(r.output) : '';
-    html += `<span style="color:var(--red)">\n${r.verdict === 'TLE' ? '运行超时' : '运行时错误'}：${esc(r.error || '')}</span>`;
-    outEl.innerHTML = html;
-    setStatus(r.verdict === 'TLE' ? '运行超时' : '运行时错误', 'err');
-    exitInfo.textContent = r.verdict === 'TLE' ? '超时终止' : '异常终止';
-  }
-
-  const fnLines = program.funcs.map(f =>
-    '  ' + f.retType + ' ' + f.name + '(' +
-    f.params.map(p => p.type + (p.name ? ' ' + p.name : '')).join(', ') + ')');
-
-  lastInfo = [
-    ce ? '✗ 编译失败' : '✔ 编译成功',
-    '===============================================',
-    '编译器     : g++ 9.3.0（NOI Linux 2.0 / Ubuntu 20.04.1）',
-    '编译选项   : ' + (stdSel.value || '-std=c++14') + ' -O2 -Wall',
-    '源文件     : ' + CURRENT_FILE,
-    '编译耗时   : ' + compileTime.toFixed(2) + ' ms',
-    '',
-    '[函数]',
-  ].concat(fnLines.length ? fnLines : ['  (无)']).join('\n');
-
-  lastAsm =
-    '本引擎直接解释执行语法树，不生成虚拟汇编。\n\n[全局变量]\n' +
-    (program.globals.length
-      ? program.globals.map(g => '  ' + g.type + ' ' + g.name + (g.dims && g.dims.length ? '[]' : '')).join('\n')
-      : '  (无)') +
-    '\n\n[结构体]\n' +
-    (program.structs.length ? program.structs.map(t => '  struct ' + t.name).join('\n') : '  (无)');
-
-  lastTrace = [
-    '编译耗时   : ' + compileTime.toFixed(2) + ' ms',
-    '执行耗时   : ' + r.ms.toFixed(2) + ' ms',
-    '输出字节   : ' + r.output.length,
-    '退出状态   : ' + (r.verdict === 'OK' ? '正常返回（return 0）' : r.verdict),
-  ].join('\n');
-
-  statsEl.textContent = '编译 ' + compileTime.toFixed(1) + 'ms · 运行 ' + r.ms.toFixed(1) + 'ms';
-  showView();
-  running = false;
-  runBtn.disabled = false;
+/* 工具栏「编译并运行」与 F9 走同一条路径：真编译 + 真跑，日志进底部停靠面板 */
+function runProgram(){
+  return buildAndRun();
 }
 
 function switchView(view){
@@ -4941,14 +4859,6 @@ function switchView(view){
 }
 
 function showView(){
-  const judgePanel = $('#judgePanel');
-  if (currentView === 'judge'){
-    artifactEl.style.display = 'none';
-    judgePanel.classList.add('active');
-    return;
-  }
-  artifactEl.style.display = '';
-  judgePanel.classList.remove('active');
   if (currentView === 'info'){
     artifactEl.textContent = lastInfo || '点击「编译并运行」后这里显示编译信息。';
   } else if (currentView === 'asm'){
@@ -5224,80 +5134,22 @@ window.addEventListener('resize', () => {
   }
 });
 
+/* 测试点数据：父页面通过 ide:setJudge 注入，供 Arbiter_local 与回收后台的
+   ide:req 使用。IDE 自己不再渲染任何「评测面板」——真机 Code::Blocks 的底部
+   停靠区只有 Compiler messages / Symbols / Resources，没有本地评测器。 */
 let judgeCases = [{ input: '', expected: '' }];
+let judgeTL = 1000;
 let judgeRunning = false;
-
-function renderJudge(){
-  const box = $('#judgePanel');
-  box.innerHTML = `
-    <div class="judge-toolbar">
-      <label>时限 <input id="judgeTL" type="number" value="1000" min="100" step="100" style="width:70px" title="每个测试点的墙钟时间上限；超过即判 TLE（本 VM 比 C++ 慢，约 5M 步/秒）"> ms</label>
-      <label>步数上限 <input id="judgeSteps" type="number" value="50000000" min="10000" step="1000000" style="width:120px" title="次级保护；真正防死循环是每个测试点 5 秒时间上限"></label>
-      <button id="judgeAddBtn">+ 添加测试点</button>
-      <button id="judgeRunBtn" class="primary">评测所有点</button>
-      <button id="judgeClearBtn">清空结果</button>
-      <span class="spacer"></span>
-      <span id="judgeSummary" style="font-weight:bold;"></span>
-    </div>
-    <div id="judgeCases"></div>
-    <div id="judgeResult" class="judge-detail"></div>
-  `;
-  $('#judgeAddBtn').onclick = () => { judgeCases.push({ input:'', expected:'' }); renderJudgeCases(); };
-  $('#judgeClearBtn').onclick = () => {
-    $('#judgeResult').innerHTML = '';
-    $('#judgeSummary').textContent = '';
-    document.querySelectorAll('[data-verdict]').forEach(el => { el.textContent=''; el.className=''; });
-  };
-  $('#judgeRunBtn').onclick = runJudgeAll;
-  renderJudgeCases();
-}
-
-function renderJudgeCases(){
-  const box = $('#judgeCases');
-  box.innerHTML = judgeCases.map((c, i) => `
-    <div class="judge-case">
-      <div class="judge-case-head">
-        <span>测试点 #${i+1}</span>
-        <span class="spacer"></span>
-        <span class="verdict" data-verdict="${i}"></span>
-        <button data-del="${i}" style="font-size:11px; padding:1px 6px;">删除</button>
-      </div>
-      <div class="judge-case-body">
-        <div>
-          <div class="lbl">输入 (stdin)</div>
-          <textarea data-k="input" data-i="${i}" spellcheck="false">${esc(c.input)}</textarea>
-        </div>
-        <div>
-          <div class="lbl">期望输出</div>
-          <textarea data-k="expected" data-i="${i}" spellcheck="false">${esc(c.expected)}</textarea>
-        </div>
-      </div>
-    </div>
-  `).join('');
-  box.querySelectorAll('textarea').forEach(t => {
-    t.oninput = e => { judgeCases[+e.target.dataset.i][e.target.dataset.k] = e.target.value; };
-  });
-  box.querySelectorAll('button[data-del]').forEach(b => {
-    b.onclick = () => {
-      if (judgeCases.length <= 1) judgeCases = [{ input:'', expected:'' }];
-      else judgeCases.splice(+b.dataset.del, 1);
-      renderJudgeCases();
-    };
-  });
-}
 
 function normOut(s){
   return String(s).replace(/\r\n/g, '\n').replace(/[ \t]+$/gm, '').replace(/\n+$/, '');
 }
 
 // 单次运行的墙钟时间上限：固定 5 秒
-// （评测模式的时限在评测面板里按测试点设置，见 readJudgeTimeLimit）
+// （解释器比 g++ -O2 慢，试跑放宽；正式评测的时限由 judgeTL 决定）
 const RUN_TIME_LIMIT_MS = 5000;
 // 评测每个测试点的时限（毫秒）；默认 1000ms（CSP-S 口径）
-function readJudgeTimeLimit(){
-  const el = $('#judgeTL');
-  return Math.min(60000, Math.max(100, el ? (+el.value || 1000) : 1000));
-}
+function readJudgeTimeLimit(){ return Math.min(60000, Math.max(100, judgeTL || 1000)); }
 
 function runOneCase(program, useVM, cg, tc, maxSteps, timeLimitMs){
   // 统一走 cpp-engine：真预处理、真类型、真 STL
@@ -5310,68 +5162,135 @@ function runOneCase(program, useVM, cg, tc, maxSteps, timeLimitMs){
   return { verdict, timeMs: r.ms, expected: tc.expected, actual: r.output, errMsg: r.error };
 }
 
-async function runJudgeAll(){
-  if (judgeRunning) return;
-  if (!codeEl.value.trim()){ alert('代码为空'); return; }
-  judgeRunning = true;
-  const runBtn2 = $('#judgeRunBtn');
-  runBtn2.disabled = true;
-  const summary = $('#judgeSummary');
-  summary.textContent = '编译中…';
-  summary.style.color = 'var(--yellow)';
+/* ══════════════════════════════════════════════════════════════════
+   「编译并运行」(F9) —— 真机 Code::Blocks 的行为：
+     1. 底部 Compiler messages 里打一段 g++ 构建日志（Build: Debug in …）；
+     2. 构建成功后把程序跑起来，在控制台里读 stdin、打 stdout。
+   我们照这个分两段做：日志进「编译信息」页签，程序输出进左下角输出区。
+   ══════════════════════════════════════════════════════════════════ */
+let buildSeq = 0;
 
-  let program;
-  try {
-    program = CppEngine.compile(codeEl.value);
-  } catch(e){
-    summary.textContent = '编译错误 (CE)';
-    summary.style.color = 'var(--red)';
-    $('#judgeResult').innerHTML = `<div class="verdict-CE">CE: ${esc(e.message)}</div>`;
-    judgeRunning = false; runBtn2.disabled = false;
+function cbRealPath(){
+  const pid = (CURRENT_FILE || 'main.cpp').replace(/\.cpp$/, '');
+  const sid = (window.__CBC_SID || 'teacher');
+  return '/home/' + sid + '/Desktop/' + sid + '/' + pid + '/' + CURRENT_FILE;
+}
+function cbTargetName(){
+  return (CURRENT_FILE || 'main.cpp').replace(/\.cpp$/, '');
+}
+/* Code::Blocks 自己的 Build messages 原文格式（20.03） */
+function cbBuildHeader(mode){
+  const name = cbTargetName();
+  return '-------------- Build: ' + (mode || 'Debug') + ' in ' + name +
+    ' (compiler: GNU GCC Compiler)---------------\n\n';
+}
+function cbBuildFooter(errors, warnings, secs, status){
+  return 'Process terminated with status ' + status + ' (0 minute(s), ' + secs + ' second(s))\n' +
+    errors + ' error(s), ' + warnings + ' warning(s) (0 minute(s), ' + secs + ' second(s))\n';
+}
+
+async function buildAndRun(){
+  if (judgeRunning) return;
+  const src = codeEl.value;
+  exitInfo.textContent = '';
+
+  if (!src.trim()){
+    outEl.innerHTML = '<span style="color:var(--yellow)">源文件为空，请先输入代码。</span>';
+    setStatus('代码为空', 'err');
     return;
   }
 
-  const useVM = false, cg = null;   // 已统一到 cpp-engine，保留变量兼容旧调用
+  judgeRunning = true;
+  const my = ++buildSeq;
+  const std = (stdSel && stdSel.value) || '-std=c++17';
+  const rp = cbRealPath();
+  const name = cbTargetName();
 
-  const maxSteps = Math.max(10000, +$('#judgeSteps').value || 50000000);
-  const judgeTL = readJudgeTimeLimit();
-  const results = [];
+  setStatus('编译中…', 'busy');
+  outEl.innerHTML = '<span style="color:var(--dim)">正在编译…</span>';
+  /* 先只把构建头画出来，让「按下 F9」有可见的第一步，而不是整块瞬间替换 */
+  lastInfo = cbBuildHeader('Debug') + 'Compiling: ' + rp + '\n';
+  lastAsm = '';
+  lastTrace = '';
+  artifactEl.textContent = lastInfo;
+  currentView = 'info';
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.view === 'info'));
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-  for (let i = 0; i < judgeCases.length; i++){
-    const el = document.querySelector(`[data-verdict="${i}"]`);
-    if (el){ el.textContent = '评测中…'; el.className = 'verdict'; }
-    await new Promise(r => setTimeout(r, 0));
+  const t0 = performance.now();
+  let program = null, ce = null;
+  try { program = CppEngine.compile(src); }
+  catch (e){ ce = e; }
+  const compileMs = performance.now() - t0;
+  const csec = Math.max(1, Math.round(compileMs / 1000));
 
-    const r = runOneCase(program, useVM, cg, judgeCases[i], maxSteps, judgeTL);
-    results.push(r);
-
-    if (el){
-      el.textContent = `${r.verdict} ${r.timeMs.toFixed(0)}ms`;
-      el.className = 'verdict verdict-' + r.verdict;
-    }
-    await new Promise(r => setTimeout(r, 0));
+  if (ce){
+    const line = ce.cppLine || 0;
+    const msg = String(ce.message || '编译失败').replace(/^(CE|RE)[:：]\s*/, '');
+    lastInfo = cbBuildHeader('Debug') +
+      'g++ -Wall -fexceptions -g ' + std + ' -c ' + rp + ' -o obj/Debug/' + name + '.o\n\n' +
+      rp + ': In function \'int main()\':\n' +
+      rp + ':' + line + ':1: error: ' + msg + '\n\n' +
+      cbBuildFooter(1, 0, csec, 1);
+    lastTrace = '';
+    outEl.innerHTML = '<span style="color:#ff6b6b">' + esc(rp + ':' + line + ':1: error: ' + msg) + '</span>';
+    setStatus('编译失败', 'err');
+    exitInfo.textContent = '1 error';
+    modeInfo.textContent = 'NOI Linux 2.0 · g++ 9.3.0（' + std + ' -O2 -Wall）';
+    statsEl.textContent = '编译失败';
+    showView();
+    judgeRunning = false;
+    return;
   }
 
-  const ac = results.filter(r => r.verdict === 'AC').length;
-  const score = Math.round(ac / results.length * 100);
-  summary.textContent = `得分 ${score}/100 · 通过 ${ac}/${results.length} · ${useVM ? 'VM' : '解释器'}`;
-  summary.style.color = score === 100 ? 'var(--green)' : score > 0 ? 'var(--yellow)' : 'var(--red)';
+  /* 构建成功：日志 + 链接产物，然后真跑 */
+  const sizeKB = (Math.max(9, src.length) / 1024 * 3.4 + 18).toFixed(2);
+  lastInfo = cbBuildHeader('Debug') +
+    'g++ -Wall -fexceptions -g ' + std + ' -c ' + rp + ' -o obj/Debug/' + name + '.o\n' +
+    'g++ -o bin/Debug/' + name + ' obj/Debug/' + name + '.o\n' +
+    'Output file is bin/Debug/' + name + ' with size ' + sizeKB + ' KB\n' +
+    cbBuildFooter(0, 0, csec, 0);
+  showView();
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-  $('#judgeResult').innerHTML = results.map((r, i) => {
-    let s = `<span class="verdict-${r.verdict}">${r.verdict}</span> #${i+1}  ${r.timeMs.toFixed(1)}ms`;
-    if (r.verdict !== 'AC'){
-      s += `\n  期望: ${JSON.stringify(r.expected)}`;
-      s += `\n  实际: ${JSON.stringify(r.actual)}`;
-      if (r.errMsg) s += `\n  信息: ${r.errMsg}`;
-    }
-    return `<div>${s.replace(/\n/g, '<br>')}</div>`;
-  }).join('');
+  const input = stdinEl.value;
+  const r = CppEngine.run(program, input, { timeLimitMs: RUN_TIME_LIMIT_MS });
 
+  if (r.verdict === 'OK'){
+    outEl.innerHTML = r.output ? esc(r.output)
+      : '<span style="color:var(--dim)">(程序没有产生任何输出)</span>';
+    setStatus('运行完成', 'ok');
+    exitInfo.textContent = '退出码 0';
+  } else {
+    let html = r.output ? esc(r.output) : '';
+    html += '<span style="color:#ff6b6b">\n' +
+      (r.verdict === 'TLE' ? '运行超时' : '运行时错误') + '：' + esc(r.error || '') + '</span>';
+    outEl.innerHTML = html;
+    setStatus(r.verdict === 'TLE' ? '运行超时' : '运行时错误', 'err');
+    exitInfo.textContent = r.verdict === 'TLE' ? '超时终止' : '异常终止';
+  }
+
+  lastAsm =
+    '本引擎直接解释执行语法树，不生成虚拟汇编。\n\n[全局变量]\n' +
+    (program.globals.length
+      ? program.globals.map(g => '  ' + g.type + ' ' + g.name + (g.dims && g.dims.length ? '[]' : '')).join('\n')
+      : '  (无)') +
+    '\n\n[结构体]\n' +
+    (program.structs.length ? program.structs.map(t => '  struct ' + t.name).join('\n') : '  (无)');
+
+  lastTrace = [
+    '编译耗时   : ' + compileMs.toFixed(2) + ' ms',
+    '执行耗时   : ' + r.ms.toFixed(2) + ' ms',
+    '输入字节   : ' + input.length,
+    '输出字节   : ' + r.output.length,
+    '退出状态   : ' + (r.verdict === 'OK' ? '正常返回（return 0）' : r.verdict),
+  ].join('\n');
+
+  modeInfo.textContent = 'NOI Linux 2.0 · g++ 9.3.0（' + std + ' -O2 -Wall）';
+  statsEl.textContent = '编译 ' + compileMs.toFixed(1) + 'ms · 运行 ' + r.ms.toFixed(1) + 'ms';
+  if (my !== buildSeq) return;
   judgeRunning = false;
-  runBtn2.disabled = false;
 }
-
-renderJudge();
 
 markEdit();
 codeEl.value = '';
@@ -5424,19 +5343,11 @@ setTimeout(() => {
   }
   function applyConfig(cfg){
     try{
+      /* 底部停靠面板不再有「评测」页签（真机 Code::Blocks 没有），
+         所以 showJudge 只在显式关闭时把左下角输出区收起来。 */
       if (cfg.showJudge === false){
-        var btn = document.querySelector('.tab[data-view="judge"]');
-        if (btn) btn.style.display = 'none';
-        var panel = document.getElementById('judgePanel');
-        if (panel) panel.style.display = 'none';
-        if (typeof currentView !== 'undefined' && currentView === 'judge'){
-          var btns = document.querySelectorAll('.tab');
-          for (var i = 0; i < btns.length; i++){
-            if (btns[i].style.display === 'none') continue;
-            btns[i].click();
-            break;
-          }
-        }
+        var io = document.getElementById('paneIO');
+        if (io) io.style.display = 'none';
       }
       if (cfg.allowCopy === false){
         ['copy','cut','paste','dragstart','drop','contextmenu'].forEach(function(ev){
@@ -5449,11 +5360,7 @@ setTimeout(() => {
     try{
       if (Array.isArray(cases) && cases.length)
         judgeCases = cases.map(function(c){ return { input:c.input||'', expected:c.expected||'' }; });
-      if (tl){ var t = document.getElementById('judgeTL'); if (t) t.value = tl; }
-      if (steps){ var s = document.getElementById('judgeSteps'); if (s) s.value = steps; }
-      var btn = document.querySelector('.tab[data-view="judge"]');
-      if (btn && btn.style.display !== 'none') btn.click();
-      if (typeof renderJudgeCases === 'function') renderJudgeCases();
+      if (tl) judgeTL = Math.min(60000, Math.max(100, +tl || 1000));
     }catch(e){}
   }
   /* ---- 供父页面在终端 / Arbiter 中调用：真编译、真运行、真评测 ---- */
@@ -5464,8 +5371,7 @@ setTimeout(() => {
       if (!src.trim()) throw new Error('源文件为空');
       var program = CppEngine.compile(src);
       var cg = null, useVM = false;
-      var stepsEl = document.getElementById('judgeSteps');
-      var maxSteps = Math.max(10000, (stepsEl && +stepsEl.value) || 50000000);
+      var maxSteps = 40000000;
       var tl = +d.tl || 2000;
       if (d.op === 'compile'){
         res.ok = true; res.phase = 'ok';
@@ -5508,7 +5414,23 @@ setTimeout(() => {
       try{ parent.postMessage({ type:'ide:code', code: codeEl.value }, '*'); }catch(e){}
     }
     else if (d.type === 'ide:runJudge'){
-      try{ if (typeof runJudgeAll === 'function') runJudgeAll(); }catch(e){}
+      /* 「编译并运行」：build + run，日志进底部停靠面板，stdout 进输出区 */
+      try{ if (typeof buildAndRun === 'function') buildAndRun(); }catch(e){}
+    }
+    else if (d.type === 'ide:edit'){
+      /* 外壳菜单里的 撤销/重做/剪切/复制/粘贴/全选 —— 编辑区本身是 textarea，直接 execCommand */
+      try{
+        codeEl.focus();
+        if (d.op === 'selectAll') codeEl.select();
+        else document.execCommand(d.op);
+      }catch(e){}
+    }
+    else if (d.type === 'ide:toggleLog'){
+      /* View → 日志面板：收起/展开底部停靠面板 */
+      try{
+        var pane = document.getElementById('paneArtifact');
+        if (pane) pane.style.display = pane.style.display === 'none' ? '' : 'none';
+      }catch(e){}
     }
   });
   // 代码变化自动上报给父页面（防抖，用于自动保存）

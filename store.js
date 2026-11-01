@@ -22,6 +22,7 @@ const Store = (() => {
     studentState: 'csp_sim:studentState',
     ghToken: 'csp_sim:ghtoken',       // 管理员粘贴的 GitHub token，仅存本机，绝不进代码
     rcSubmits: 'csp_sim:rcsubmits',   // 程序回收系统的提交记录 { [pid]: {time, size} }
+    rcGrades: 'csp_sim:rcgrades',     // 回收后台评测成绩 { [pid]: {score, cases, verdict} }
     examId: 'csp_sim:examid',          // 考生在程序回收系统里输入的准考证号
   };
 
@@ -199,6 +200,14 @@ const Store = (() => {
       const m = this.getRcSubmits();
       m[pid] = rec;
       lsSet(K.rcSubmits, m);
+      return m;
+    },
+    /* 回收后台的评测成绩：{ [pid]: { time, score, cases, verdict, msg } } */
+    getRcGrades(){ return lsGet(K.rcGrades, {}); },
+    saveRcGrade(pid, rec){
+      const m = this.getRcGrades();
+      m[pid] = rec;
+      lsSet(K.rcGrades, m);
       return m;
     },
     saveSettings(s){ lsSet(K.settings, s); fs.mirrorDebounced(); },

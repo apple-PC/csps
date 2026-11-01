@@ -320,31 +320,17 @@ const Student = (() => {
     return info;
   }
   function mountFs(){
-    const s = Store.getSettings();
     /* 官方 NOI Linux 2.0 的桌面目录就是 teacher（演示机原始状态），
        考生文件放里面，桌面上只有这一个文件夹加回收站 */
     const sid = 'teacher';
     const fs = Desktop.fs;
-    /* 官方 NOI Linux 2.0 的桌面上只有考生自己的目录（演示机叫 teacher），
-     * 题面、样例、须知都收在这个目录里，而不是摊在桌面上。
-     * 管理员把 desktopIcons 设成 exam 时，才额外把每题的压缩包平铺到桌面。 */
-    const flat = s.desktopIcons === 'exam';
     const home = '~/Desktop/' + sid;
     fs.reset();
     fs.mkdirp(home);
-    enabledProblems().forEach(p => {
-      const dir = home + '/' + p.id;
-      fs.mkdirp(dir);
-      fs.write(dir + '/' + p.id + '.cpp', Store.getCode(p.id) || '');
-      const samples = p.tests.filter(t => t.sample);
-      samples.forEach((t, i) => {
-        fs.write(dir + '/' + p.id + (i + 1) + '.in', t.input);
-        fs.write(dir + '/' + p.id + (i + 1) + '.ans', t.expected);
-      });
-      const zipBody = '（压缩包）' + p.id + '.pdf 题面 + ' + samples.length + ' 组样例数据';
-      fs.write((flat ? '~/Desktop/' : home + '/') + p.id + '.zip', zipBody);
-    });
-    fs.write((flat ? '~/Desktop/' : home + '/') + '考试须知.txt', noticeText());
+    /* 真机流程：刚进桌面时 teacher 里只有一份考试须知 —— 试题压缩包必须
+       考生自己登录回收系统「试题下载」拿到（见答题页 data-dl 的下载逻辑），
+       再用归档管理器解压出 <题名>.cpp / 样例 / 题面。 */
+    fs.write(home + '/考试须知.txt', noticeText());
     fs.mkdirp('~/.local/share/Trash/files');
     fs.cwd = fs.abs(home);
     fs.onWrite = (abs, content) => {
@@ -354,6 +340,37 @@ const Student = (() => {
     window.__stu = Object.assign({}, Store.getStudent() || {}, { role: account ? account.role : 'student' });
     window.__probs = enabledProblems();
     return sid;
+  }
+  /* 试题压缩包落在哪：默认模式进 teacher 目录，exam 模式平铺到桌面 */
+  function zipPath(pid){
+    return (Store.getSettings().desktopIcons === 'exam' ? '~/Desktop/' : '~/Desktop/teacher/') + pid + '.zip';
+  }
+  /* 题目是否已经「下载 + 解压」过（teacher 下有 <pid>/<pid>.cpp） */
+  function problemExtracted(pid){
+    const fs = Desktop.fs;
+    return fs.exists('~/Desktop/teacher/' + pid + '/' + pid + '.cpp');
+  }
+  /* 真正解压：zip 里有的东西一样不少地落到 teacher/<pid>/ 下。
+     之前写过的代码不能被空模板冲掉，所以 .cpp 优先取已保存的内容。 */
+  function extractProblem(p){
+    const fs = Desktop.fs;
+    const dir = '~/Desktop/teacher/' + p.id;
+    fs.mkdirp(dir);
+    fs.write(dir + '/' + p.id + '.cpp', Store.getCode(p.id) || '');
+    const samples = (p.tests || []).filter(t => t.sample);
+    samples.forEach((t, i) => {
+      fs.write(dir + '/' + p.id + (i + 1) + '.in', t.input);
+      fs.write(dir + '/' + p.id + (i + 1) + '.ans', t.expected);
+    });
+    fs.write(dir + '/' + p.id + '.pdf', statementText(p));
+    return dir;
+  }
+  function statementText(p){
+    const st = p.statement;
+    if (!st) return '';
+    if (st.type === 'text') return st.data || '';
+    if (st.type === 'html') return String(st.data || '').replace(/<[^>]+>/g, '');
+    return '（PDF 题面）';
   }
   /* 从路径推断题目 id：~/Desktop/<sid>/<pid>/<file> */
   function pidFromPath(abs){
@@ -372,6 +389,8 @@ const Student = (() => {
     const flat = Store.getSettings().desktopIcons === 'exam';
     if (flat){
       enabledProblems().forEach(p => {
+        /* 压缩包要真的下载过才出现在桌面上（回收系统下载后 buildDesktopIcons 会重跑） */
+        if (!Desktop.fs.exists(zipPath(p.id))) return;
         list.push({
           kind: 'zip', label: p.id + '.zip', key: 'zip:' + p.id, tip: p.title + '（题面与样例）',
           onOpen(){ openZip(p); },
@@ -533,10 +552,10 @@ const Student = (() => {
     if (win._built){ Desktop.focusWin(win); return win; }
     win._built = true;
 
-    const bOpen = el('button', 'ar-btn', '打开');
+    const bExtract = el('button', 'ar-btn', '解压缩');
     const ttl = el('div', 'ar-title', esc(p.id) + '.zip');
     const bMenu = el('button', 'nu-tb', NU_MENU); bMenu.title = '主菜单';
-    win.headApp.appendChild(bOpen);
+    win.headApp.appendChild(bExtract);
     win.headApp.appendChild(ttl);
     win.headApp.appendChild(bMenu);
 
@@ -573,13 +592,25 @@ const Student = (() => {
     });
 
     win.body.appendChild(list);
-    bOpen.onclick = () => toast('压缩包已解压到 ' + Desktop.fs.pretty('~/Desktop/teacher/' + p.id));
+    /* 解压缩必须真的往虚拟文件系统里落文件，且前提是包已经从回收系统下载过 */
+    bExtract.onclick = () => {
+      if (!Desktop.fs.exists(zipPath(p.id))){
+        toast('压缩包尚未下载，请先登录程序回收系统下载试题', 'err');
+        return;
+      }
+      const dir = extractProblem(p);
+      toast('已解压到 ' + Desktop.fs.pretty(dir), 'ok');
+    };
     bMenu.onclick = () => toast('主菜单：提取 / 全部提取 / 重新载入');
     return win;
   }
-  /* 网格里的「归档管理器」：直接开当前题的压缩包 */
+  /* 网格里的「归档管理器」：开当前题的压缩包（没下载过就提示去下载） */
   function openArchive(){
     const p = (ideWin && enabledProblems().find(x => x.id === ideWin.problemId)) || enabledProblems()[0];
+    if (p && !Desktop.fs.exists(zipPath(p.id))){
+      toast('还没有试题压缩包，请先在程序回收系统「试题下载」里下载', 'err');
+      return null;
+    }
     return openZip(p);
   }
 
@@ -1011,27 +1042,27 @@ const Student = (() => {
   const IDE_MENU_ORDER = ['File','Edit','View','Search','Project','Build','Debug','wxSmith','Tools','Tools+','Plugins','DoxyBlocks','Settings','Valgrind','Help'];
   const IDE_MENU_ITEMS = {
     File: [
-      { label: '新建文件', hint: 'Ctrl+N', dim: true },
-      { label: '打开…', hint: 'Ctrl+O', dim: true },
+      { label: '新建文件', hint: 'Ctrl+N', run(it, ctx){ ctx.newFile(); } },
+      { label: '打开…', hint: 'Ctrl+O', run(it, ctx){ ctx.openFile(); } },
       { label: '保存', hint: 'Ctrl+S', run(it, ctx){ ctx.save(); } },
       { label: '另存为…', hint: 'F12', dim: true },
       { sep: true },
       { label: '关闭窗口', hint: 'Ctrl+W', run(it, ctx){ ctx.close(); } },
     ],
     Edit: [
-      { label: '撤销', hint: 'Ctrl+Z', dim: true },
-      { label: '重做', hint: 'Ctrl+Y', dim: true },
+      { label: '撤销', hint: 'Ctrl+Z', run(it, ctx){ ctx.edit('undo'); } },
+      { label: '重做', hint: 'Ctrl+Y', run(it, ctx){ ctx.edit('redo'); } },
       { sep: true },
-      { label: '剪切', hint: 'Ctrl+X', dim: true },
-      { label: '复制', hint: 'Ctrl+C', dim: true },
-      { label: '粘贴', hint: 'Ctrl+V', dim: true },
-      { label: '全选', hint: 'Ctrl+A', dim: true },
+      { label: '剪切', hint: 'Ctrl+X', run(it, ctx){ ctx.edit('cut'); } },
+      { label: '复制', hint: 'Ctrl+C', run(it, ctx){ ctx.edit('copy'); } },
+      { label: '粘贴', hint: 'Ctrl+V', run(it, ctx){ ctx.edit('paste'); } },
+      { label: '全选', hint: 'Ctrl+A', run(it, ctx){ ctx.edit('selectAll'); } },
       { sep: true },
       { label: '查找…', hint: 'Ctrl+F', dim: true },
     ],
     View: [
-      { label: '管理器面板', dim: true },
-      { label: '日志面板', dim: true },
+      { label: '管理器面板', run(it, ctx){ ctx.mgr(); } },
+      { label: '日志面板', run(it, ctx){ ctx.log(); } },
       { sep: true },
       { label: '全屏', hint: 'F11', dim: true },
     ],
@@ -1111,6 +1142,11 @@ const Student = (() => {
       save(){ postIDE({ type: 'ide:getCode' }); setTimeout(() => toast('已保存', 'ok'), 120); },
       judge(){ postIDE({ type: 'ide:runJudge' }); },
       close(){ Desktop.closeWin(win); },
+      newFile(){ ideNewFile(); },
+      openFile(){ ideOpenChooser(); },
+      mgr(){ toggleSide(); },
+      log(){ postIDE({ type: 'ide:toggleLog' }); },
+      edit(op){ postIDE({ type: 'ide:edit', op }); },
     };
     IDE_MENU_ORDER.forEach(name => {
       const b = el('div', 'mb-item', name);
@@ -1136,8 +1172,8 @@ const Student = (() => {
       return b;
     }
     function tbSep(){ tb.appendChild(el('div', 'cbc-tb-sep')); }
-    tbBtn('folder_new.png', '新建空白文件 (Ctrl+Shift+N)', null, true);
-    tbBtn('folder.png',     '打开已有文件 (Ctrl+O)', null, true);
+    tbBtn('folder_new.png', '新建空白文件 (Ctrl+Shift+N)', () => menuCtx.newFile());
+    tbBtn('folder.png',     '打开已有文件 (Ctrl+O)', () => menuCtx.openFile());
     const tbSave = tbBtn('source.png', '保存当前文件 (Ctrl+S)', () => menuCtx.save());
     tbSep();
     tbBtn('rebuild.png',    '全部重新编译 (Ctrl+F11)', () => postIDE({ type: 'ide:runJudge' }));
@@ -1163,11 +1199,26 @@ const Student = (() => {
     const side = el('div', 'cbc-side');
     const sideHead = el('div', 'cbc-side-head');
     sideHead.innerHTML = '<img class="cbc-ico" src="assets/cb/source.png" alt="">' +
-      '<span>Management</span><span class="cbc-x">✕</span>';
+      '<span>Management</span><span class="cbc-x" title="关闭面板">✕</span>';
     const tree = el('div', 'cbc-tree');
+    const symBox = el('div', 'cbc-syms');
+    const resBox = el('div', 'cbc-res', '<div class="cbc-res-empty">本项目没有资源文件</div>');
     const sideTabs = el('div', 'cbc-side-tabs');
     sideTabs.innerHTML = '<button class="on">Projects</button><button>Symbols</button><button>Resources</button>';
-    side.appendChild(sideHead); side.appendChild(tree); side.appendChild(sideTabs);
+    side.appendChild(sideHead); side.appendChild(tree);
+    side.appendChild(symBox); side.appendChild(resBox);
+    side.appendChild(sideTabs);
+    symBox.style.display = 'none'; resBox.style.display = 'none';
+    /* 三个页签真切换：Projects 是项目树，Symbols 是当前源码里的函数，Resources 恒为空 */
+    const tabPanes = [tree, symBox, resBox];
+    [...sideTabs.children].forEach((b, i) => {
+      b.onclick = () => {
+        [...sideTabs.children].forEach((x, j) => x.classList.toggle('on', j === i));
+        tabPanes.forEach((p, j) => { p.style.display = j === i ? '' : 'none'; });
+        if (i === 1) paintSymbols();
+      };
+    });
+    sideHead.querySelector('.cbc-x').onclick = () => toggleSide(false);
 
     const frame = el('iframe', 'cbc-frame');
     frame.src = 'ide.html?ui=cbc';
@@ -1196,8 +1247,16 @@ const Student = (() => {
     const treeFiles = {};
 
     let othersBox = null;
+    let extractedSig = '';
+    const treeSig = () => problems.map(p => problemExtracted(p.id) ? 1 : 0).join('');
+    /* 分支折叠状态：Workspace / 项目 / Sources / Others（默认全开） */
+    const openSet = new Set(['ws', 'proj', 'src', 'oth']);
     function buildTree(){
+      extractedSig = treeSig();
       tree.innerHTML = '';
+      for (const k in treeFiles) delete treeFiles[k];
+      const op = k => openSet.has(k);
+      const tg = k => { if (openSet.has(k)) openSet.delete(k); else openSet.add(k); buildTree(); };
       const add = (depth, caret, ico, label, cls, onClick, parent) => {
         const n = el('div', 'cbc-node' + (cls ? ' ' + cls : ''));
         n.style.paddingLeft = (4 + depth * 12) + 'px';
@@ -1209,18 +1268,31 @@ const Student = (() => {
         (parent || tree).appendChild(n);
         return n;
       };
-      add(0, '▾', null, 'Workspace');
-      add(1, '▾', 'folder.png', sid);
-      add(2, '▾', 'folder.png', 'Sources');
-      problems.forEach(p => {
-        const n = add(3, '', 'source.png', p.id + '.cpp', 'file', () => switchTo(p.id));
-        n.dataset.problem = p.id;
-        treeFiles[p.id] = n;
-      });
-      add(2, '▾', 'folder.png', 'Others');
-      othersBox = el('div', 'cbc-others');
-      tree.appendChild(othersBox);
-      paintOthers();
+      add(0, op('ws') ? '▾' : '▸', null, 'Workspace', '', () => tg('ws'));
+      if (op('ws')){
+        add(1, op('proj') ? '▾' : '▸', 'folder.png', sid, '', () => tg('proj'));
+        if (op('proj')){
+          add(2, op('src') ? '▾' : '▸', 'folder.png', 'Sources', '', () => tg('src'));
+          if (op('src')){
+            problems.forEach(p => {
+              /* 没解压的题在树里是灰的：真机上 Code::Blocks 里也不会凭空出现没下载的源文件 */
+              const got = problemExtracted(p.id);
+              const n = add(3, '', 'source.png',
+                p.id + '.cpp' + (got ? '' : '　（未解压）'),
+                'file' + (got ? '' : ' dim'),
+                got ? () => switchTo(p.id)
+                    : () => toast('请先在程序回收系统下载 ' + p.id + '.zip，再用归档管理器解压', 'err'));
+              n.dataset.problem = p.id;
+              treeFiles[p.id] = n;
+            });
+          }
+          add(2, op('oth') ? '▾' : '▸', 'folder.png', 'Others', '', () => tg('oth'));
+          othersBox = el('div', 'cbc-others');
+          othersBox.style.display = op('oth') ? '' : 'none';
+          tree.appendChild(othersBox);
+          if (op('oth')) paintOthers();
+        }
+      }
       paintTree();
     }
     /* Others 下挂的是「当前题」的样例文件，切题时必须跟着换 */
@@ -1247,6 +1319,87 @@ const Student = (() => {
       });
     }
 
+    /* Management 面板开关：✕ 关掉，View → 管理器面板 再打开（真机同款行为） */
+    function toggleSide(force){
+      const show = force == null ? side.style.display === 'none' : !!force;
+      side.style.display = show ? '' : 'none';
+    }
+    /* Symbols 页签：从当前源码抠函数签名（真机是 CppParser，这里做个够用的正则版） */
+    function paintSymbols(){
+      const src = ideWin.problemId ? (Store.getCode(ideWin.problemId) || '') : '';
+      const syms = [];
+      const re = /(?:^|\n)[ \t]*(?:static[ \t]+)?(?:int|void|bool|double|float|char|long[ \t]+long|unsigned[ \t]+\w+|string|auto)[ \t]+(\w+)[ \t]*\(([^;{)]*)\)[ \t]*\{/g;
+      let m;
+      while ((m = re.exec(src)) && syms.length < 60){
+        syms.push({ name: m[1], params: m[2].replace(/\s+/g, ' ').trim() });
+      }
+      symBox.innerHTML =
+        '<div class="cbc-node"><span class="cbc-caret">▾</span>' +
+          '<img class="cbc-ico" src="assets/cb/folder.png" alt=""><span>Symbols</span></div>' +
+        '<div class="cbc-node" style="padding-left:16px"><span class="cbc-caret">▾</span>' +
+          '<img class="cbc-ico" src="assets/cb/folder.png" alt=""><span>全局函数</span></div>' +
+        (syms.length
+          ? syms.map(s => '<div class="cbc-node" style="padding-left:28px">' +
+              '<span class="cbc-caret"></span><span class="cbc-ico"></span>' +
+              '<span>' + esc(s.name + '(' + s.params + ')') + '</span></div>').join('')
+          : '<div class="cbc-node dim" style="padding-left:28px"><span class="cbc-caret"></span>' +
+            '<span class="cbc-ico"></span><span>（当前源码没有函数）</span></div>');
+    }
+    /* 新建空白文件：编辑区切到 untitled 缓冲，保存时落到 ~/Desktop/teacher/ */
+    function ideNewFile(){
+      let name = 'untitled.cpp';
+      for (let i = 2; Desktop.fs.exists('~/Desktop/teacher/' + name); i++) name = 'untitled' + i + '.cpp';
+      postIDE({ type: 'ide:getCode' });                    // 先把旧文件存掉
+      setTimeout(() => {
+        ideWin.problemId = null;
+        ideWin.file = name;
+        ideWin.savePath = '~/Desktop/teacher/' + name;
+        Desktop.fs.write(ideWin.savePath, '');             // 磁盘上先有这个文件，保存才有落点
+        postIDE({ type: 'ide:file', name });
+        postIDE({ type: 'ide:setCode', code: '' });
+        sbFile.textContent = name;
+        sbPath.textContent = '~/Desktop/teacher/' + name;
+        const tt = win.head.querySelector('.win-title');
+        if (tt) tt.textContent = ideWinTitle('Code::Blocks', name);
+        paintTree();
+      }, 60);
+    }
+    /* 打开文件：真机弹 GTK 文件选择器，这里用同风格弹出菜单列出 teacher 下的 .cpp */
+    function ideOpenChooser(){
+      const fs = Desktop.fs;
+      const items = [];
+      const scan = (base, depth) => {
+        (fs.list(base) || []).forEach(n => {
+          if (n.type === 'file' && /\.cpp$/.test(n.name)){
+            items.push({ label: fs.pretty(n.path), ico: 'code', run(){ ideOpenPath(n.path); } });
+          } else if (n.type === 'dir' && depth < 1){
+            scan(n.path, depth + 1);
+          }
+        });
+      };
+      scan('~/Desktop/teacher', 0);
+      if (!items.length){ toast('~/Desktop/teacher 下还没有任何 .cpp 文件', 'err'); return; }
+      Desktop.openMenuAt(sb.querySelector('[data-cbc="file"]') || win.head, '', items);
+    }
+    function ideOpenPath(p){
+      const m = p.match(/\/(\w+)\/\1\.cpp$/);
+      if (m && treeFiles[m[1]]){ switchTo(m[1]); return; }
+      const name = p.split('/').pop();
+      postIDE({ type: 'ide:getCode' });
+      setTimeout(() => {
+        ideWin.problemId = null;
+        ideWin.file = name;
+        ideWin.savePath = p;
+        postIDE({ type: 'ide:file', name });
+        postIDE({ type: 'ide:setCode', code: Desktop.fs.read(p) || '' });
+        sbFile.textContent = name;
+        sbPath.textContent = p;
+        const tt = win.head.querySelector('.win-title');
+        if (tt) tt.textContent = ideWinTitle('Code::Blocks', name);
+        paintTree();
+      }, 60);
+    }
+
     ideWin = { win, frame, problemId: cur, ready: false, cbc: true };
     const s = Store.getSettings();
 
@@ -1254,6 +1407,7 @@ const Student = (() => {
       const p = problems.find(x => x.id === ideWin.problemId);
       if (!p) return;
       const code = Store.getCode(p.id);
+      ideWin.file = p.id + '.cpp';
       postIDE({ type: 'ide:file', name: p.id + '.cpp' });
       postIDE({ type: 'ide:setCode', code });
       postIDE({
@@ -1266,8 +1420,9 @@ const Student = (() => {
       if (sbPath) sbPath.textContent = '~/Desktop/' + sid + '/' + p.id + '/' + p.id + '.cpp';
       const tt = win.head.querySelector('.win-title');
       if (tt) tt.textContent = ideWinTitle('Code::Blocks', p.id + '.cpp');
-      paintOthers();
-      paintTree();
+      /* 解压发生在 CBC 开着的时候（归档管理器解压完回来），树要跟着从灰变亮 */
+      if (treeSig() !== extractedSig) buildTree();
+      else { paintOthers(); paintTree(); }
       if (sbCaret) sbCaret.textContent = '行 1, 列 1';
     }
     function switchTo(id){
@@ -1329,6 +1484,14 @@ const Student = (() => {
       save(){ postIDE({ type: 'ide:getCode' }); setTimeout(() => toast('已保存', 'ok'), 120); },
       judge(){ postIDE({ type: 'ide:runJudge' }); },
       close(){ Desktop.closeWin(win); },
+      newFile(){ postIDE({ type: 'ide:getCode' }); setTimeout(() => {
+        postIDE({ type: 'ide:file', name: 'untitled.cpp' });
+        postIDE({ type: 'ide:setCode', code: '' });
+      }, 60); },
+      openFile(){ toast('打开文件请使用 Code::Blocks', 'err'); },
+      mgr(){ toast('该编辑器没有管理器面板'); },
+      log(){ postIDE({ type: 'ide:toggleLog' }); },
+      edit(op){ postIDE({ type: 'ide:edit', op }); },
     };
     IDE_MENU_ORDER.forEach(name => {
       const b = el('div', 'mb-item', name);
@@ -1398,6 +1561,16 @@ const Student = (() => {
     }
     if (d.type !== 'ide:code') return;
     if (!ideWin) return;
+    /* 非题目的文件缓冲（新建的 untitled / 打开的其他 .cpp）：写回它自己的路径，
+       别误存进当前题的 Store 槽位 */
+    if (ideWin.file && !ideWin.problemId){
+      const path = ideWin.savePath || ('~/Desktop/teacher/' + ideWin.file);
+      const node = Desktop.fs.nodes.get(Desktop.fs.abs(path));
+      if (node && node.content !== d.code) node.content = d.code;
+      const dot2 = ideWin.win.body.querySelector('.save-dot');
+      if (dot2) dot2.textContent = ideWin.file + ' 已保存 · ' + fmtSize(d.code.length);
+      return;
+    }
     const pid = ideWin.problemId;
     if (!pid) return;
     Store.saveCode(pid, d.code);
@@ -3036,7 +3209,8 @@ const Student = (() => {
       }
       if (rcState.tab === 'download'){
         return '<div class="rc-card"><div class="rc-card-h">试题下载</div><div class="rc-card-b">' +
-          '<p class="rc-hint">点击「下载」将试题文件保存到本机桌面。个别考点可能直接下发到本机，请以监考老师说明为准。</p>' +
+          '<p class="rc-hint">点击「下载」把试题压缩包保存到 ~/Desktop/teacher/，' +
+          '再用「归档管理器」解压后作答。个别考点可能直接下发试题，请以监考老师说明为准。</p>' +
           '<table class="rc-table"><thead><tr><th class="rc-num">序号</th><th>试题名称</th><th>文件</th><th style="width:88px"></th></tr></thead><tbody>' +
           problems.map((p, i) =>
             '<tr><td class="rc-num">' + (i + 1) + '</td><td>' + esc(rcQName(p, i)) + '</td>' +
@@ -3051,14 +3225,14 @@ const Student = (() => {
           '</tr></thead><tbody>' +
           problems.map((p, i) => {
             const r = subs[p.id];
-            const code = Store.getCode(p.id) || '';
             return '<tr><td class="rc-num">' + (i + 1) + '</td>' +
               '<td>' + esc(rcQName(p, i)) + '</td>' +
               '<td class="rc-time">' + (r ? esc(r.time) : '—') + '</td>' +
-              '<td class="rc-size">' + (r ? r.size + 'B' : (code ? '未提交' : '—')) + '</td>' +
+              '<td class="rc-size">' + (r ? r.size + 'B' : '—') + '</td>' +
               '<td><div class="rc-acts">' +
               '<button class="rc-btn view" data-view="' + esc(p.id) + '">查看</button>' +
-              '<button class="rc-btn submit" data-sub="' + esc(p.id) + '">提交</button>' +
+              '<button class="rc-btn submit" data-sub="' + esc(p.id) + '">' +
+              (r ? '重新提交' : '提交') + '</button>' +
               '</div></td></tr>';
           }).join('') +
           '</tbody></table>';
@@ -3113,10 +3287,23 @@ const Student = (() => {
       page.querySelectorAll('[data-dl]').forEach(b => {
         b.onclick = () => {
           const pid = b.dataset.dl;
-          const stu2 = Store.getStudent() || {};
-          toast('已下载 ' + pid + '.zip 到 ~/Desktop/' + (stu2.id || 'answers') + '/', 'ok');
-          b.textContent = '已下载';
-          b.disabled = true;
+          if (b.dataset.busy) return;
+          if (Desktop.fs.exists(zipPath(pid))){ toast('该题压缩包已下载过', 'ok'); return; }
+          b.dataset.busy = '1';
+          b.textContent = '下载中…';
+          /* 真机下载不是瞬时的：按钮先进入下载态，约 700ms 后文件才落盘 */
+          setTimeout(() => {
+            const p = enabledProblems().find(x => x.id === pid);
+            if (!p){ b.textContent = '下载失败'; delete b.dataset.busy; return; }
+            const samples = (p.tests || []).filter(t => t.sample).length;
+            Desktop.fs.write(zipPath(pid),
+              '（压缩包）' + p.id + '.pdf 题面 + ' + samples + ' 组样例数据 + ' + p.id + '.cpp 模板');
+            b.textContent = '已下载';
+            b.disabled = true;
+            delete b.dataset.busy;
+            toast('已下载 ' + pid + '.zip → ' + zipPath(pid), 'ok');
+            buildDesktopIcons('teacher');      // exam 模式桌面平铺 zip 图标，要让新包出现
+          }, 700);
         };
       });
       page.querySelectorAll('[data-view]').forEach(b => {
@@ -3127,18 +3314,83 @@ const Student = (() => {
         };
       });
       page.querySelectorAll('[data-sub]').forEach(b => {
-        b.onclick = () => {
-          const pid = b.dataset.sub;
-          const code = Store.getCode(pid) || '';
-          if (!code.trim()){ toast('该题代码为空，请先在 Code::Blocks 中作答并保存', 'err'); return; }
-          const d = new Date();
-          const time = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' +
-            pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
-          Store.saveRcSubmit(pid, { time, size: code.length });
-          toast('已提交 ' + pid + '.cpp（' + code.length + ' 字节）', 'ok');
-          rcRender();
-        };
+        b.onclick = () => rcSubmitDlg(b.dataset.sub);
       });
+    }
+
+    /* 提交源代码：真实回收系统不读本机磁盘，考生必须把代码粘贴进对话框。
+       文本框为空时提交无效 —— 这条必须保留，否则整个作答环节就是假的。 */
+    function rcSubmitDlg(pid){
+      const problems = enabledProblems();
+      const p = problems.find(x => x.id === pid);
+      if (!p) return;
+      const idx = problems.indexOf(p);
+      const prev = Store.getRcSubmits()[pid];
+
+      page.querySelectorAll('.rc-mask').forEach(n => n.remove());
+      const mask = el('div', 'rc-mask');
+      mask.innerHTML =
+        '<div class="rc-dlg">' +
+          '<div class="rc-dlg-h"><span>提交源代码</span><button class="rc-dlg-x" data-x>✕</button></div>' +
+          '<div class="rc-dlg-b">' +
+            '<div class="rc-dlg-row"><span class="rc-dlg-lab">试题</span>' +
+              '<span>' + esc(rcQName(p, idx)) + '</span></div>' +
+            '<div class="rc-dlg-row"><span class="rc-dlg-lab">文件名</span>' +
+              '<span class="rc-dlg-file">' + esc(pid) + '.cpp</span></div>' +
+            (prev ? '<div class="rc-dlg-row"><span class="rc-dlg-lab">上次提交</span>' +
+              '<span class="rc-dlg-prev">' + esc(prev.time) + '　' + (prev.size || 0) + ' 字节' +
+              '（本次提交后将覆盖）</span></div>' : '') +
+            '<div class="rc-dlg-tip">请将 ' + esc(pid) + '.cpp 的<b>完整源代码粘贴</b>到下方文本框内。' +
+              '本系统不会自动读取你本机上的任何文件；<b>文本框为空时提交无效</b>。</div>' +
+            '<textarea class="rc-paste" spellcheck="false" wrap="off" ' +
+              'placeholder="在此粘贴 ' + esc(pid) + '.cpp 的完整内容&#10;' +
+              '在 Code::Blocks 里按 Ctrl+A 全选、Ctrl+C 复制，再回到这里按 Ctrl+V 粘贴"></textarea>' +
+            '<div class="rc-dlg-bar">' +
+              '<span class="rc-stat" data-stat>0 字符 · 0 行</span>' +
+              '<span class="rc-err" data-err></span>' +
+              '<span class="rc-spacer"></span>' +
+              '<button class="rc-btn" data-clear>清空</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="rc-dlg-f">' +
+            '<button class="rc-btn" data-cancel>取消</button>' +
+            '<button class="rc-btn submit" data-ok>确定提交</button>' +
+          '</div>' +
+        '</div>';
+      page.appendChild(mask);
+
+      const ta = mask.querySelector('.rc-paste');
+      const stat = mask.querySelector('[data-stat]');
+      const err = mask.querySelector('[data-err]');
+      const count = () => {
+        const v = ta.value;
+        const lines = v ? v.replace(/\n$/, '').split('\n').length : 0;
+        stat.textContent = v.length + ' 字符 · ' + lines + ' 行';
+        if (v.trim()) err.textContent = '';
+      };
+      ta.addEventListener('input', count);
+      const close = () => mask.remove();
+      mask.querySelector('[data-x]').onclick = close;
+      mask.querySelector('[data-cancel]').onclick = close;
+      mask.querySelector('[data-clear]').onclick = () => { ta.value = ''; count(); ta.focus(); };
+      mask.addEventListener('mousedown', e => { if (e.target === mask) close(); });
+      mask.querySelector('[data-ok]').onclick = () => {
+        const code = ta.value;
+        if (!code.trim()){
+          err.textContent = '× 请先粘贴源代码，空白提交无效';
+          ta.focus();
+          return;
+        }
+        const d = new Date();
+        const time = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' +
+          pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+        Store.saveRcSubmit(pid, { time, size: code.length, code });
+        mask.remove();
+        toast('已提交 ' + pid + '.cpp（' + code.length + ' 字节）', 'ok');
+        rcRender();
+      };
+      setTimeout(() => { try{ ta.focus(); }catch(e){} }, 30);
+      count();
     }
 
     /* 地址栏回车 = 前往；刷新按钮重载当前地址。外网一律连不上 */

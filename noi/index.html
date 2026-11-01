@@ -82,6 +82,7 @@
       <button class="adm-navbtn" data-view="problems">题目管理</button>
       <button class="adm-navbtn" data-view="control">考试控制</button>
       <button class="adm-navbtn" data-view="subs">提交记录</button>
+      <button class="adm-navbtn" data-view="grading">回收后台</button>
     </nav>
     <div class="adm-folder">
       <div class="adm-folder-title">考试数据文件夹</div>
@@ -156,6 +157,16 @@
       <h2>提交记录</h2>
       <div class="prob-toolbar"><button class="btn btn-sm" id="btnClearSubs">清空记录</button><span class="dim" id="subSummary"></span></div>
       <div id="subList"></div>
+    </section>
+
+    <section id="view-grading" class="adm-view hidden">
+      <h2>回收后台 · 按检查点评测</h2>
+      <p class="dim" style="margin-top:-6px">读取考生在「程序回收系统」粘贴提交的源代码，用评测引擎逐个检查点运行并给分（每点等分，满分 100）。</p>
+      <div class="prob-toolbar">
+        <button class="btn btn-sm" id="btnGradeAll">评测全部</button>
+        <span class="dim" id="gradeSummary"></span>
+      </div>
+      <div id="gradeList"></div>
     </section>
   </main>
 </div>

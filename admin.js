@@ -53,6 +53,7 @@ const Admin = (() => {
     if (name === 'control'){ renderControl(); startCtrlTimer(); }
     else if (Admin._timer){ clearInterval(Admin._timer); Admin._timer = null; }
     if (name === 'subs') renderSubs();
+    if (name === 'grading') renderGrading();
   }
   $$('.adm-navbtn').forEach(b => b.onclick = () => switchView(b.dataset.view));
   $('#btnAdminExit').onclick = hide;
@@ -483,6 +484,172 @@ const Admin = (() => {
     if (!confirm('清空全部提交记录？（写盘的代码文件不会被删除）')) return;
     localStorage.removeItem(Store.K.submissions);
     renderSubs();
+  };
+
+  /* ═══════════════ 回收后台：按检查点评测 ═══════════════
+   * 读考生在回收系统「粘贴」提交的源代码（存于 csp_sim:rcsubmits），
+   * 用 cpp-engine 真编译真运行，逐个测试点判 AC/WA/TLE/RE，按点等分给 100 分制。
+   * 引擎与隐藏测试点按需加载（cpp-engine.js / problem-tests.js 都在站点根目录）。 */
+  let _enginePromise = null;
+  function ensureEngine(){
+    if (window.CppEngine) return Promise.resolve();
+    if (!_enginePromise){
+      _enginePromise = new Promise((res, rej) => {
+        const sc = document.createElement('script');
+        sc.src = 'cpp-engine.js';
+        sc.onload = res;
+        sc.onerror = () => rej(new Error('评测引擎加载失败'));
+        document.head.appendChild(sc);
+      });
+    }
+    return _enginePromise;
+  }
+  let _testsPromise = null;
+  function ensureHiddenTests(){
+    if (window.BUILTIN_HIDDEN_TESTS) return Promise.resolve();
+    if (!_testsPromise){
+      _testsPromise = new Promise(res => {
+        const sc = document.createElement('script');
+        sc.src = 'problem-tests.js';
+        sc.onload = res; sc.onerror = res;      // 拿不到隐藏点就退回样例，别卡死
+        document.head.appendChild(sc);
+      }).then(() => {
+        const H = window.BUILTIN_HIDDEN_TESTS || {};
+        (window.BUILTIN_PROBLEMS || []).forEach(p => {
+          const hid = H[p.id];
+          if (hid && hid.length){
+            const sampleN = p.tests.filter(t => t.sample).length;
+            if (p.tests.length === sampleN) p.tests = p.tests.concat(hid);
+          }
+        });
+      });
+    }
+    return _testsPromise;
+  }
+  const frame = () => new Promise(r => setTimeout(r, 0));
+  /* 评测的行末空白容差：与真实 OJ 一致（忽略行尾空格与文件末尾换行差异） */
+  const normOut = s => String(s == null ? '' : s).replace(/\r/g, '')
+    .split('\n').map(l => l.replace(/[ \t]+$/, '')).join('\n').replace(/\s+$/, '');
+
+  async function gradeProblem(p, btn){
+    const subs = Store.getRcSubmits();
+    const sub = subs[p.id];
+    if (!sub || !sub.code){ toast('「' + p.id + '」还没有粘贴提交的源代码', 'err'); return; }
+    const old = btn.textContent;
+    btn.disabled = true; btn.textContent = '准备…';
+    try{
+      await ensureEngine();
+      await ensureHiddenTests();
+    }catch(e){
+      toast(e.message, 'err'); btn.disabled = false; btn.textContent = old;
+      return;
+    }
+    btn.textContent = '编译中…';
+    await frame(); await frame();
+
+    let program = null;
+    try { program = CppEngine.compile(sub.code); }
+    catch (e){
+      Store.saveRcGrade(p.id, { time: Date.now(), verdict: 'CE', score: 0, cases: [], msg: e.message });
+      renderGrading();
+      return;
+    }
+
+    const cases = p.tests || [];
+    const results = [];
+    for (let i = 0; i < cases.length; i++){
+      btn.textContent = '评测中 ' + (i + 1) + '/' + cases.length;
+      await frame();
+      const t = cases[i];
+      const r = CppEngine.run(program, t.input || '', { timeLimitMs: p.tl || 1000 });
+      const ok = r.verdict === 'OK' && normOut(r.output) === normOut(t.expected);
+      results.push({ ok, verdict: ok ? 'AC' : (r.verdict === 'OK' ? 'WA' : r.verdict),
+        ms: Math.round(r.ms), sample: !!t.sample });
+      if (i % 3 === 2) await frame();
+    }
+    const ac = results.filter(r => r.ok).length;
+    const score = cases.length ? Math.round(ac / cases.length * 100) : 0;
+    Store.saveRcGrade(p.id, { time: Date.now(), verdict: 'OK', score, ac, total: cases.length, cases: results });
+    renderGrading();
+    toast(p.id + ' 评测完成：' + score + ' 分（' + ac + '/' + cases.length + ' 点）', 'ok');
+  }
+
+  function gradeBadge(g){
+    if (!g) return '<span class="dim">未评测</span>';
+    if (g.verdict === 'CE') return '<span class="grade-ce">CE</span> <span class="dim">' + esc(g.msg || '').slice(0, 60) + '</span>';
+    const cls = g.score === 100 ? 'grade-ac' : g.score > 0 ? 'grade-part' : 'grade-zero';
+    return '<b class="' + cls + '">' + g.score + '</b> <span class="dim">/ 100（' + g.ac + '/' + g.total + ' 点）</span>';
+  }
+  function renderGrading(){
+    const box = $('#gradeList');
+    const problems = getProblems().filter(p => p.enabled);
+    const subs = Store.getRcSubmits();
+    const grades = Store.getRcGrades();
+    const graded = problems.filter(p => grades[p.id]).length;
+    $('#gradeSummary').textContent = problems.length + ' 题 · 已评测 ' + graded;
+    if (!problems.length){ box.innerHTML = '<p class="dim">没有启用的题目</p>'; return; }
+    const t = el('table', 'sub-table grade-table');
+    t.innerHTML = '<thead><tr><th style="width:44px">序号</th><th>试题</th><th>提交时间</th><th>内容长度</th>' +
+      '<th>得分</th><th style="width:170px"></th></tr></thead>';
+    const tb = el('tbody');
+    problems.forEach((p, i) => {
+      const sub = subs[p.id];
+      const g = grades[p.id];
+      const tr = el('tr');
+      tr.innerHTML =
+        '<td>' + (i + 1) + '</td>' +
+        '<td>' + esc(p.id) + '　<span class="dim">' + esc(p.title) + '</span></td>' +
+        '<td>' + (sub ? esc(sub.time) : '<span class="dim">未提交</span>') + '</td>' +
+        '<td>' + (sub ? fmtSize((sub.code || '').length) : '—') + '</td>' +
+        '<td>' + gradeBadge(g) + '</td>';
+      const td = el('td');
+      const bGrade = el('button', 'btn btn-sm', '评测');
+      bGrade.disabled = !sub;
+      bGrade.onclick = () => gradeProblem(p, bGrade);
+      td.appendChild(bGrade);
+      if (sub){
+        const bCode = el('button', 'btn btn-sm', '看代码');
+        bCode.onclick = () => {
+          const pre = el('pre');
+          pre.style.cssText = 'font:12.5px/1.55 Consolas,monospace;white-space:pre-wrap;word-break:break-all';
+          pre.textContent = sub.code || '';
+          modal(p.id + ' · 考生粘贴提交的源代码', pre, { wide: true });
+        };
+        td.appendChild(bCode);
+      }
+      if (g && g.cases && g.cases.length){
+        const bDet = el('button', 'btn btn-sm', '检查点');
+        bDet.onclick = () => {
+          const wrap = el('div');
+          const grid = el('div', 'grade-cases');
+          g.cases.forEach((c, k) => {
+            const cell = el('span', 'grade-case' + (c.ok ? ' ok' : '') + ' v-' + c.verdict);
+            cell.textContent = (c.sample ? '样例' : '点') + (k + 1) + ' ' + c.verdict + ' ' + c.ms + 'ms';
+            grid.appendChild(cell);
+          });
+          wrap.appendChild(grid);
+          modal(p.id + ' · 检查点明细（' + g.ac + '/' + g.total + '）', wrap, { wide: true });
+        };
+        td.appendChild(bDet);
+      }
+      tr.appendChild(td);
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+    box.innerHTML = '';
+    box.appendChild(t);
+  }
+  $('#btnGradeAll').onclick = async () => {
+    const problems = getProblems().filter(p => p.enabled && (Store.getRcSubmits()[p.id]));
+    if (!problems.length){ toast('还没有任何题目收到粘贴提交', 'err'); return; }
+    for (const p of problems){
+      const btn = [...document.querySelectorAll('#gradeList button')].find(b => {
+        const tr = b.closest('tr');
+        return tr && tr.children[1] && tr.children[1].textContent.trim().startsWith(p.id + ' ') &&
+          b.textContent === '评测';
+      });
+      if (btn) await gradeProblem(p, btn);
+    }
   };
 
   return { show, getProblems, builtinDefaults, sanitizeId };

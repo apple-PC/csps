@@ -421,8 +421,12 @@ const Desktop = (() => {
   /* ═══════════════ 图标区 ═══════════════ */
   function renderIcons(list){
     const desk = deskEl();
-    desk.innerHTML = '';
-    list.forEach((it, i) => desk.appendChild(makeIcon(it, i)));
+    /* 只重建 .s-icon，别动整个容器 —— 窗口也挂在 #sDesktop 下面，
+       以前一句 innerHTML='' 会把所有开着的窗口一起拆掉
+       （下载完试题刷新桌面图标 → Firefox 直接消失）。 */
+    [...desk.querySelectorAll('.s-icon')].forEach(n => n.remove());
+    const firstWin = desk.querySelector('.s-win');   // 图标保持在窗口前面（列布局在前面）
+    list.forEach((it, i) => desk.insertBefore(makeIcon(it, i), firstWin));
   }
   function makeIcon(it, idx){
     const d = el('div', 's-icon');

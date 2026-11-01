@@ -279,6 +279,7 @@ async function gdmLogin(account, pwd){
   await sleep(220);
 
   // ── 文件管理器：Nautilus 3.36（headerbar + 图标视图 + 先骨架后内容） ──
+  // 真机流程：刚进桌面 teacher 里只有考试须知，试题要考生自己下载解压
   icons.find(i => i.textContent.includes('teacher')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
   await sleep(20);
   check('文件管理器打开（headerbar 外壳）', !!document.querySelector('.nu-view') &&
@@ -288,23 +289,44 @@ async function gdmLogin(account, pwd){
     [...document.querySelectorAll('.nu-crumb.cur')].map(b => b.textContent).join('')));
   await sleep(460);
   check('载入完成后骨架已移除', !document.querySelector('.nu-view .skel'));
-  check('图标视图列出 4 个题目目录',
-    document.querySelectorAll('.nu-item[data-kind="folder"]').length === 4);
-  check('图标用的是 Yaru 真图', [...document.querySelectorAll('.nu-item .nu-ico img')]
-    .every(i => /assets\/icons\/[a-z]+\.png$/.test(i.getAttribute('src'))));
-  const nuItems = [...document.querySelectorAll('.nu-item')];
-  check('考生目录内有压缩包', nuItems.some(r => r.dataset.name.includes('.zip')));
-  check('考生目录内有考试须知', nuItems.some(r => r.dataset.name.includes('考试须知')));
+  const nuItems0 = [...document.querySelectorAll('.nu-item')];
+  check('刚进桌面没有题目目录（试题未下载）',
+    nuItems0.filter(r => r.dataset.kind === 'folder').length === 0);
+  check('刚进桌面也没有压缩包', !nuItems0.some(r => r.dataset.name.includes('.zip')));
+  check('考生目录内有考试须知', nuItems0.some(r => r.dataset.name.includes('考试须知')));
+  window.Desktop.closeAllWins();
+  await sleep(200);
 
-  // ── 压缩包 → 题面（在考生目录里双击，而不是桌面上） ──
+  // ── 试题下载 → 解压 → 作答（与回收系统「下载」按钮同一落点） ──
+  const dlPid = window.__probs[0].id;
+  window.Desktop.fs.write('~/Desktop/teacher/' + dlPid + '.zip', '（压缩包）' + dlPid);
+  icons.find(i => i.textContent.includes('teacher')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
+  await sleep(480);
+  const nuItems = [...document.querySelectorAll('.nu-item')];
+  check('下载后考生目录内有压缩包', nuItems.some(r => r.dataset.name.includes('.zip')));
   nuItems.find(r => r.dataset.name.includes('.zip')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
   await sleep(20);
   check('zip 窗口打开', [...document.querySelectorAll('.win-title')].some(t => t.textContent.includes('.zip')));
+  const bExtract = document.querySelector('.ar-btn');
+  check('file-roller 有「解压缩」按钮', !!bExtract && /解压缩/.test(bExtract.textContent));
+  bExtract.dispatchEvent(new window.Event('click', { bubbles: true }));
+  await sleep(120);
+  check('解压真的落了 .cpp 文件', window.Desktop.fs.exists('~/Desktop/teacher/' + dlPid + '/' + dlPid + '.cpp'));
+  check('解压真的落了样例 .in/.ans',
+    window.Desktop.fs.exists('~/Desktop/teacher/' + dlPid + '/' + dlPid + '1.in') &&
+    window.Desktop.fs.exists('~/Desktop/teacher/' + dlPid + '/' + dlPid + '1.ans'));
+  check('解压真的落了题面 .pdf', window.Desktop.fs.exists('~/Desktop/teacher/' + dlPid + '/' + dlPid + '.pdf'));
+
   document.querySelector('.ar-row').dispatchEvent(new window.Event('dblclick', { bubbles: true }));
   await sleep(20);
   check('题面窗口打开', document.querySelector('.pdf-name') !== null);
   check('题面含标题', document.querySelector('.prob-doc h2') !== null);
 
+  // 回到文件管理器看解压出来的题目目录
+  window.Desktop.closeAllWins();
+  await sleep(200);
+  icons.find(i => i.textContent.includes('teacher')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
+  await sleep(480);
   document.querySelector('.nu-item[data-kind="folder"]').dispatchEvent(new window.Event('dblclick', { bubbles: true }));
   await sleep(220);
   const nuIn = [...document.querySelectorAll('.nu-item')];
@@ -313,6 +335,13 @@ async function gdmLogin(account, pwd){
   check('进入子目录后路径栏多一段', document.querySelectorAll('.nu-crumb').length >= 3);
   window.Desktop.closeAllWins();
   await sleep(200);
+
+  // 其余题目也解压好（模拟考生已完成全部下载解压，CBC 才能在题目间切换作答）
+  window.__probs.forEach(p => {
+    const dir = '~/Desktop/teacher/' + p.id;
+    window.Desktop.fs.mkdirp(dir);
+    window.Desktop.fs.write(dir + '/' + p.id + '.cpp', window.Store ? window.Store.getCode(p.id) || '' : '');
+  });
 
   // ── IDE（Code::Blocks 20.03：外壳 + 内嵌编辑区）──
   await launchApp('Code::Blocks');
@@ -363,6 +392,68 @@ async function gdmLogin(account, pwd){
     [...document.querySelectorAll('.cbc-tree .cbc-node.file')]
       .find(n => n.dataset.problem === pid).dispatchEvent(new window.Event('click', { bubbles: true }));
     await sleep(200);
+  }
+
+  // ── Management 面板：折叠 / 页签 / 关闭 ──
+  {
+    const fileCount = () => document.querySelectorAll('.cbc-tree .cbc-node.file').length;
+    const nodeCount = () => document.querySelectorAll('.cbc-tree .cbc-node').length;
+    const wsCaret = document.querySelector('.cbc-tree .cbc-node .cbc-caret');
+    check('Workspace 节点带折叠箭头', wsCaret && /[▾▸]/.test(wsCaret.textContent));
+    wsCaret.parentElement.dispatchEvent(new window.Event('click', { bubbles: true }));
+    await sleep(60);
+    check('点 Workspace 折叠整棵树', fileCount() === 0 && nodeCount() === 1);
+    wsCaret.parentElement.dispatchEvent(new window.Event('click', { bubbles: true }));
+    await sleep(60);
+    check('再点展开恢复', fileCount() === 4);
+    /* Symbols 页签：当前源码里的函数 */
+    const symTab = [...document.querySelectorAll('.cbc-side-tabs button')].find(b => b.textContent === 'Symbols');
+    symTab.dispatchEvent(new window.Event('click', { bubbles: true }));
+    await sleep(60);
+    check('Symbols 页签显示函数签名', /main\s*\(/.test(document.querySelector('.cbc-syms').textContent));
+    check('切到 Symbols 后项目树隐藏', document.querySelector('.cbc-tree').style.display === 'none');
+    const resTab = [...document.querySelectorAll('.cbc-side-tabs button')].find(b => b.textContent === 'Resources');
+    resTab.dispatchEvent(new window.Event('click', { bubbles: true }));
+    await sleep(60);
+    check('Resources 页签提示无资源文件', /没有资源文件/.test(document.querySelector('.cbc-res').textContent));
+    const projTab = [...document.querySelectorAll('.cbc-side-tabs button')].find(b => b.textContent === 'Projects');
+    projTab.dispatchEvent(new window.Event('click', { bubbles: true }));
+    await sleep(60);
+    check('切回 Projects 页签项目树恢复', document.querySelector('.cbc-tree').style.display === '');
+    /* ✕ 关闭面板，View → 管理器面板 再打开 */
+    document.querySelector('.cbc-side-head .cbc-x').dispatchEvent(new window.Event('click', { bubbles: true }));
+    await sleep(60);
+    check('✕ 关闭 Management 面板', document.querySelector('.cbc-side').style.display === 'none');
+    document.querySelector('.cbc-shell .mb-item:nth-child(3)').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true }));
+    await sleep(60);
+    const mgrItem = [...document.querySelectorAll('.gp-pop .gp-item')]
+      .find(x => /管理器面板/.test(x.textContent));
+    check('View 菜单里有「管理器面板」', !!mgrItem);
+    if (mgrItem){ mgrItem.dispatchEvent(new window.Event('click', { bubbles: true })); await sleep(60); }
+    check('View → 管理器面板 重新打开侧栏', mgrItem && document.querySelector('.cbc-side').style.display !== 'none');
+  }
+
+  // ── 工具栏：新建文件 / 打开文件 ──
+  {
+    const tbBtns = [...document.querySelectorAll('.cbc-toolbar .cbc-tb')];
+    const bNew = tbBtns.find(b => /新建空白文件/.test(b.title));
+    const bOpen = tbBtns.find(b => /打开已有文件/.test(b.title));
+    const bSave = tbBtns.find(b => /保存当前文件/.test(b.title));
+    check('新建/打开/保存按钮都可点（不再置灰）',
+      !!bNew && !!bOpen && !!bSave && !bNew.classList.contains('off') && !bOpen.classList.contains('off'));
+    bNew.dispatchEvent(new window.Event('click', { bubbles: true }));
+    await sleep(200);
+    check('新建文件：编辑区切到 untitled.cpp',
+      document.querySelector('.cbc-statusbar [data-cbc="file"]').textContent === 'untitled.cpp');
+    check('新建的文件真的落盘（保存有落点）',
+      window.Desktop.fs.exists('~/Desktop/teacher/untitled.cpp'));
+    bOpen.dispatchEvent(new window.Event('click', { bubbles: true }));
+    await sleep(80);
+    const openItems = [...document.querySelectorAll('.gp-pop .gp-item .gp-item-lbl')]
+      .filter(x => /teacher.*\.cpp/.test(x.textContent));
+    check('打开文件菜单列出 teacher 下的 .cpp', openItems.length >= 4);
+    document.body.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true }));
+    await sleep(60);
   }
 
   // ── 终端 ──
@@ -648,15 +739,54 @@ async function gdmLogin(account, pwd){
   const subPid = subBtn.dataset.sub;
   click(subBtn);
   await sleep(120);
+  /* 提交必须走「粘贴源代码」对话框 —— 真实回收系统不读本机文件 */
+  const dlg = document.querySelector('.rc-mask .rc-dlg');
+  check('点提交弹出粘贴对话框', !!dlg);
+  check('对话框写明目标文件名', /\.cpp/.test(dlg.querySelector('.rc-dlg-file').textContent));
+  check('对话框提示必须粘贴', /粘贴/.test(dlg.querySelector('.rc-dlg-tip').textContent));
+  const paste = dlg.querySelector('.rc-paste');
+  check('对话框里是空的文本框（不自动读磁盘）', paste.value === '');
+  check('初始统计为 0 字符', /^0 字符/.test(dlg.querySelector('[data-stat]').textContent));
+  click(dlg.querySelector('[data-ok]'));
+  await sleep(100);
+  check('空白提交被拒绝，对话框没关', !!document.querySelector('.rc-mask .rc-dlg'));
+  check('空白提交给出错误文案', /无效/.test(dlg.querySelector('[data-err]').textContent));
+  check('空白提交没有写入记录', !JSON.parse(window.localStorage.getItem('csp_sim:rcsubmits') || '{}')[subPid]);
+  const pasted = '#include <bits/stdc++.h>\nint main(){ return 0; }\n';
+  paste.value = pasted;
+  paste.dispatchEvent(new window.Event('input', { bubbles: true }));
+  await sleep(50);
+  check('粘贴后统计字符数与行数',
+    dlg.querySelector('[data-stat]').textContent ===
+      pasted.length + ' 字符 · 2 行');
+  click(dlg.querySelector('[data-ok]'));
+  await sleep(150);
+  check('粘贴后提交关闭对话框', !document.querySelector('.rc-mask'));
   const rcSubs = JSON.parse(window.localStorage.getItem('csp_sim:rcsubmits') || '{}');
   check('提交记录含时间与字节数', !!(rcSubs[subPid] && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(rcSubs[subPid].time) && rcSubs[subPid].size > 0));
+  check('提交记录保存了源代码本体（后台评测要用）', /bits\/stdc\+\+/.test(rcSubs[subPid].code || ''));
   check('提交后表格显示内容长度', /B$/.test(document.querySelector('.rc-table tbody tr .rc-size').textContent));
+  check('已提交的题按钮变成「重新提交」',
+    /重新提交/.test(document.querySelector('[data-sub]').textContent));
   click([...document.querySelectorAll('.rc-nav a')].find(a => a.dataset.tab === 'download'));
   await sleep(100);
   check('试题下载页列出题目', document.querySelectorAll('.rc-table tbody tr').length === 4);
-  click(document.querySelector('[data-dl]'));
+  /* 「下载」必须真的把压缩包写进虚拟文件系统，而不是 toast 一下就完事 */
+  const dlBtn = document.querySelectorAll('[data-dl]')[1];
+  const dlPid2 = dlBtn.dataset.dl;
+  check('下载前 teacher 里没有该题压缩包', !window.Desktop.fs.exists('~/Desktop/teacher/' + dlPid2 + '.zip'));
+  click(dlBtn);
+  await sleep(120);
+  check('下载中按钮进入忙碌态', dlBtn.dataset.busy === '1' && /下载中/.test(dlBtn.textContent));
+  await sleep(820);
+  check('下载后压缩包真的落到 teacher/', window.Desktop.fs.exists('~/Desktop/teacher/' + dlPid2 + '.zip'));
+  check('下载完成后按钮变为已下载', dlBtn.textContent === '已下载' && dlBtn.disabled);
+  /* 再点一题没下载过的（第 0 题在前面流程里已落包，会走「已下载过」分支） */
+  const dlBtn2 = document.querySelectorAll('[data-dl]')[2];
+  dlBtn2.dataset && click(dlBtn2);
   await sleep(60);
-  check('下载后按钮变已下载', document.querySelector('[data-dl]').textContent === '已下载');
+  check('重复下载已下载过的题不会重复写', /已下载/.test(
+    document.querySelectorAll('[data-dl]')[1].textContent));
   click(document.querySelector('#rcLogout'));
   await sleep(100);
   check('退出登录显示离场提示', /有序离场/.test(document.querySelector('.rc-bye').textContent));
@@ -703,6 +833,46 @@ async function gdmLogin(account, pwd){
   check('入口不再内嵌复习面板', !document.getElementById('reviewApp'));
   await testStudy();
   await testAdminDirect();
+
+  console.log('— 回收后台：按检查点评测粘贴提交 —');
+  // jsdom outside-only 不执行动态 <script>，先把评测引擎灌进页面
+  window.eval(fs.readFileSync(path.join(ROOT, 'cpp-engine.js'), 'utf8'));
+  await gdmLogin('NOIP', 'noip2026');
+  window.__app('admin');
+  await sleep(30);
+  click(document.querySelector('.adm-navbtn[data-view="grading"]'));
+  await sleep(80);
+  check('回收后台视图打开', visible('view-grading'));
+  check('列出启用的题目', document.querySelectorAll('#gradeList tbody tr').length >= 4);
+  const rcSubsNow = JSON.parse(window.localStorage.getItem('csp_sim:rcsubmits') || '{}');
+  const gradedPid = Object.keys(rcSubsNow)[0];
+  check('有粘贴提交的题才可评测', [...document.querySelectorAll('#gradeList tbody tr')]
+    .every(tr => {
+      const has = tr.children[1].textContent.trim().startsWith(gradedPid);
+      const btn = tr.querySelector('td:last-child button');
+      return has ? !btn.disabled : btn.disabled;
+    }));
+  {
+    const rowP = [...document.querySelectorAll('#gradeList tbody tr')]
+      .find(tr => tr.children[1].textContent.trim().startsWith(gradedPid));
+    check('提交时间与内容长度进入表格', /^\d{4}-\d{2}-\d{2}/.test(rowP.children[2].textContent.trim()) &&
+      /B$/.test(rowP.children[3].textContent.trim()));
+    const gBtn = [...rowP.querySelectorAll('button')].find(b => b.textContent === '评测');
+    gBtn.dispatchEvent(new window.Event('click', { bubbles: true }));
+    await sleep(4000);      // 真编译 + 全部检查点（空程序很快）
+    const grades = JSON.parse(window.localStorage.getItem('csp_sim:rcgrades') || '{}');
+    check('评测成绩落库', !!grades[gradedPid]);
+    check('只会输出空的程序得 0 分', grades[gradedPid] && grades[gradedPid].score === 0);
+    check('每个检查点都有 AC/WA/TLE/RE 判定', grades[gradedPid] &&
+      (grades[gradedPid].cases || []).length >= 4 &&
+      grades[gradedPid].cases.every(c => ['AC', 'WA', 'TLE', 'RE'].includes(c.verdict)));
+    await sleep(80);
+    const rowP2 = [...document.querySelectorAll('#gradeList tbody tr')]
+      .find(tr => tr.children[1].textContent.trim().startsWith(gradedPid));
+    check('表格显示得分与点数', /\/ 100/.test(rowP2.children[4].textContent));
+    check('出现「检查点」明细按钮', [...rowP2.querySelectorAll('button')].some(b => b.textContent === '检查点'));
+  }
+  click($('#btnAdminExit'));
 
   console.log('— 加载进度显示 —');
   const showLoading = window.eval('showLoading');

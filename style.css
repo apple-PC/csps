@@ -126,6 +126,21 @@ input,select,textarea{ font:inherit; }
 }
 .adm-navbtn:hover{ background:rgba(255,255,255,.08); color:#fff; }
 .adm-navbtn.active{ background:#2f6fed; color:#fff; }
+/* ── 回收后台：得分徽章与检查点明细 ── */
+.grade-ac{ color:#1e9e4a; font-size:15px; }
+.grade-part{ color:#d38b1e; font-size:15px; }
+.grade-zero{ color:#d43c3c; font-size:15px; }
+.grade-ce{ color:#d43c3c; font-weight:700; }
+.grade-table td{ vertical-align:middle; }
+.grade-cases{ display:flex; flex-wrap:wrap; gap:6px; max-width:640px; }
+.grade-case{
+  padding:3px 9px; border-radius:3px; background:#eef2f6; color:#556; font-size:12px;
+  font-variant-numeric:tabular-nums; white-space:nowrap;
+}
+.grade-case.ok{ background:#e2f5e9; color:#17703a; }
+.grade-case.v-WA{ background:#fdecec; color:#b02a2a; }
+.grade-case.v-TLE{ background:#fdf3e0; color:#a06408; }
+.grade-case.v-RE{ background:#f3e8fd; color:#6d34ad; }
 .adm-folder{
   border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:10px 12px; margin-bottom:12px;
   font-size:12px;
@@ -1614,6 +1629,59 @@ input,select,textarea{ font:inherit; }
 .rc-btn.down:hover{ background:#3a8ed2; }
 .rc-btn:disabled{ opacity:.45; }
 
+/* 提交源代码对话框：真实回收系统要求手动粘贴，空内容提交无效 */
+.rc-mask{
+  position:absolute; inset:0; z-index:40; display:flex; align-items:center; justify-content:center;
+  background:rgba(16,32,52,.34); backdrop-filter:blur(1px);
+  animation:rcFade .12s ease-out both;
+}
+@keyframes rcFade{ from{ opacity:0 } to{ opacity:1 } }
+.rc-dlg{
+  width:min(640px,92%); max-height:88%; display:flex; flex-direction:column;
+  background:#fff; border-radius:3px; box-shadow:0 10px 34px rgba(16,40,70,.28);
+  animation:rcPop .16s cubic-bezier(.2,.9,.3,1) both;
+}
+@keyframes rcPop{ from{ opacity:0; transform:translateY(-8px) scale(.985) } to{ opacity:1; transform:none } }
+.rc-dlg-h{
+  flex:none; display:flex; align-items:center; height:38px; padding:0 10px 0 14px;
+  background:linear-gradient(90deg,#3aa0b8,#2f7fb8); color:#fff; font-size:14px; border-radius:3px 3px 0 0;
+}
+.rc-dlg-h span{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rc-dlg-x{
+  flex:none; border:0; background:transparent; color:rgba(255,255,255,.85);
+  font:14px/1 var(--ui-font); cursor:default; padding:4px 6px; border-radius:3px;
+}
+.rc-dlg-x:hover{ background:rgba(255,255,255,.18); color:#fff; }
+.rc-dlg-b{ flex:1; min-height:0; overflow:auto; padding:14px 16px 10px; }
+.rc-dlg-row{ display:flex; align-items:baseline; gap:10px; margin-bottom:7px; font-size:12.5px; }
+.rc-dlg-lab{ flex:none; width:60px; color:#6b7b8c; text-align:right; }
+.rc-dlg-file{ font-family:var(--mono-font); color:#2a3a4c; }
+.rc-dlg-prev{ color:#8a6d20; font-size:12px; }
+.rc-dlg-tip{
+  margin:9px 0 8px; padding:8px 10px; font-size:12px; line-height:1.75; color:#4a5b6c;
+  background:#f2f7fc; border:1px solid #dde8f2; border-left:3px solid #3aa0b8; border-radius:2px;
+}
+.rc-dlg-tip b{ color:#2f7fb8; font-weight:600; }
+.rc-paste{
+  display:block; width:100%; height:236px; resize:vertical; box-sizing:border-box;
+  padding:8px 10px; border:1px solid #c8d6e4; border-radius:2px; background:#fdfeff; color:#26384a;
+  font:12.5px/1.6 var(--mono-font); tab-size:8; outline:0;
+}
+.rc-paste:focus{ border-color:#3aa0b8; box-shadow:0 0 0 2px rgba(58,160,184,.16); }
+.rc-paste::placeholder{ color:#a8b6c4; }
+.rc-dlg-bar{ display:flex; align-items:center; gap:10px; padding:7px 2px 2px; font-size:12px; }
+.rc-stat{ color:#6b7b8c; font-variant-numeric:tabular-nums; }
+.rc-spacer{ flex:1; }
+.rc-err{ color:#c0392b; font-weight:600; }
+.rc-dlg-f{
+  flex:none; display:flex; justify-content:flex-end; gap:8px;
+  padding:10px 16px; border-top:1px solid #e6edf4; background:#f7fafc; border-radius:0 0 3px 3px;
+}
+.rc-dlg-f .rc-btn{ padding:5px 16px; font-size:12.5px; background:#e9eef4; color:#33455a; }
+.rc-dlg-f .rc-btn:hover{ background:#dde5ee; }
+.rc-dlg-f .rc-btn.submit{ background:#2f7fc1; color:#fff; }
+.rc-dlg-f .rc-btn.submit:hover{ background:#3a8ed2; }
+
 /* 登录页 */
 .rc-login{
   position:relative; flex:1; min-height:0; display:flex; flex-direction:column;
@@ -2090,6 +2158,11 @@ input,select,textarea{ font:inherit; }
 }
 .cbc-node:hover{ background:rgba(247,247,247,.09); }
 .cbc-node.sel{ background:#df4a16; color:#fff; }
+.cbc-node.dim{ opacity:.5; }
+.cbc-node.dim span{ font-style:italic; }
+/* Management 的 Symbols / Resources 页签内容（Projects 页签就是 .cbc-tree） */
+.cbc-syms,.cbc-res{ flex:1; min-height:0; overflow:auto; }
+.cbc-res-empty{ padding:16px 12px; color:#8b8b8b; font-size:12px; }
 .cbc-node .cbc-caret{
   flex:none; width:10px; text-align:center; font-size:8px; color:#a8a8a8;
 }
