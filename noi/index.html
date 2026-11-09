@@ -10,16 +10,9 @@
 </head>
 <body>
 
-<!-- ═══════════════ 全局加载动画 ═══════════════ -->
-<div id="globalLoading" class="g-loading hidden">
-  <div class="g-spin"></div>
-  <div class="g-loading-text" id="globalLoadingText">加载中…</div>
-  <div class="g-loading-file" id="globalLoadingFile"></div>
-  <div class="g-bar"><div class="g-bar-fill" id="globalLoadingBar"></div></div>
-  <div class="g-pct" id="globalLoadingPct"></div>
-</div>
-
-<!-- ═══════════════ 开机（Plymouth：Ubuntu logo + 五点 throbber） ═══════════════ -->
+<!-- ═══════════════ 开机（Plymouth：Ubuntu logo + 五点 throbber） ═══════════════
+     评测数据（problem-tests.js，约 860 KB）的下载也统一在这张画面上：
+     logo 与五点照常转，下方一行小字显示下载进度，就绪后才进 GDM。 -->
 <div id="boot" class="ply">
   <div class="ply-logo">
     <svg viewBox="0 0 100 100" aria-hidden="true">
@@ -38,6 +31,7 @@
   <div class="ply-dots" id="plyDots">
     <i></i><i></i><i></i><i></i><i></i>
   </div>
+  <div class="ply-status hidden" id="plyStatus"></div>
 </div>
 
 <!-- ═══════════════ 显示器休眠（DPMS off）：动一下鼠标或按键唤醒 ═══════════════ -->

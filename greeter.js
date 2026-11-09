@@ -242,22 +242,42 @@ const Greeter = (() => {
     }
   }
 
+  /* ---------- 开机画面上的加载状态 ----------
+   * 评测数据（problem-tests.js）的下载统一展示在这张 Plymouth 上：
+   * logo 与五点照常转，下方一行小字报进度，全部就绪后才淡出进 GDM。
+   * Student 侧通过 window.BootScreen 在下载各阶段调用 text()。 */
+  function plyText(t){
+    const b = $boot();
+    if (!b) return;
+    let n = b.querySelector('.ply-status');
+    if (!n) return;
+    if (t){ n.textContent = t; n.classList.remove('hidden'); }
+    else n.classList.add('hidden');
+  }
+  const BootScreen = { text: plyText };
+  window.BootScreen = BootScreen;
+
   /* ---------- 开机：Plymouth 启动画面 → 显示器休眠黑屏 ----------
    * 真机流程：固件 → GRUB 一闪 → Plymouth（Ubuntu logo + 五点）→ GDM。
-   * 考场的显示器此时处于 DPMS off，所以 Plymouth 之后屏幕是黑的，动鼠标才亮。 */
+   * 考场的显示器此时处于 DPMS off，所以 Plymouth 之后屏幕是黑的，动鼠标才亮。
+   * 模拟器把评测数据下载也放进这张画面：最短停 BOOT_MS，
+   * 同时等 Student 侧的数据闸门（window.__BOOT_GATE）就绪。 */
   const BOOT_MS = 3000;
 
   function bootThenSleep(){
     const b = $boot();
     if (!b){ bindWake(); armFullscreen(); return; }
-    setTimeout(() => {
+    const minWait = new Promise(r => setTimeout(r, BOOT_MS));
+    const dataWait = Promise.resolve(window.__BOOT_GATE).catch(() => {});
+    Promise.all([minWait, dataWait]).then(() => {
+      plyText(null);
       b.classList.add('out');
       setTimeout(() => {
         b.classList.add('gone');
         bindWake();
         armFullscreen();
       }, 460);
-    }, BOOT_MS);
+    });
   }
 
   /* ---------- 绑定 ---------- */
@@ -294,5 +314,6 @@ const Greeter = (() => {
   return { show, lock, powerOff, accounts: ACCOUNTS, adminPwd: 'noip2026' };
 })();
 
-/* 暴露到 window：desktop.js 的 polkit 认证要核对管理员密码 */
+/* 暴露到 window：desktop.js 的 polkit 认证要核对管理员密码；
+   BootScreen 已在上面的闭包里挂到 window，供 student.js 报下载进度 */
 window.Greeter = Greeter;

@@ -185,9 +185,9 @@ body.resizing.row{cursor:row-resize;}
     <div class="splitter" data-dir="1"></div>
 
     <section class="pane pane-io" id="paneIO">
-      <div class="pane-head">输入 (stdin)</div>
+      <div class="pane-head">标准输入 (stdin)</div>
       <textarea id="stdin" class="io-input" spellcheck="false" placeholder="程序的标准输入…"></textarea>
-      <div class="pane-head">
+      <div class="pane-head" id="headOut">
         <span>输出</span>
         <span class="spacer"></span>
         <span class="exit" id="exitInfo"></span>
@@ -5189,7 +5189,9 @@ function cbBuildFooter(errors, warnings, secs, status){
     errors + ' error(s), ' + warnings + ' warning(s) (0 minute(s), ' + secs + ' second(s))\n';
 }
 
-async function buildAndRun(){
+async function buildAndRun(opts){
+  opts = opts || {};
+  const buildOnly = !!opts.build;      // Ctrl+F9 / Ctrl+F11：只构建，不跑
   if (judgeRunning) return;
   const src = codeEl.value;
   exitInfo.textContent = '';
@@ -5205,6 +5207,8 @@ async function buildAndRun(){
   const std = (stdSel && stdSel.value) || '-std=c++17';
   const rp = cbRealPath();
   const name = cbTargetName();
+  /* 内嵌在模拟器里（Code::Blocks 外壳）时，运行结果交给父页面开 xterm 窗口 */
+  const isCbc = document.body.classList.contains('cbc');
 
   setStatus('编译中…', 'busy');
   outEl.innerHTML = '<span style="color:var(--dim)">正在编译…</span>';
@@ -5249,12 +5253,48 @@ async function buildAndRun(){
     'g++ -Wall -fexceptions -g ' + std + ' -c ' + rp + ' -o obj/Debug/' + name + '.o\n' +
     'g++ -o bin/Debug/' + name + ' obj/Debug/' + name + '.o\n' +
     'Output file is bin/Debug/' + name + ' with size ' + sizeKB + ' KB\n' +
-    cbBuildFooter(0, 0, csec, 0);
+    cbBuildFooter(0, 0, csec, 0) +
+    (isCbc && !buildOnly ? '\nRunning executable\n' : '');
   showView();
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
+  /* 只构建：Build messages 里收尾，不开终端窗口（真机 Ctrl+F9 就是这样） */
+  if (buildOnly){
+    setStatus('编译完成', 'ok');
+    exitInfo.textContent = '0 error(s)';
+    modeInfo.textContent = 'NOI Linux 2.0 · g++ 9.3.0（' + std + ' -O2 -Wall）';
+    statsEl.textContent = '编译 ' + compileMs.toFixed(1) + 'ms';
+    judgeRunning = false;
+    return;
+  }
+
   const input = stdinEl.value;
   const r = CppEngine.run(program, input, { timeLimitMs: RUN_TIME_LIMIT_MS });
+
+  /* Code::Blocks 真实行为：编译成功后由 xterm 开一个终端窗口跑程序，
+     IDE 的 Build messages 只留编译日志。内嵌在模拟器里时交给父页面开窗。 */
+  if (isCbc){
+    try{
+      parent.postMessage({
+        type: 'ide:run',
+        title: cbRealPath().replace(/\.cpp$/, ''),
+        output: r.output || '',
+        error: r.error || '',
+        verdict: r.verdict,
+        limitMs: RUN_TIME_LIMIT_MS,
+        ms: r.ms,
+      }, '*');
+    }catch(e){}
+    outEl.innerHTML = r.output ? esc(r.output)
+      : '<span style="color:var(--dim)">(程序没有产生任何输出)</span>';
+    setStatus(r.verdict === 'OK' ? '运行完成' : (r.verdict === 'TLE' ? '运行超时' : '运行时错误'),
+              r.verdict === 'OK' ? 'ok' : 'err');
+    exitInfo.textContent = r.verdict === 'OK' ? '退出码 0' : (r.verdict === 'TLE' ? '超时终止' : '异常终止');
+    modeInfo.textContent = 'NOI Linux 2.0 · g++ 9.3.0（' + std + ' -O2 -Wall）';
+    statsEl.textContent = '编译 ' + compileMs.toFixed(1) + 'ms · 运行 ' + r.ms.toFixed(1) + 'ms';
+    judgeRunning = false;
+    return;
+  }
 
   if (r.verdict === 'OK'){
     outEl.innerHTML = r.output ? esc(r.output)
@@ -5414,8 +5454,12 @@ setTimeout(() => {
       try{ parent.postMessage({ type:'ide:code', code: codeEl.value }, '*'); }catch(e){}
     }
     else if (d.type === 'ide:runJudge'){
-      /* 「编译并运行」：build + run，日志进底部停靠面板，stdout 进输出区 */
+      /* 「编译并运行」：build + run，运行结果交给父页面开 xterm 窗口 */
       try{ if (typeof buildAndRun === 'function') buildAndRun(); }catch(e){}
+    }
+    else if (d.type === 'ide:build'){
+      /* 「编译当前文件」(Ctrl+F9) 与「全部重新编译」(Ctrl+F11)：只构建 */
+      try{ if (typeof buildAndRun === 'function') buildAndRun({ build: true }); }catch(e){}
     }
     else if (d.type === 'ide:edit'){
       /* 外壳菜单里的 撤销/重做/剪切/复制/粘贴/全选 —— 编辑区本身是 textarea，直接 execCommand */

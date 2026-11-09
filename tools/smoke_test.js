@@ -333,6 +333,24 @@ async function gdmLogin(account, pwd){
   check('题目目录含 .cpp 源文件', nuIn.some(r => r.dataset.kind === 'cpp'));
   check('题目目录含样例 .in/.ans', nuIn.some(r => r.dataset.name.endsWith('.in')) && nuIn.some(r => r.dataset.name.endsWith('.ans')));
   check('进入子目录后路径栏多一段', document.querySelectorAll('.nu-crumb').length >= 3);
+  /* 双击文件按类型走真机的默认应用：pdf → Evince，纯文本 → gedit */
+  nuIn.find(r => r.dataset.name.endsWith('.pdf')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
+  await sleep(120);
+  check('双击 .pdf 用文档查看器打开（Evince headerbar）',
+    !!document.querySelector('.pdf-name') &&
+    [...document.querySelectorAll('.win-title')].some(t => t.textContent === dlPid + '.pdf'));
+  window.Desktop.closeAllWins();
+  await sleep(200);
+  icons.find(i => i.textContent.includes('teacher')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
+  await sleep(480);
+  document.querySelector('.nu-item[data-kind="folder"]').dispatchEvent(new window.Event('dblclick', { bubbles: true }));
+  await sleep(220);
+  const nuIn2 = [...document.querySelectorAll('.nu-item')];
+  nuIn2.find(r => r.dataset.name.endsWith('.in')).dispatchEvent(new window.Event('dblclick', { bubbles: true }));
+  await sleep(120);
+  check('双击 .in 用文本编辑器打开（gedit）',
+    !!document.querySelector('.ged-area') &&
+    [...document.querySelectorAll('.win-title')].some(t => t.textContent.includes(' — 文本编辑器')));
   window.Desktop.closeAllWins();
   await sleep(200);
 
@@ -711,7 +729,14 @@ async function gdmLogin(account, pwd){
   window.__app('recovery');
   await sleep(120);
   check('浏览器先出外壳（地址栏 + 工具栏）', !!document.querySelector('.ff-url') &&
-    document.querySelectorAll('.ff-bar .ff-tb').length === 4);
+    document.querySelectorAll('.ff-bar .ff-tb').length === 5);
+  /* 下载箭头只在有下载任务时才露出（真 Firefox 同款） */
+  const dlArrow = document.querySelector('.ff-bar .ff-tb.ff-dl');
+  check('工具栏带下载箭头（初始不显示）', !!dlArrow && !dlArrow.classList.contains('on'));
+  check('下载面板默认收起且列出空列表', (() => {
+    const p = document.querySelector('.ff-dlpanel');
+    return !!p && p.classList.contains('hidden') && !!p.querySelector('.ff-dl-empty');
+  })());
   check('连接期间身份位转圈', !!document.querySelector('.ff-ident.busy'));
   check('左下角状态面板报「正在连接」', /正在(连接|等待)/.test(
     (document.querySelector('.ff-status') || {}).textContent || ''));
@@ -778,9 +803,22 @@ async function gdmLogin(account, pwd){
   click(dlBtn);
   await sleep(120);
   check('下载中按钮进入忙碌态', dlBtn.dataset.busy === '1' && /下载中/.test(dlBtn.textContent));
-  await sleep(820);
+  check('下载箭头出现并进入传输态', dlArrow.classList.contains('on') && dlArrow.classList.contains('busy'));
+  check('下载面板自动弹出', !document.querySelector('.ff-dlpanel').classList.contains('hidden'));
+  const dlItemNow = document.querySelector('.ff-dl-item');
+  check('面板里有文件名与进度条', !!dlItemNow &&
+    /\.zip$/.test(dlItemNow.querySelector('.ff-dl-name').textContent) &&
+    !!dlItemNow.querySelector('.ff-dl-bar > i'));
+  check('进度条已开始走动', parseFloat(dlItemNow.querySelector('.ff-dl-bar > i').style.width) > 0);
+  await sleep(1800);
   check('下载后压缩包真的落到 teacher/', window.Desktop.fs.exists('~/Desktop/teacher/' + dlPid2 + '.zip'));
   check('下载完成后按钮变为已下载', dlBtn.textContent === '已下载' && dlBtn.disabled);
+  check('面板条目进入完成态', (() => {
+    const it = document.querySelector('.ff-dl-item');
+    return !!it && it.classList.contains('ok') &&
+      /已完成/.test(it.querySelector('.ff-dl-meta').textContent);
+  })());
+  check('全部任务结束后箭头停止跳动', !dlArrow.classList.contains('busy'));
   /* 再点一题没下载过的（第 0 题在前面流程里已落包，会走「已下载过」分支） */
   const dlBtn2 = document.querySelectorAll('[data-dl]')[2];
   dlBtn2.dataset && click(dlBtn2);
@@ -874,22 +912,21 @@ async function gdmLogin(account, pwd){
   }
   click($('#btnAdminExit'));
 
-  console.log('— 加载进度显示 —');
-  const showLoading = window.eval('showLoading');
-  const hideLoading = window.eval('hideLoading');
-  showLoading('正在进入考试', { total: 3, current: 1, file: 'problem-tests.js' });
-  check('加载遮罩显示', !$('#globalLoading').classList.contains('hidden'));
-  check('加载文字更新', $('#globalLoadingText').textContent.includes('正在进入考试'));
-  check('加载文件名更新', $('#globalLoadingFile').textContent.includes('problem-tests.js'));
-  check('进度条有宽度', /\d/.test($('#globalLoadingBar').style.width) && parseFloat($('#globalLoadingBar').style.width) > 0);
-  showLoading('下载中', { indeterminate: true });
-  check('无限进度模式生效', $('#globalLoadingBar').parentElement.classList.contains('g-bar-indet'));
-  showLoading('正在下载评测数据…', { percent: 42, detail: '正在下载：problem-tests.js · 已接收 320 KB' });
-  check('百分比模式进度条正确', parseFloat($('#globalLoadingBar').style.width) === 42);
-  check('百分比数字显示', $('#globalLoadingPct').textContent.trim() === '42%');
-  check('副标题（下载文件+字节）显示', $('#globalLoadingFile').textContent.includes('已接收 320 KB'));
-  hideLoading();
-  check('加载遮罩可隐藏', $('#globalLoading').classList.contains('hidden'));
+  console.log('— 加载进度统一到开机画面 —');
+  /* 旧实现登录后会弹一层深色遮罩 + 蓝色转圈，真机没有这一步；
+     现在评测数据（problem-tests.js）的下载进度直接写在 Plymouth 开机画面上。 */
+  check('旧的蓝色转圈遮罩已删除', !document.getElementById('globalLoading'));
+  check('开机画面带状态字节点', !!document.querySelector('#boot .ply-status'));
+  check('开机画面有 Ubuntu logo 与五点 throbber',
+    !!document.querySelector('#boot .ply-logo') && document.querySelectorAll('#boot .ply-dots i').length === 5);
+  check('BootScreen 对外暴露', !!(window.BootScreen && typeof window.BootScreen.text === 'function'));
+  window.BootScreen.text('正在下载评测数据　320 KB / 860 KB　37%');
+  const plySt = document.querySelector('#boot .ply-status');
+  check('状态字写进 Plymouth 画面', plySt.textContent.includes('正在下载评测数据') && plySt.textContent.includes('37%'));
+  check('写入后不再隐藏', !plySt.classList.contains('hidden'));
+  window.BootScreen.text(null);
+  check('清空后收起状态字', plySt.classList.contains('hidden'));
+  check('启动闸门存在（__BOOT_GATE 是 Promise）', !!window.__BOOT_GATE && typeof window.__BOOT_GATE.then === 'function');
 
   console.log('— 题库拆分验证 —');
   const pjsSize = fs.statSync(path.join(ROOT, 'problems.js')).size;

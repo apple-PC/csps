@@ -38,10 +38,9 @@ const LOGIN = GDM + `
   await sleep(260);
   document.getElementById('gdmPwd').value = 'csp2026';
   document.getElementById('gdmSubmit').click();
-  // 等桌面就绪（隐藏测试点下载完、图标渲染出来）
+  // 等桌面就绪（评测数据已在开机画面上下完，桌面图标一出来就算好）
   for (let i = 0; i < 90; i++){
-    const ld = document.getElementById('globalLoading');
-    if (document.querySelectorAll('.s-icon').length && ld && ld.classList.contains('hidden')) break;
+    if (document.querySelectorAll('.s-icon').length) break;
     await sleep(150);
   }
   await sleep(350);
@@ -53,8 +52,7 @@ const ADMIN = GDM + `
   document.getElementById('gdmPwd').value = 'noip2026';
   document.getElementById('gdmSubmit').click();
   for (let i = 0; i < 90; i++){
-    const ld = document.getElementById('globalLoading');
-    if (document.querySelectorAll('.s-icon').length && ld && ld.classList.contains('hidden')) break;
+    if (document.querySelectorAll('.s-icon').length) break;
     await sleep(150);
   }
   await sleep(300);
@@ -93,6 +91,14 @@ const SCENES = {
   ply: `
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     await sleep(200);
+  `,
+
+  // 开机画面上的评测数据下载状态（统一加载在 Plymouth 上，没有独立遮罩）
+  plyprog: `
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    await sleep(600);
+    if (window.BootScreen) BootScreen.text('正在下载评测数据　327 KB / 860 KB　38%');
+    await sleep(220);
   `,
 
   // 显示器休眠（开机后、未唤醒）
@@ -261,6 +267,43 @@ const SCENES = {
     await sleep(300);
     document.querySelector('.rc-dlg-f [data-ok]').click();
     await sleep(200);
+  `,
+
+  // 程序回收系统：试题下载 —— Firefox 下载箭头 + 下载面板正在传输的样子
+  ffdl: LOGIN + `
+    window.__app('recovery');
+    await sleep(1500);
+    document.querySelector('#rcId').value = 'GZ-2026-001';
+    document.querySelector('#rcPwd').value = 'demo1234';
+    document.querySelector('#rcLoginBtn').click();
+    await sleep(500);
+    [...document.querySelectorAll('.rc-nav a')].find(a => a.dataset.tab === 'download').click();
+    await sleep(400);
+    document.querySelectorAll('[data-dl]')[1].click();
+    await sleep(420);
+  `,
+
+  // Code::Blocks：编译并运行 → 弹出 xterm 控制台
+  cbcrun: GDM + `
+    document.querySelector('.gdm-user[data-account="csp-s2026"]').click();
+    await sleep(260);
+    document.getElementById('gdmPwd').value = 'csp2026';
+    document.getElementById('gdmSubmit').click();
+    await sleep(1200);
+    (window.__probs || []).forEach(p => {
+      Desktop.fs.mkdirp('~/Desktop/teacher/' + p.id);
+      Desktop.fs.write('~/Desktop/teacher/' + p.id + '/' + p.id + '.cpp',
+        '#include <bits/stdc++.h>\\nusing namespace std;\\nint main(){\\n  int n;\\n  cin >> n;\\n  for (int i = 1; i <= n; i++) cout << i * i << " ";\\n  cout << endl;\\n  return 0;\\n}\\n');
+    });
+    Desktop.launch('cb');
+    await sleep(2800);
+    const f = document.querySelector('.cbc-frame');
+    const fw = f && f.contentWindow;
+    if (fw){
+      fw.document.getElementById('stdin').value = '5';
+      fw.buildAndRun();
+    }
+    await sleep(1400);
   `,
 
   // 顶栏系统菜单

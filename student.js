@@ -129,9 +129,6 @@ const Student = (() => {
       Store.saveState({ status: 'running', startedAt: st.startedAt || Date.now() });
     }
     try { await loadHiddenTests(); } catch (e) {}
-    showLoading('正在初始化考试桌面…', { percent: 100, detail: '启动 GNOME Flashback · 挂载考试目录' });
-    await nextFrame();
-    hideLoading();
     bootDesktop();
   }
 
@@ -174,7 +171,7 @@ const Student = (() => {
   }
   function loadByScriptTag(){
     return new Promise(resolve => {
-      showLoading('正在加载评测数据…', { indeterminate: true, detail: '正在加载：' + TESTS_FILE + '（浏览器未提供进度）' });
+      if (window.BootScreen) BootScreen.text('正在加载评测数据…');
       const sc = document.createElement('script');
       sc.src = TESTS_FILE;
       sc.onload = () => resolve();
@@ -182,29 +179,34 @@ const Student = (() => {
       document.head.appendChild(sc);
     });
   }
+  /* 加载进度统一显示在 Plymouth 开机画面上（logo + 五点下方的小字），
+     登录进桌面之后不再有任何加载遮罩 */
+  function plyProgress(text){
+    if (window.BootScreen) BootScreen.text(text);
+  }
   async function loadHiddenTests(){
     if (_testsMerged || window.BUILTIN_HIDDEN_TESTS){ mergeHidden(); return; }
-    showLoading('正在连接评测数据…', { percent: 2, detail: '准备下载：' + TESTS_FILE });
+    plyProgress('准备下载：' + TESTS_FILE);
     await nextFrame();
     let code = null;
     try{
       code = await fetchWithProgress(TESTS_FILE, (got, total) => {
-        const pct = Math.min(79, 4 + Math.floor(got / total * 76));
-        showLoading('正在下载评测数据…', { percent: pct, detail: '正在下载：' + TESTS_FILE + ' · 已接收 ' + fmtKB(got) + ' KB' });
+        const pct = Math.min(99, Math.floor(got / total * 100));
+        plyProgress('正在下载评测数据　' + fmtKB(got) + ' KB / ' + fmtKB(total) + ' KB　' + pct + '%');
       });
     }catch(e){
       await loadByScriptTag();
       mergeHidden();
       return;
     }
-    showLoading('正在解析测试点…', { percent: 86, detail: '解析：' + TESTS_FILE + ' · ' + fmtKB(code.length) + ' KB 源码' });
+    plyProgress('正在解析测试点…');
     await nextFrame();
     try { execScript(code); }
     catch (e) { await loadByScriptTag(); }
-    showLoading('正在合并到题库…', { percent: 96, detail: '合并测试点数据 → 内置题库' });
+    plyProgress('正在合并到题库…');
     await nextFrame();
     mergeHidden();
-    showLoading('评测数据就绪', { percent: 99, detail: '共 ' + countHidden() + ' 个隐藏测试点' });
+    plyProgress('评测数据就绪 · 共 ' + countHidden() + ' 个测试点');
     await nextFrame();
   }
   function countHidden(){
@@ -224,6 +226,10 @@ const Student = (() => {
     }
     _testsMerged = true;
   }
+  /* 页面一打开就开始取评测数据（Plymouth 开机画面上同步显示进度）。
+     开机画面会等这个闸门就绪才淡出 —— 于是 GDM 一登录就能直接进桌面，
+     登录之后不再出现任何加载遮罩。 */
+  window.__BOOT_GATE = loadHiddenTests().catch(() => {});
   function showWaiting(startTs){
     appEl().classList.remove('hidden');
     $('#sWaitOverlay').classList.remove('hidden');
@@ -1176,8 +1182,8 @@ const Student = (() => {
     tbBtn('folder.png',     '打开已有文件 (Ctrl+O)', () => menuCtx.openFile());
     const tbSave = tbBtn('source.png', '保存当前文件 (Ctrl+S)', () => menuCtx.save());
     tbSep();
-    tbBtn('rebuild.png',    '全部重新编译 (Ctrl+F11)', () => postIDE({ type: 'ide:runJudge' }));
-    tbBtn('compile.png',    '编译当前文件 (Ctrl+F9)',  () => postIDE({ type: 'ide:runJudge' }));
+    tbBtn('rebuild.png',    '全部重新编译 (Ctrl+F11)', () => postIDE({ type: 'ide:build' }));
+    tbBtn('compile.png',    '编译当前文件 (Ctrl+F9)',  () => postIDE({ type: 'ide:build' }));
     tbBtn('compilerun.png', '编译并运行 (F9)',         () => postIDE({ type: 'ide:runJudge' }));
     tbBtn('stop.png',       '终止当前构建 (Ctrl+C)', null, true);
     tbSep();
@@ -1559,6 +1565,20 @@ const Student = (() => {
       if (c) c.textContent = '行 ' + d.line + ', 列 ' + d.col;
       return;
     }
+    /* Code::Blocks「编译并运行」：真机是弹 xterm 窗口跑程序，不塞进 IDE 面板 */
+    if (d.type === 'ide:run'){
+      if (!ideWin || !ideWin.cbc) return;
+      openRunConsole({
+        key: (ideWin.problemId || 'untitled'),
+        title: d.title || '运行',
+        output: d.output || '',
+        error: d.error || '',
+        verdict: d.verdict || 'OK',
+        limitMs: d.limitMs,
+        ms: d.ms,
+      });
+      return;
+    }
     if (d.type !== 'ide:code') return;
     if (!ideWin) return;
     /* 非题目的文件缓冲（新建的 untitled / 打开的其他 .cpp）：写回它自己的路径，
@@ -1580,6 +1600,69 @@ const Student = (() => {
     const dot = ideWin.win.body.querySelector('.save-dot');
     if (dot) dot.textContent = pid + '.cpp 已自动保存 · ' + fmtSize(d.code.length);
   });
+
+  /* ============ Code::Blocks 的「运行」控制台（xterm） ============ */
+  /* 真机 F9 不会把 stdout 塞进 IDE 下方的小面板：Code::Blocks 20.03 在设置里
+     把 console 程序交给 `xterm -T $TITLE -e` 启动（Ubuntu 默认值），所以按 F9
+     会弹一个黑字白底的 xterm 窗口跑程序，跑完停在「Press ENTER to continue.」
+     等回车，回车即关窗。这里照此实现，不用 GNOME Terminal 的外观。 */
+  let lastRunWin = null;
+  function openRunConsole(o){
+    o = o || {};
+    /* 真机每次 F9 都新开一个 xterm；这里关掉上一个，免得窗口越堆越多 */
+    if (lastRunWin){ try{ Desktop.closeWin(lastRunWin, true); }catch(e){} lastRunWin = null; }
+    const win = createWindow({
+      title: o.title || 'run',
+      ico: 'term', w: 720, h: 430,
+    });
+    lastRunWin = win;
+    win._built = true;
+
+    const con = el('div', 'run-console');
+    win.body.appendChild(con);
+    const out = el('div', 'run-out');
+    const tail = el('div', 'run-tail');
+    con.appendChild(out);
+    con.appendChild(tail);
+
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      document.removeEventListener('keydown', onKey, true);
+      if (lastRunWin === win) lastRunWin = null;
+      Desktop.closeWin(win);
+    };
+    function onKey(e){
+      if (e.key === 'Enter' || e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); close(); }
+    }
+
+    function put(text, cls){
+      String(text == null ? '' : text).split('\n').forEach(line => {
+        const d = el('div', 'run-line' + (cls ? ' ' + cls : ''));
+        d.textContent = line;
+        out.appendChild(d);
+      });
+      con.scrollTop = con.scrollHeight;
+    }
+
+    if (o.lines && o.lines.length){
+      o.lines.forEach(l => put(l.text, l.cls));
+    } else if (o.output){
+      put(o.output);
+    }
+    if (o.error) put(o.error, 'err');
+    if (o.verdict === 'TLE') put('（超过 ' + (o.limitMs || 1000) + ' ms 未结束，已被终止）', 'err');
+
+    /* 收尾：真机 Code::Blocks 给的控制台脚本固定打印这一行 */
+    const hold = el('div', 'run-hold');
+    hold.innerHTML = '<span>Press ENTER to continue.</span><i class="run-cursor"></i>';
+    tail.appendChild(hold);
+
+    setTimeout(() => document.addEventListener('keydown', onKey, true), 80);
+    Desktop.focusWin(win);
+    return win;
+  }
 
   /* ================= 终端 ================= */
   function openTerminal(startPath){
@@ -2967,15 +3050,29 @@ const Student = (() => {
         it.ondblclick = () => {
           it.classList.remove('sel');
           if (n.type === 'dir') return go(n.path, 150);
-          if (/\.(cpp|cc|cxx|c)$/i.test(n.name)){
+          /* .cpp → Code::Blocks（真机装了 filetype 关联，双击直接进 IDE） */
+          if (/\.(cpp|cc|cxx|c|h|hpp)$/i.test(n.name)){
             const pid = pidFromPath(n.path);
             if (pid && ideWin){ ideWin.problemId = pid; if (ideWin.loadCurrent) ideWin.loadCurrent(); }
             return openIDE('Code::Blocks');
           }
+          /* .zip → 归档管理器 */
           if (/\.zip$/i.test(n.name)){
             const pid = n.name.replace(/\.zip$/i, '');
             const p = enabledProblems().find(x => x.id === pid);
             if (p) return openZip(p);
+          }
+          /* .pdf → 文档查看器（Evince），按路径反查题目 */
+          if (/\.pdf$/i.test(n.name)){
+            const pid = pidFromPath(n.path);
+            const p = enabledProblems().find(x => x.id === pid) ||
+                      enabledProblems().find(x => x.id === (ideWin && ideWin.problemId)) ||
+                      enabledProblems()[0];
+            if (p) return openStatement(p);
+          }
+          /* 纯文本类 → gedit（真机默认关联，不是这种小预览窗） */
+          if (/\.(in|ans|out|txt|log|md|cfg|conf|dat)$/i.test(n.name)){
+            return openTextEditor({ name: n.name, content: n.content || '' });
           }
           openText(n.name, n.content || '');
         };
@@ -3090,6 +3187,8 @@ const Student = (() => {
   const FF_RELOAD = '<svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.6-3.7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M13.2 2.4v2.9h-2.9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const FF_MENU = '<svg viewBox="0 0 16 16"><path d="M2.6 4.2h10.8M2.6 8h10.8M2.6 11.8h10.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
   const FF_SHIELD = '<svg viewBox="0 0 16 16"><path d="M8 2l4.6 1.7v4.1c0 2.7-1.9 4.9-4.6 6.2C5.3 12.7 3.4 10.5 3.4 7.8V3.7z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+  const FF_DOWN = '<svg viewBox="0 0 16 16"><path d="M8 2.4v7.2M4.8 6.8L8 10l3.2-3.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.8 12.8h10.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>';
+  const FF_FILE = '<svg viewBox="0 0 16 18"><path d="M3.2 1.4h6.1L13 5.1v11.5H3.2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M9.1 1.6v3.7h3.8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>';
 
   function openFirefox(){
     const win = createWindow({ id: 'firefox', title: 'Firefox', ico: 'firefox', w: 1010, h: 730 });
@@ -3105,8 +3204,9 @@ const Student = (() => {
     inp.value = 'http://www.example.com/';
     urlbox.appendChild(ident); urlbox.appendChild(inp);
     const bMenu = el('button', 'ff-tb', FF_MENU); bMenu.title = '打开菜单';
+    const bDl = el('button', 'ff-tb ff-dl', FF_DOWN); bDl.title = '下载';
     bar.appendChild(bBack); bar.appendChild(bFwd); bar.appendChild(bRel);
-    bar.appendChild(urlbox); bar.appendChild(bMenu);
+    bar.appendChild(urlbox); bar.appendChild(bDl); bar.appendChild(bMenu);
 
     const view = el('div', 'ff-view');
     const page = el('div', 'ff-page');
@@ -3115,6 +3215,72 @@ const Student = (() => {
     win.body.appendChild(bar);
     win.body.appendChild(view);
     const setTitle = t => { const n = win.head.querySelector('.win-title'); if (n) n.textContent = t; };
+
+    /* ---- 下载：真 Firefox 的体验是工具栏出现下载箭头 + 弹出下载面板，
+            面板里逐项显示进度条，完成后落盘 ---- */
+    const dlpanel = el('div', 'ff-dlpanel hidden');
+    dlpanel.innerHTML = '<div class="ff-dl-head">下载<span>本次会话</span></div><div class="ff-dl-list"></div>';
+    const dlList = dlpanel.querySelector('.ff-dl-list');
+    bar.appendChild(dlpanel);
+    const dlItems = [];
+    let dlSeq = 0;
+    function paintDl(){
+      dlList.innerHTML = dlItems.map(it => {
+        const pct = Math.round(it.got / it.total * 100);
+        return '<div class="ff-dl-item' + (it.done ? ' ok' : '') + '">' +
+          '<div class="ff-dl-ico">' + FF_FILE + '</div>' +
+          '<div class="ff-dl-main">' +
+            '<div class="ff-dl-name">' + esc(it.name) + '</div>' +
+            '<div class="ff-dl-bar"><i style="width:' + pct + '%"></i></div>' +
+            '<div class="ff-dl-meta">' + (it.done
+              ? '已完成 · ' + fmtKB(it.total) + ' KB'
+              : fmtKB(it.got) + ' KB / ' + fmtKB(it.total) + ' KB · ' + pct + '%') +
+          '</div></div></div>';
+      }).join('') || '<div class="ff-dl-empty">列表中没有下载</div>';
+    }
+    paintDl();
+    function openDl(){ dlpanel.classList.remove('hidden'); }
+    bDl.onclick = () => dlpanel.classList.toggle('hidden');
+    /* 点面板/工具栏以外的地方收起（真 Firefox 行为） */
+    win.body.addEventListener('mousedown', e => {
+      if (dlpanel.classList.contains('hidden')) return;
+      if (dlpanel.contains(e.target) || bDl.contains(e.target)) return;
+      dlpanel.classList.add('hidden');
+    });
+    function ffDownload(pid, btn){
+      const p = enabledProblems().find(x => x.id === pid);
+      if (!p) return;
+      if (Desktop.fs.exists(zipPath(pid))){ toast('该题压缩包已下载过', 'ok'); return; }
+      if (btn){ btn.dataset.busy = '1'; btn.textContent = '下载中…'; }
+      /* 假尺寸按题目的样例组数估，进度节奏随之变化 */
+      const sizeKB = 110 + (p.tests || []).length * 41 + (p.title || '').length * 3;
+      const item = { name: pid + '.zip', got: 0, total: Math.round(sizeKB * 1024), done: false };
+      dlItems.push(item);
+      bDl.classList.add('on', 'busy');
+      paintDl();
+      openDl();
+      const dur = 1000 + sizeKB * 1.8;
+      const t0 = Date.now();
+      const timer = setInterval(() => {
+        const k = Math.min(1, (Date.now() - t0) / dur);
+        item.got = Math.floor(item.total * k);
+        paintDl();
+        if (k < 1) return;
+        clearInterval(timer);
+        item.done = true;
+        item.got = item.total;
+        const samples = (p.tests || []).filter(t => t.sample).length;
+        Desktop.fs.write(zipPath(pid),
+          '（压缩包）' + p.id + '.pdf 题面 + ' + samples + ' 组样例数据 + ' + p.id + '.cpp 模板');
+        if (btn){ btn.textContent = '已下载'; btn.disabled = true; delete btn.dataset.busy; }
+        /* 没有在跑的任务就停掉箭头跳动，真机也只在传输时动 */
+        if (!dlItems.some(x => !x.done)) bDl.classList.remove('busy');
+        toast('已下载 ' + pid + '.zip → ' + zipPath(pid), 'ok');
+        buildDesktopIcons('teacher');      // exam 模式桌面平铺 zip 图标，要让新包出现
+        paintDl();
+      }, 90);
+    }
+    win.ffDownload = ffDownload;
 
     /* ---- 连接过程：没这段就直接刷出页面，是「假」的最直观看点 ---- */
     let loadT = null, loadSeq = 0;
@@ -3285,26 +3451,7 @@ const Student = (() => {
         a.onclick = () => { rcState.tab = a.dataset.tab; rcRender(); };
       });
       page.querySelectorAll('[data-dl]').forEach(b => {
-        b.onclick = () => {
-          const pid = b.dataset.dl;
-          if (b.dataset.busy) return;
-          if (Desktop.fs.exists(zipPath(pid))){ toast('该题压缩包已下载过', 'ok'); return; }
-          b.dataset.busy = '1';
-          b.textContent = '下载中…';
-          /* 真机下载不是瞬时的：按钮先进入下载态，约 700ms 后文件才落盘 */
-          setTimeout(() => {
-            const p = enabledProblems().find(x => x.id === pid);
-            if (!p){ b.textContent = '下载失败'; delete b.dataset.busy; return; }
-            const samples = (p.tests || []).filter(t => t.sample).length;
-            Desktop.fs.write(zipPath(pid),
-              '（压缩包）' + p.id + '.pdf 题面 + ' + samples + ' 组样例数据 + ' + p.id + '.cpp 模板');
-            b.textContent = '已下载';
-            b.disabled = true;
-            delete b.dataset.busy;
-            toast('已下载 ' + pid + '.zip → ' + zipPath(pid), 'ok');
-            buildDesktopIcons('teacher');      // exam 模式桌面平铺 zip 图标，要让新包出现
-          }, 700);
-        };
+        b.onclick = () => { if (win.ffDownload) win.ffDownload(b.dataset.dl, b); };
       });
       page.querySelectorAll('[data-view]').forEach(b => {
         b.onclick = () => {

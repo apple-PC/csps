@@ -99,6 +99,10 @@ body.cbc .artifact{
 body.cbc .io-input{ background:#383838; border-bottom:1px solid #2b2b2b; }
 body.cbc .exit{ color:#9b9b9b; }
 body.cbc .pane-io .io-input{ flex:0 0 34%; min-height:52px; }
+/* F9 的程序 stdout 走 xterm 窗口（真机如此），底部停靠面板只留一个输入框 */
+body.cbc #headOut,
+body.cbc #output{ display:none !important; }
+body.cbc .pane-io .io-input{ flex:1 1 auto; }
 body.cbc #judgePanel{ background:#3e3e3e; color:#e0e0e0; }
 
 /* 滚动条跟着暗色走（GNOME 的细滚动条） */
